@@ -4,7 +4,7 @@ import {onAuthStateChanged,signOut} from 'firebase/auth';
 import {useRouter,usePathname} from 'next/navigation';
 import Link from 'next/link';
 import {BarChart3,ChevronLeft,ChevronRight,ClipboardList,FilePlus2,LayoutDashboard,LogOut,Menu,Settings,Users,X} from 'lucide-react';
-import {auth,authHeaders} from '@/lib/firebase-client';
+import {auth,authHeaders,firebaseConfigured} from '@/lib/firebase-client';
 import type {Profile} from '@/lib/types';
 export async function api<T=any>(path:string,init:RequestInit={}):Promise<T>{
  const headers=await authHeaders();
@@ -14,12 +14,14 @@ export async function api<T=any>(path:string,init:RequestInit={}):Promise<T>{
 export function Portal({children}:{children:React.ReactNode}){
  const [profile,setProfile]=useState<Profile|null>(null),[loading,setLoading]=useState(true),[collapsed,setCollapsed]=useState(false),[mobile,setMobile]=useState(false);
  const router=useRouter(),path=usePathname();
- useEffect(()=>onAuthStateChanged(auth,async user=>{
+ useEffect(()=>{if(!firebaseConfigured){setLoading(false);return;}
+  return onAuthStateChanged(auth,async user=>{
   if(!user){router.replace('/login');return;}
   try{const r=await api<{profile:Profile}>('/api/me');setProfile(r.profile);}catch{router.replace('/login');}finally{setLoading(false);}
- }),[router]);
+ });},[router]);
  const links=[{name:'Overview',href:'/dashboard',icon:LayoutDashboard},{name:'Applications',href:'/dashboard/applications',icon:ClipboardList},
   ...(!['super_admin','admin'].includes(profile?.role||'')?[]:[{name:'Form builder',href:'/dashboard/forms',icon:FilePlus2},{name:'District agents',href:'/dashboard/agents',icon:Users},{name:'Settings',href:'/dashboard/settings',icon:Settings}])];
+ if(!firebaseConfigured)return <main className="page-loader">KASA enrollment is being configured. Firebase credentials are not yet available for this deployment.</main>;
  if(loading||!profile)return <main className="page-loader">Loading secure workspace…</main>;
  return <div className="portal-shell"><aside className={`sidebar ${collapsed?'collapsed':''} ${mobile?'mobile-open':''}`}>
   <div className="side-header"><Link href="/dashboard" className="brand"><span className="brand-mark">K</span>{!collapsed&&<span><strong>KASA</strong><small>Administration</small></span>}</Link><button className="icon-btn close-mobile" onClick={()=>setMobile(false)} aria-label="Close menu"><X size={20}/></button></div>
