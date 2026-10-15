@@ -33,7 +33,7 @@ export async function POST(req:Request){
    await site.create({content:{...defaultSite,contactEmail:'kasa@zamfirm.com',contactPhone:'+260 574 203 660',contactDescription:'Admissions and programme enquiries: House No. 40, Civic Centre, Area 22, Lusaka; Kamaila Farming Block, Chisamba.'},updatedAt:new Date().toISOString(),updatedBy:actor.uid});results.settings++;
   }else results.skipped++;
   const intake=db.collection('settings').doc('intake');
-  if(!(await intake.get()).exists){await intake.create({policy:initialIntake,updatedAt:new Date().toISOString(),updatedBy:actor.uid});results.settings++;}
+  if(!(await intake.get()).exists){await intake.create({policy:{...initialIntake,intakes:[{id:'january-2027',label:'January 2027',active:true},{id:'july-2027',label:'July 2027',active:true}]},updatedAt:new Date().toISOString(),updatedBy:actor.uid});results.settings++;}
   else results.skipped++;
   await audit(actor.uid,'catalog.starter_seeded','seed-2026-10-15',results);
   return json({ok:true,results,message:'Starter data seeded without overwriting existing records.'});
