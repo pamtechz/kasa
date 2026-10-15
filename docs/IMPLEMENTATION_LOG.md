@@ -49,3 +49,11 @@ Read `docs/REQUIREMENTS_REGISTER.md` and this log before coding. Update both for
 - The production domain was still serving an older release after merge. An explicit production deployment attempt failed with Vercel HTTP 402 `api-deployments-free-per-day` (daily quota exceeded), retry after approximately 24 hours or use plan/billing options; deployment success **not** claimed.
 - GitHub Actions jobs still queued: check whether the repository can use the online `KASAINSTITUTE` self-hosted runner and whether its required labels are configured.
 - PR #5 remains unmerged until its full Next.js/TypeScript build and Firebase security checks pass, with the bootstrap fix preserved in its branch.
+
+## 15 October 2026 — Feature release validation and merge gate
+- Feature branch tested at Git commit `c4b09ae4c6c4356d9bfd21adf06d0b98e2178209` using Vercel staging deployment `dpl_A8ovFr9hZ3HuRPQERVQhU7RrikkP`. Deployment READY; Next.js production compilation and TypeScript checking completed, 51 static pages generated.
+- Verified HTTP 200 for homepage, `/bootstrap`, `/about`, `/programmes`, `/fees`, `/admissions`, `/agents`, `/announcements`, `/contact`, `/privacy`, `/my-applications`, `/login`, and the logo PNG.
+- Staging `/api/status` returned `configuration_required` and Firestore routes returned controlled 503 because staging does not have complete Firebase credentials. This is an expected fail-closed response, not evidence that production Firebase works.
+- GitHub Actions checks on the requested self-hosted KASAINSTITUTE runner are queued/cancelled; no successful Actions run is claimed. Repository runner assignment and labels require verification.
+- Firestore seed not executed and bootstrap not verified end-to-end. Do not claim live admissions, CDF approvals, email delivery or commission transfers.
+- After merge, verify a new production deployment, `/bootstrap`, and complete a signed-in administrator bootstrap, Firestore initialization, authorization tests and controlled applicant submission before opening intake.
