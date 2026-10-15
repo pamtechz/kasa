@@ -5,6 +5,8 @@ import {cleanAnswers,applicantFingerprint} from '@/lib/schema';
 import {digest,newId,rateLimit,requireAppCheck,sameOrigin} from '@/lib/security';
 import type {FormSchema} from '@/lib/types';
 import type {Attachment} from '@/lib/schema';
+import {loadIntake} from '@/lib/intake-server';
+import {intakeWindow,normalizedIntake} from '@/lib/intake-policy';
 import {automationSchema,defaultAutomations,formatNotification} from '@/lib/automations';
 export const runtime='nodejs';
 export async function POST(req:NextRequest,{params}:{params:Promise<{slug:string}>}){
@@ -23,6 +25,8 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{slug:string
   const formDoc=q.docs[0];
   if(!formDoc||!formDoc.data().published)throw new HttpError(404,'This form is closed.');
   const form={...formDoc.data(),id:formDoc.id} as FormSchema;
+  const state=intakeWindow(await loadIntake(),slug);
+  if(!state.open)throw new HttpError(403,state.reason);
   if(body.formVersion!==form.version)throw new HttpError(409,'Form has changed. Refresh to submit the current version.');
   const answers=cleanAnswers(form,body.answers);
   let agentId:string|null=null;
@@ -51,6 +55,12 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{slug:string
   const reference=`KASA-${new Date().getFullYear()}-${id.slice(0,8).toUpperCase()}`;
   const now=new Date().toISOString();
   await db.runTransaction(async tx=>{
+   // Read form and window again inside transaction, preventing a concurrent closure race.
+   const intakeRef=db.collection('settings').doc('intake');
+   const [intakeDoc,currentForm]=await Promise.all([tx.get(intakeRef),tx.get(formDoc.ref)]);
+   const currentWindow=intakeWindow(normalizedIntake(intakeDoc.data()?.policy),slug);
+   if(!currentWindow.open)throw new HttpError(403,currentWindow.reason);
+   if(!currentForm.exists||!currentForm.data()?.published||currentForm.data()?.version!==form.version)throw new HttpError(409,'Form has changed or closed. Refresh before applying.');
    // Firestore transactions require all reads before any writes.
    const duplicateRef=fingerprintId?db.collection('applicationDedupe').doc(fingerprintId):null;
    const duplicate=duplicateRef?await tx.get(duplicateRef):null;
