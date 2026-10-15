@@ -1,17 +1,13 @@
-/** Shared, server-side readiness gate for the KASA Firebase application. */
-const requiredKeys=[
+const required=[
  'FIREBASE_PROJECT_ID','FIREBASE_CLIENT_EMAIL','FIREBASE_PRIVATE_KEY','FIREBASE_STORAGE_BUCKET',
  'NEXT_PUBLIC_FIREBASE_API_KEY','NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN','NEXT_PUBLIC_FIREBASE_PROJECT_ID',
- 'NEXT_PUBLIC_FIREBASE_APP_ID','NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET','NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY',
- 'RATE_LIMIT_SALT'
+ 'NEXT_PUBLIC_FIREBASE_APP_ID','NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET','NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY','RATE_LIMIT_SALT'
 ] as const;
-export function isFirebaseConfigured():boolean {
- if(!requiredKeys.every(key=>Boolean(process.env[key]?.trim())))return false;
+export function isFirebaseConfigured(){
+ if(!required.every(key=>Boolean(process.env[key]?.trim())))return false;
  if((process.env.RATE_LIMIT_SALT||'').length<32)return false;
  const privateKey=(process.env.FIREBASE_PRIVATE_KEY||'').trim().replace(/^"|"$/g,'').replace(/\\n/g,'\n');
  if(!privateKey.startsWith('-----BEGIN PRIVATE KEY-----')||!privateKey.includes('-----END PRIVATE KEY-----')||privateKey.length<1000)return false;
- return process.env.FIREBASE_PROJECT_ID===process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
-  && process.env.FIREBASE_STORAGE_BUCKET===process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+ return process.env.FIREBASE_PROJECT_ID===process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID&&
+  process.env.FIREBASE_STORAGE_BUCKET===process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
 }
-export function isFirebaseReady():boolean {return isFirebaseConfigured()&&process.env.KASA_APPLICATIONS_ENABLED==='true';}
-
