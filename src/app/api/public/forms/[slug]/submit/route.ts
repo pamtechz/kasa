@@ -5,6 +5,7 @@ import {cleanAnswers,applicantFingerprint} from '@/lib/schema';
 import {digest,newId,rateLimit,requireAppCheck,sameOrigin} from '@/lib/security';
 import type {FormSchema} from '@/lib/types';
 import type {Attachment} from '@/lib/schema';
+import {automationSchema,defaultAutomations,formatNotification} from '@/lib/automations';
 export const runtime='nodejs';
 export async function POST(req:NextRequest,{params}:{params:Promise<{slug:string}>}){
  try{
@@ -41,6 +42,9 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{slug:string
    const [meta]=await storage.bucket().file(a.path).getMetadata();
    if(Number(meta.size)>4*1024*1024||meta.contentType!==a.contentType)throw new HttpError(400,'Attachment validation failed.');
   }
+  const autoDoc=await db.collection('settings').doc('automations').get();
+  const autoParsed=automationSchema.safeParse(autoDoc.data()?.config);
+  const automationConfig=autoParsed.success?autoParsed.data:defaultAutomations;
   const fingerprint=applicantFingerprint(form.sections.flatMap(s=>s.fields),answers);
   const fingerprintId=fingerprint?digest(`${form.id}:${fingerprint}`):null;
   const id=newId();
@@ -60,6 +64,15 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{slug:string
     reference,formId:form.id,formTitle:form.title,formKind:form.kind,formVersion:form.version,
     status:'submitted',answers,agentId,formSnapshot:{title:form.title,slug:form.slug,sections:form.sections,version:form.version},submittedAt:now,updatedAt:now,history:[{at:now,status:'submitted',by:'applicant'}]
    });
+   for(const rule of automationConfig.rules.filter(r=>r.enabled&&r.event==='submitted')){
+    if(rule.recipient==='agent'&&!agentId)continue;
+    tx.create(db.collection('notificationOutbox').doc(),{
+     kind:'application_status',submissionId:id,reference,event:'submitted',
+     recipient:rule.recipient,recipientUid:rule.recipient==='agent'?agentId:null,
+     title:rule.name,message:formatNotification(rule.template,reference),
+     state:'pending',createdAt:now
+    });
+   }
   });
   return json({reference,message:'Your application has been submitted successfully.'},201);
  }catch(e){return fail(e);}
