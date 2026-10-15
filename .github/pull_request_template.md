@@ -1,0 +1,11 @@
+## Scope and traceability
+- [ ] Updated `docs/REQUIREMENTS_REGISTER.md` with new request IDs, criteria or status
+- [ ] Updated `docs/IMPLEMENTATION_LOG.md` with features and actual verification status
+- [ ] Listed affected Firestore collections, indexes and security rules
+- [ ] Confirmed no hardcoded business data in public app runtime
+- [ ] Verified that CDF, payment and agent commission semantics are preserved
+- [ ] Ran TypeScript and Next.js build, verified mobile navigation
+- [ ] Checked Firebase Auth, App Check and role authorization where relevant
+- [ ] Confirmed no service account keys or user data in PR
+- [ ] Self-hosted GitHub Actions result recorded (do not claim passed while queued)
+- [ ] Vercel deployment verified before marking production live
