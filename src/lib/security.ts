@@ -18,9 +18,10 @@ export async function operator(req:Request, allowed:Role[]=operatorRoles):Promis
 }
 export function sameOrigin(req:Request){
  const origin=req.headers.get('origin');
- const allowed=[process.env.APP_URL,process.env.VERCEL_URL?`https://${process.env.VERCEL_URL}`:undefined].filter(Boolean).map(v=>new URL(v!).origin);
- if(!origin || !allowed.includes(new URL(origin).origin))
-  throw new HttpError(403,'Invalid request origin.');
+ const allowed=[new URL(req.url).origin,process.env.APP_URL,process.env.VERCEL_URL?`https://${process.env.VERCEL_URL}`:undefined].filter(Boolean).map(v=>new URL(v!).origin);
+ let requestOrigin='';
+ try{requestOrigin=origin?new URL(origin).origin:'';}catch{throw new HttpError(403,'Invalid request origin.');}
+ if(!requestOrigin || !allowed.includes(requestOrigin))throw new HttpError(403,'Invalid request origin.');
 }
 export async function requireAppCheck(req:Request){
  if(process.env.NODE_ENV!=='production') return;
