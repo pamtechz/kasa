@@ -1,0 +1,36 @@
+{
+  "name": "kasa-enrollment-network",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "bootstrap": "node scripts/bootstrap-admin.mjs",
+    "seed": "node scripts/seed-forms.mjs"
+  },
+  "engines": {
+    "node": ">=22 <23"
+  },
+  "dependencies": {
+    "firebase": "^12.0.0",
+    "firebase-admin": "^14.1.0",
+    "lucide-react": "^0.468.0",
+    "next": "^15.5.28",
+    "react": "^19.1.7",
+    "react-dom": "^19.1.7",
+    "zod": "^3.25.0",
+    "server-only": "^0.0.1",
+    "pdf-lib": "^1.17.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "eslint": "^9.30.0",
+    "eslint-config-next": "^15.5.28",
+    "typescript": "^5.8.3"
+  }
+}
