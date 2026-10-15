@@ -9,6 +9,7 @@ const fieldValidator=z.object({
  description:z.string().max(500).optional(),
  placeholder:z.string().max(180).optional(),
  options:z.array(z.string().trim().min(1).max(120)).max(60).optional(),
+ optionsSource:z.enum(['programmes','intakes']).optional(),
  condition:z.object({fieldId:z.string(),equals:z.string().max(200)}).optional()
 }).strict();
 export const formValidator=z.object({
@@ -28,7 +29,7 @@ export const formValidator=z.object({
  const ids=fields.map(f=>f.id);
  if(new Set(ids).size!==ids.length)ctx.addIssue({code:'custom',message:'Field IDs must be unique.'});
  for(const f of fields){
-  if(['select','radio','checkbox'].includes(f.type)&&(!f.options?.length||new Set(f.options).size!==f.options.length))ctx.addIssue({code:'custom',message:`Valid, unique options required for ${f.label}.`});
+  if(['select','radio','checkbox'].includes(f.type)&&!f.optionsSource&&(!f.options?.length||new Set(f.options).size!==f.options.length))ctx.addIssue({code:'custom',message:`Valid, unique options required for ${f.label}.`});
   if(f.condition && (!ids.includes(f.condition.fieldId)||f.condition.fieldId===f.id||ids.indexOf(f.condition.fieldId)>ids.indexOf(f.id)))
    ctx.addIssue({code:'custom',message:`Invalid condition for ${f.label}: refer only to an earlier field.`});
  }

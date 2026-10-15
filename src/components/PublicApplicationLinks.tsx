@@ -3,7 +3,7 @@ import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import {ArrowRight,ClipboardList} from 'lucide-react';
 
-type PublicForm={slug:string;title:string;subtitle:string;kind:'agent'|'student'|'custom'};
+type PublicForm={slug:string;title:string;subtitle:string;kind:'agent'|'student'|'custom';open:boolean;reason?:string};
 type Placement='nav'|'hero'|'cta'|'catalog';
 let sharedRequest:Promise<PublicForm[]>|null=null;
 function loadPublishedForms(){
@@ -19,7 +19,7 @@ export function PublicApplicationLinks({placement}:{placement:Placement}){
  const [status,setStatus]=useState<'loading'|'open'|'unavailable'>('loading');
  useEffect(()=>{
   let active=true;
-  void loadPublishedForms().then(value=>{if(active){setForms(value);setStatus('open');}})
+  void loadPublishedForms().then(value=>{if(active){setForms(value.filter(f=>f.open));setStatus('open');}})
     .catch(()=>{if(active)setStatus('unavailable');});
   return ()=>{active=false;};
  },[]);

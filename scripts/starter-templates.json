@@ -1,49 +1,247 @@
 [
   {
-    "slug":"district-agent-recruitment","title":"KASA District Enrollment Agent Application","subtitle":"Join KASA's district enrollment team. This is a commission-based opportunity subject to approval and a signed agreement. Agents cannot guarantee CDF sponsorship or charge applicants for CDF forms.","kind":"agent","published":false,
-    "sections":[
-      {"id":"identity","title":"Personal information","description":"Tell us how to contact you.","fields":[
-        {"id":"full-name","label":"Full name","type":"text","required":true},
-        {"id":"email","label":"Email address","type":"email","required":true},
-        {"id":"phone","label":"Phone or WhatsApp number","type":"tel","required":true},
-        {"id":"province","label":"Province","type":"text","required":true},
-        {"id":"district","label":"District","type":"text","required":true},
-        {"id":"constituency","label":"Constituency","type":"text","required":true},
-        {"id":"ward","label":"Ward (optional)","type":"text","required":false}
-      ]},
-      {"id":"experience","title":"Community experience and availability","fields":[
-        {"id":"education","label":"Highest qualification","type":"select","required":true,"options":["Grade 9","Grade 12","Certificate","Diploma","Degree","Other"]},
-        {"id":"outreach","label":"Describe any community mobilization or student recruitment experience","type":"textarea","required":true},
-        {"id":"availability","label":"Availability","type":"radio","required":true,"options":["Part-time","Full-time","Weekends only"]},
-        {"id":"smartphone","label":"Do you have a smartphone and internet access?","type":"radio","required":true,"options":["Yes","No"]},
-        {"id":"motivation","label":"Why would you like to represent KASA?","type":"textarea","required":true}
-      ]},
-      {"id":"consent","title":"Declaration and consent","fields":[
-        {"id":"declaration","label":"I understand that appointment is subject to verification, commission is payable only for verified eligible CDF-approved referrals, and no CDF approval is guaranteed. I agree not to charge applicants for CDF application forms.","type":"radio","required":true,"options":["I agree"]},
-        {"id":"privacy","label":"I consent to KASA processing this information for agent recruitment and contacting me about this application.","type":"radio","required":true,"options":["I consent"]}
-      ]}
+    "slug": "district-agent-recruitment",
+    "title": "KASA District Enrollment Agent Application",
+    "subtitle": "Join KASA's district enrollment team. This is a commission-based opportunity subject to approval and a signed agreement. Agents cannot guarantee CDF sponsorship or charge applicants for CDF forms.",
+    "kind": "agent",
+    "published": false,
+    "sections": [
+      {
+        "id": "identity",
+        "title": "Personal information",
+        "description": "Tell us how to contact you.",
+        "fields": [
+          {
+            "id": "full-name",
+            "label": "Full name",
+            "type": "text",
+            "required": true
+          },
+          {
+            "id": "email",
+            "label": "Email address",
+            "type": "email",
+            "required": true
+          },
+          {
+            "id": "phone",
+            "label": "Phone or WhatsApp number",
+            "type": "tel",
+            "required": true
+          },
+          {
+            "id": "province",
+            "label": "Province",
+            "type": "text",
+            "required": true
+          },
+          {
+            "id": "district",
+            "label": "District",
+            "type": "text",
+            "required": true
+          },
+          {
+            "id": "constituency",
+            "label": "Constituency",
+            "type": "text",
+            "required": true
+          },
+          {
+            "id": "ward",
+            "label": "Ward (optional)",
+            "type": "text",
+            "required": false
+          }
+        ]
+      },
+      {
+        "id": "experience",
+        "title": "Community experience and availability",
+        "fields": [
+          {
+            "id": "education",
+            "label": "Highest qualification",
+            "type": "select",
+            "required": true,
+            "options": [
+              "Grade 9",
+              "Grade 12",
+              "Certificate",
+              "Diploma",
+              "Degree",
+              "Other"
+            ]
+          },
+          {
+            "id": "outreach",
+            "label": "Describe any community mobilization or student recruitment experience",
+            "type": "textarea",
+            "required": true
+          },
+          {
+            "id": "availability",
+            "label": "Availability",
+            "type": "radio",
+            "required": true,
+            "options": [
+              "Part-time",
+              "Full-time",
+              "Weekends only"
+            ]
+          },
+          {
+            "id": "smartphone",
+            "label": "Do you have a smartphone and internet access?",
+            "type": "radio",
+            "required": true,
+            "options": [
+              "Yes",
+              "No"
+            ]
+          },
+          {
+            "id": "motivation",
+            "label": "Why would you like to represent KASA?",
+            "type": "textarea",
+            "required": true
+          }
+        ]
+      },
+      {
+        "id": "consent",
+        "title": "Declaration and consent",
+        "fields": [
+          {
+            "id": "declaration",
+            "label": "I understand that appointment is subject to KASA verification and commission eligibility follows verified paid enrollment or official CDF sponsorship approval with all required documents. I must not guarantee approval or charge unofficial CDF fees.",
+            "type": "radio",
+            "required": true,
+            "options": [
+              "I agree"
+            ]
+          },
+          {
+            "id": "privacy",
+            "label": "I consent to KASA processing this information for agent recruitment and contacting me about this application.",
+            "type": "radio",
+            "required": true,
+            "options": [
+              "I consent"
+            ]
+          }
+        ]
+      }
     ]
   },
   {
-    "slug":"student-enrollment","title":"KASA Student Enrollment Application","subtitle":"Apply for KASA training. Acceptance is based on admission requirements; CDF sponsorship decisions remain the responsibility of the authorized local bodies.","kind":"student","published":false,
-    "sections":[
-      {"id":"student","title":"Applicant details","fields":[
-        {"id":"student-name","label":"Full name","type":"text","required":true},
-        {"id":"student-email","label":"Email address","type":"email","required":true},
-        {"id":"student-phone","label":"Phone or WhatsApp number","type":"tel","required":true},
-        {"id":"student-district","label":"District","type":"text","required":true},
-        {"id":"student-constituency","label":"Constituency","type":"text","required":true},
-        {"id":"student-ward","label":"Ward","type":"text","required":true}
-      ]},
-      {"id":"training","title":"Training selection","fields":[
-        {"id":"program","label":"Preferred training course","type":"select","required":true,"options":["General Agriculture","Sports","Cooperative Development","Crop production","Horticulture","Irrigation","Poultry","Livestock","Fish farming","Pasture and feed production","Football coaching","Athletics coaching","Sports/athletics personnel"]},
-        {"id":"intake","label":"Preferred intake","type":"select","required":true,"options":["January 2027","July 2027"]},
-        {"id":"education","label":"Highest education level","type":"select","required":true,"options":["Grade 7","Grade 9","Grade 12","Certificate or higher","Other"]},
-        {"id":"cdf-interest","label":"Do you plan to apply for CDF skills-development sponsorship?","type":"radio","required":true,"options":["Yes","No","Not sure"]}
-      ]},
-      {"id":"declaration","title":"Consent","fields":[
-        {"id":"consent","label":"I consent to KASA reviewing my information for admission and contacting me. I understand an acceptance letter does not guarantee CDF approval.","type":"radio","required":true,"options":["I consent"]}
-      ]}
+    "slug": "student-enrollment",
+    "title": "KASA Student Enrollment Application",
+    "subtitle": "Apply for KASA training. Acceptance is based on admission requirements; CDF sponsorship decisions remain the responsibility of the authorized local bodies.",
+    "kind": "student",
+    "published": false,
+    "sections": [
+      {
+        "id": "student",
+        "title": "Applicant details",
+        "fields": [
+          {
+            "id": "student-name",
+            "label": "Full name",
+            "type": "text",
+            "required": true
+          },
+          {
+            "id": "student-email",
+            "label": "Email address",
+            "type": "email",
+            "required": true
+          },
+          {
+            "id": "student-phone",
+            "label": "Phone or WhatsApp number",
+            "type": "tel",
+            "required": true
+          },
+          {
+            "id": "student-district",
+            "label": "District",
+            "type": "text",
+            "required": true
+          },
+          {
+            "id": "student-constituency",
+            "label": "Constituency",
+            "type": "text",
+            "required": true
+          },
+          {
+            "id": "student-ward",
+            "label": "Ward",
+            "type": "text",
+            "required": true
+          }
+        ]
+      },
+      {
+        "id": "training",
+        "title": "Training selection",
+        "fields": [
+          {
+            "id": "program",
+            "label": "Preferred training course",
+            "type": "select",
+            "required": true,
+            "optionsSource": "programmes"
+          },
+          {
+            "id": "intake",
+            "label": "Preferred intake",
+            "type": "select",
+            "required": true,
+            "optionsSource": "intakes"
+          },
+          {
+            "id": "education",
+            "label": "Highest education level",
+            "type": "select",
+            "required": true,
+            "options": [
+              "Grade 7",
+              "Grade 9",
+              "Grade 12",
+              "Certificate or higher",
+              "Other"
+            ]
+          },
+          {
+            "id": "cdf-interest",
+            "label": "Do you plan to apply for CDF skills-development sponsorship?",
+            "type": "radio",
+            "required": true,
+            "options": [
+              "Yes",
+              "No",
+              "Not sure"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "declaration",
+        "title": "Consent",
+        "fields": [
+          {
+            "id": "consent",
+            "label": "I consent to KASA reviewing my information for admission and contacting me. I understand an acceptance letter does not guarantee CDF approval.",
+            "type": "radio",
+            "required": true,
+            "options": [
+              "I consent"
+            ]
+          }
+        ]
+      }
     ]
   }
 ]

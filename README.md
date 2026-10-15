@@ -122,7 +122,7 @@ Public recruitment links and the training application buttons are now driven by 
 
 ## Required production activation checklist
 
-The API remains closed after configuring Firebase until **KASA_APPLICATIONS_ENABLED=true** is explicitly set in Vercel. Keep it `false` during setup, staging, rules deployment, App Check configuration, and testing. To open for real applicants, an authorized KASA administrator should verify that:
+The API remains closed after configuring Firebase until **FireStore-controlled intake policy** is explicitly set in Vercel. Keep it `false` during setup, staging, rules deployment, App Check configuration, and testing. To open for real applicants, an authorized KASA administrator should verify that:
 
 1. Authentication registration, email verification, and approval-based staff access work.
 2. Firestore and Storage deny direct client reads/writes; authorized server endpoints function.
@@ -130,4 +130,12 @@ The API remains closed after configuring Firebase until **KASA_APPLICATIONS_ENAB
 4. Applicant and agent records, secure uploads, CDF verification, letter generation, and commission permissions have passed real Firebase integration tests.
 5. Data retention, backups, privacy notices, and a support contact are approved by KASA.
 
-Then set `KASA_APPLICATIONS_ENABLED=true` for production and redeploy. The public `/api/status` response switches to `ready`; monitor runtime logs and test a controlled submission before broad advertising. If an incident occurs, set this variable back to `false` and redeploy to prevent further submissions.
+Then set KASA administrator opening in `/dashboard/intake` for production and redeploy. The public `/api/status` response switches to `ready`; monitor runtime logs and test a controlled submission before broad advertising. If an incident occurs, set this variable back to `false` and redeploy to prevent further submissions.
+
+## Current multi-page KASA build (pending merge)
+
+The multi-page portal, academic course and fee catalogue, official announcements, Firestore-managed admission windows, CDF supporting documents, verified student account tracking and first-admin bootstrap are tracked in `docs/REQUIREMENTS_REGISTER.md` and `docs/IMPLEMENTATION_LOG.md`. Public pages: `/about`, `/how-it-works`, `/programmes`, `/fees`, `/admissions`, `/agents`, `/announcements`, `/contact`, `/privacy`, `/terms`; student portal `/my-applications`, first-admin `/bootstrap` (after deployment).
+
+Seed catalogue using `node --env-file=.env.local scripts/seed-catalog.mjs` on a trusted Node 22 machine after configuring real Firebase Admin credentials. Alternatively sign in as the verified super-admin and open `/dashboard/setup` → Seed missing Firestore records. Seed is idempotent and does not overwrite edited records. All supplied content has provenance recorded in `docs/SEED_DATA_PROVENANCE.md`.
+
+Admission open/closed status is stored exclusively in `settings/intake` and controlled by administrators; `KASA_APPLICATIONS_ENABLED` is retired. Intake and programme choices in the form builder can read from live Firestore lists.

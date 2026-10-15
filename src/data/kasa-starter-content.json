@@ -1,0 +1,446 @@
+{
+  "version": "2026-10-15",
+  "sourceNotes": [
+    "Curriculum on Headed Paper_merged.pdf, cover and programme profile pp.1,3-6",
+    "Fee Structure 2 -4.pdf, proposed 2027 prices pp.1-3"
+  ],
+  "programmes": [
+    {
+      "id": "agri-sport-foundation",
+      "title": "KASA AGRI-SPORT — Foundation",
+      "description": "Integrated practical agriculture, football and athletics coaching and supervised sport-event support.",
+      "published": true,
+      "category": "agri-sport",
+      "duration": "3 months (12 teaching weeks)",
+      "durationHours": 360,
+      "requirements": "Proposed Grade 7/9 or mature entry subject to assessment.",
+      "certification": "Proposed KASA completion certificate only. No external TEVETA or federation equivalence established.",
+      "modules": [
+        "Farm and sport safety",
+        "Crop production, horticulture and irrigation",
+        "Poultry, livestock and fish farming",
+        "Cooperative and enterprise basics",
+        "Football, athletics and event support"
+      ],
+      "fee": {
+        "tuition": 4800,
+        "practical": null,
+        "administration": null,
+        "foodOptional": 3000,
+        "accommodationOptional": 1500,
+        "packageTotal": 9300,
+        "currency": "ZMW",
+        "note": "2027 proposed aggregate tuition includes institutional fee components; food/accommodation are optional."
+      }
+    },
+    {
+      "id": "agri-sport-applied",
+      "title": "KASA AGRI-SPORT — Applied",
+      "description": "Extended supervised agriculture and sports operations with practical portfolio and project work.",
+      "published": true,
+      "category": "agri-sport",
+      "duration": "6 months (24 teaching weeks)",
+      "durationHours": 720,
+      "requirements": "Foundation graduates or demonstrated equivalent readiness by interview and basic practical tasks.",
+      "certification": "Proposed KASA completion certificate only. External awards require separate approved arrangements.",
+      "modules": [
+        "Farm and sports safety",
+        "Integrated crop and livestock operations",
+        "Cooperative management and communication",
+        "Football and athletics coaching",
+        "Sports event operations",
+        "Supervised integrated practical project"
+      ],
+      "fee": {
+        "tuition": 8200,
+        "practical": null,
+        "administration": null,
+        "foodOptional": 6000,
+        "accommodationOptional": 3000,
+        "packageTotal": 17200,
+        "currency": "ZMW",
+        "note": "2027 proposed aggregate tuition includes institutional fee components; food/accommodation are optional."
+      }
+    },
+    {
+      "id": "general-agriculture",
+      "title": "General Agriculture",
+      "description": "Practical skills in crop, livestock, aquaculture, pasture and feed production.",
+      "published": true,
+      "category": "main",
+      "duration": "Duration subject to official intake and qualification approval",
+      "durationHours": null,
+      "requirements": "Grade 7, Grade 9, mature entry or RPL subject to applicable requirements.",
+      "certification": "KASA planning references TEVETA trade certificates; do not assume accreditation, examination eligibility or award until independently confirmed.",
+      "modules": [
+        "Farm safety",
+        "Tool use",
+        "Crop management",
+        "Soil and nursery care",
+        "Poultry and livestock",
+        "Fish farming"
+      ],
+      "fee": {
+        "tuition": null,
+        "practical": null,
+        "administration": null,
+        "foodOptional": null,
+        "accommodationOptional": null,
+        "packageTotal": null,
+        "currency": "ZMW",
+        "note": "KASA has not published an approved fee for this course."
+      }
+    },
+    {
+      "id": "sports-development",
+      "title": "Sports Development",
+      "description": "Supervised football, athletics, conditioning and sports event operations.",
+      "published": true,
+      "category": "main",
+      "duration": "Duration and intake published by KASA",
+      "durationHours": null,
+      "requirements": "Applicants should meet the announced KASA admission and safeguarding requirements.",
+      "certification": "A KASA programme is not automatically a FAZ coaching licence or athletics federation qualification.",
+      "modules": [
+        "Football coaching",
+        "Athletics coaching",
+        "Fitness and inclusion",
+        "Event personnel and safety"
+      ],
+      "fee": {
+        "tuition": null,
+        "practical": null,
+        "administration": null,
+        "foodOptional": null,
+        "accommodationOptional": null,
+        "packageTotal": null,
+        "currency": "ZMW",
+        "note": "KASA has not published an approved fee for this course."
+      }
+    },
+    {
+      "id": "cooperative-development",
+      "title": "Cooperative Development",
+      "description": "Skills in cooperative formation, records, financial stewardship, meetings and community enterprise.",
+      "published": true,
+      "category": "main",
+      "duration": "Duration and intake published by KASA",
+      "durationHours": null,
+      "requirements": "Requirements set by KASA for the specific intake.",
+      "certification": "Course completion is institutionally assessed unless a separate external accreditation is confirmed.",
+      "modules": [
+        "Cooperative formation",
+        "Governance",
+        "Budgeting and records",
+        "Enterprise planning"
+      ],
+      "fee": {
+        "tuition": null,
+        "practical": null,
+        "administration": null,
+        "foodOptional": null,
+        "accommodationOptional": null,
+        "packageTotal": null,
+        "currency": "ZMW",
+        "note": "KASA has not published an approved fee for this course."
+      }
+    },
+    {
+      "id": "crop-production",
+      "title": "Crop Production",
+      "description": "Maize, wheat, soybean crop establishment and production records.",
+      "published": true,
+      "category": "short-course",
+      "duration": "8 weeks",
+      "durationHours": null,
+      "requirements": "Verify intake admission requirements with KASA.",
+      "certification": "Institutional short course; external award is not implied.",
+      "modules": [
+        "Land preparation",
+        "Planting and crop management",
+        "Harvest and records"
+      ],
+      "fee": {
+        "tuition": 2600,
+        "practical": 600,
+        "administration": 150,
+        "foodOptional": 2000,
+        "accommodationOptional": 1000,
+        "packageTotal": 6350,
+        "currency": "ZMW",
+        "note": "All-in proposal includes optional bed and food."
+      }
+    },
+    {
+      "id": "gardening-irrigation",
+      "title": "Gardening and Irrigation",
+      "description": "Vegetable crops including tomatoes, onions, cabbage and drip irrigation practice.",
+      "published": true,
+      "category": "short-course",
+      "duration": "8 weeks",
+      "durationHours": null,
+      "requirements": "Verify intake admission requirements with KASA.",
+      "certification": "Institutional short course.",
+      "modules": [
+        "Nurseries",
+        "Horticulture",
+        "Irrigation",
+        "Vegetable harvesting"
+      ],
+      "fee": {
+        "tuition": 3000,
+        "practical": 700,
+        "administration": 150,
+        "foodOptional": 2000,
+        "accommodationOptional": 1000,
+        "packageTotal": 6850,
+        "currency": "ZMW",
+        "note": "All-in proposal includes optional bed and food."
+      }
+    },
+    {
+      "id": "poultry",
+      "title": "Poultry Production",
+      "description": "Broilers, layers and village chicken management.",
+      "published": true,
+      "category": "short-course",
+      "duration": "8 weeks",
+      "durationHours": null,
+      "requirements": "Verify intake admission requirements with KASA.",
+      "certification": "Institutional short course.",
+      "modules": [
+        "Brooding",
+        "Feed and hygiene",
+        "Poultry records"
+      ],
+      "fee": {
+        "tuition": 2600,
+        "practical": 700,
+        "administration": 150,
+        "foodOptional": 2000,
+        "accommodationOptional": 1000,
+        "packageTotal": 6450,
+        "currency": "ZMW",
+        "note": "All-in proposal includes optional bed and food."
+      }
+    },
+    {
+      "id": "livestock",
+      "title": "Livestock Production",
+      "description": "Goat, beef and dairy animal management and welfare.",
+      "published": true,
+      "category": "short-course",
+      "duration": "8 weeks",
+      "durationHours": null,
+      "requirements": "Verify intake admission requirements with KASA.",
+      "certification": "Institutional short course.",
+      "modules": [
+        "Housing",
+        "Animal welfare",
+        "Feeding and records"
+      ],
+      "fee": {
+        "tuition": 3000,
+        "practical": 950,
+        "administration": 150,
+        "foodOptional": 2000,
+        "accommodationOptional": 1000,
+        "packageTotal": 7100,
+        "currency": "ZMW",
+        "note": "All-in proposal includes optional bed and food."
+      }
+    },
+    {
+      "id": "fish-farming",
+      "title": "Fish Farming",
+      "description": "Aquaculture, water care and production records.",
+      "published": true,
+      "category": "short-course",
+      "duration": "8 weeks",
+      "durationHours": null,
+      "requirements": "Verify intake admission requirements with KASA.",
+      "certification": "Institutional short course.",
+      "modules": [
+        "Ponds and tanks",
+        "Feeding",
+        "Water and harvest records"
+      ],
+      "fee": {
+        "tuition": 3100,
+        "practical": 1100,
+        "administration": 150,
+        "foodOptional": 2000,
+        "accommodationOptional": 1000,
+        "packageTotal": 7350,
+        "currency": "ZMW",
+        "note": "All-in proposal includes optional bed and food."
+      }
+    },
+    {
+      "id": "pasture-feed",
+      "title": "Pasture and Feed Production",
+      "description": "Pasture establishment, feed preparation and storage.",
+      "published": true,
+      "category": "short-course",
+      "duration": "8 weeks",
+      "durationHours": null,
+      "requirements": "Verify intake admission requirements with KASA.",
+      "certification": "Institutional short course.",
+      "modules": [
+        "Fodder care",
+        "Ingredient mixing",
+        "Feed storage"
+      ],
+      "fee": {
+        "tuition": 2500,
+        "practical": 750,
+        "administration": 150,
+        "foodOptional": 2000,
+        "accommodationOptional": 1000,
+        "packageTotal": 6400,
+        "currency": "ZMW",
+        "note": "All-in proposal includes optional bed and food."
+      }
+    },
+    {
+      "id": "cooperative-management",
+      "title": "Cooperative Management",
+      "description": "Cooperative administration, business records and meeting management.",
+      "published": true,
+      "category": "short-course",
+      "duration": "8 weeks",
+      "durationHours": null,
+      "requirements": "Verify intake admission requirements with KASA.",
+      "certification": "Institutional short course.",
+      "modules": [
+        "Cooperative governance",
+        "Enterprise budgeting",
+        "Communication"
+      ],
+      "fee": {
+        "tuition": 3500,
+        "practical": 450,
+        "administration": 150,
+        "foodOptional": 2000,
+        "accommodationOptional": 1000,
+        "packageTotal": 7100,
+        "currency": "ZMW",
+        "note": "All-in proposal includes optional bed and food."
+      }
+    },
+    {
+      "id": "football-coaching",
+      "title": "Football Coaching",
+      "description": "Supervised foundations of session planning, coaching and safe participation.",
+      "published": true,
+      "category": "short-course",
+      "duration": "Duration to be published",
+      "durationHours": null,
+      "requirements": "Eligibility depends on KASA and any external training partner.",
+      "certification": "KASA training does not itself confer a FAZ licence.",
+      "modules": [
+        "Football technique",
+        "Safety and safeguarding",
+        "Session planning"
+      ],
+      "fee": {
+        "tuition": null,
+        "practical": null,
+        "administration": null,
+        "foodOptional": null,
+        "accommodationOptional": null,
+        "packageTotal": null,
+        "currency": "ZMW",
+        "note": "KASA has not published an approved fee for this course."
+      }
+    },
+    {
+      "id": "athletics-coaching",
+      "title": "Athletics Coaching",
+      "description": "Supervised running, jumping and throwing instruction.",
+      "published": true,
+      "category": "short-course",
+      "duration": "Duration to be published",
+      "durationHours": null,
+      "requirements": "Eligibility depends on KASA and any external training partner.",
+      "certification": "KASA training does not itself confer an athletics federation award.",
+      "modules": [
+        "Running drills",
+        "Jumping and throwing safety",
+        "Coaching sessions"
+      ],
+      "fee": {
+        "tuition": null,
+        "practical": null,
+        "administration": null,
+        "foodOptional": null,
+        "accommodationOptional": null,
+        "packageTotal": null,
+        "currency": "ZMW",
+        "note": "KASA has not published an approved fee for this course."
+      }
+    },
+    {
+      "id": "sport-event-personnel",
+      "title": "Sports and Athletics Personnel",
+      "description": "Registration, timing, results and event support under supervision.",
+      "published": true,
+      "category": "short-course",
+      "duration": "Duration to be published",
+      "durationHours": null,
+      "requirements": "KASA will publish intake requirements.",
+      "certification": "KASA completion record only unless separately approved.",
+      "modules": [
+        "Event planning",
+        "Registration",
+        "Safety",
+        "Timing and records"
+      ],
+      "fee": {
+        "tuition": null,
+        "practical": null,
+        "administration": null,
+        "foodOptional": null,
+        "accommodationOptional": null,
+        "packageTotal": null,
+        "currency": "ZMW",
+        "note": "KASA has not published an approved fee for this course."
+      }
+    }
+  ],
+  "announcements": [
+    {
+      "id": "2027-proposed-fee-information",
+      "title": "2027 proposed training fees",
+      "description": "KASA has prepared proposed tuition and package costs for AGRI-SPORT pathways and selected independent short courses.",
+      "body": "The KASA 2027 proposed fee schedule distinguishes tuition costs from optional accommodation and food. All fee amounts remain proposals until confirmed by KASA. Before paying, verify the currently published course page, invoice and official payment instructions. CDF sponsorship is a government-funded payment route subject to independent official approval.",
+      "published": true,
+      "category": "admissions",
+      "pinned": false,
+      "publishedAt": null,
+      "expiresAt": null
+    },
+    {
+      "id": "agri-sport-curriculum-framework",
+      "title": "AGRI-SPORT curriculum framework",
+      "description": "An integrated agriculture and sports curriculum has been proposed for foundation and applied learners.",
+      "body": "The proposed KASA AGRI-SPORT framework outlines a three-month foundation pathway with 360 contact hours and a six-month applied pathway with 720 contact hours. The KASA completion certificate is distinct from external TEVETA, FAZ and athletics federation awards. Refer to the programmes pages for the current descriptions and requirements.",
+      "published": true,
+      "category": "academic",
+      "pinned": false,
+      "publishedAt": null,
+      "expiresAt": null
+    },
+    {
+      "id": "cdf-sponsorship-document-guidance",
+      "title": "CDF sponsorship and document checks",
+      "description": "Students considering government CDF sponsorship should prepare and retain the required evidence.",
+      "body": "CDF sponsorship is a government-funded pathway to pay for eligible training. Students must follow the officially prescribed constituency process. KASA checks required documents and verifies official sponsorship approval; an acceptance letter alone does not guarantee a CDF bursary. KASA's admission window and internal documentation checklist are maintained by its administrators.",
+      "published": true,
+      "category": "cdf",
+      "pinned": false,
+      "publishedAt": null,
+      "expiresAt": null
+    }
+  ]
+}

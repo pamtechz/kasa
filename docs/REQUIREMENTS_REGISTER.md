@@ -1,0 +1,48 @@
+# KASA — Requirements register and traceability
+Last reviewed: 15 October 2026. Repository: [pamtechz/kasa](https://github.com/pamtechz/kasa). Deployment: [kasaschool.vercel.app](https://kasaschool.vercel.app).
+
+## Rule for future development
+Every material KASA request must receive an identifier, date, acceptance criteria, status, and change/PR reference in this file. Keep `docs/IMPLEMENTATION_LOG.md` updated at every release. Never mark a feature complete solely because code has been committed; distinguish build validation, Firebase integration testing and production operation. Do not invent payment confirmations, accreditation approvals, CDF decisions or live application data.
+
+## Background, decisions and chronological requests
+| ID | User request / confirmed business rule | Date | Status and notes |
+|---|---|---|---|
+| KASA-001 | Build a professional KASA student application portal instead of paper / Google Form alone; admin can manage and customize questions, programmes, intakes and application statuses. | 8–12 Oct 2026 | Dynamic Firestore form builder implemented; further validation ongoing. |
+| KASA-002 | Keep General Agriculture, Sports and Cooperative Development as main programmes. Crop Production, Horticulture, Irrigation, Poultry, Livestock, Fish Farming, Pasture and Feed, Football Coaching, Athletics Coaching and Sport Personnel must be independent short-course application choices, not nested under General Agriculture. | 8–12 Oct | Programme records separated; enrollment form options administratively editable. |
+| KASA-003 | January and July intakes must be editable, not hardcoded application logic. | Oct 2026 | Existing form builder permits edits; dedicated intake windows controlled in Firestore; structured intake catalogue is a planned extension. |
+| KASA-004 | Send PDF acceptance and receipt documents by email and permit download after successful application processing; modern responsive UI and secure admin access. | 12 Oct | Acceptance PDF available to authorized staff. Email delivery and financial receipts require integration; not yet complete. |
+| KASA-005 | Recruit commissioned district/constituency agents who assist enrollments and legitimate CDF sponsorship applications. Recruit agents via separate form, vet and appoint agents, issue referral codes, restrict data access. | 14–15 Oct | Form templates, appointment, profiles, referral links, dashboard, audit implemented; live Firebase test pending. |
+| KASA-006 | Agent commission only after actual successful enrollment: verified qualifying student payment OR official government CDF approval and the submitted required documents. No payment merely for applications/letters, and no guarantee of CDF sponsorship. | 15 Oct | Both funding channels and separate eligibility rules in code; CDF document upload/verification and self-funded minimum payment checks added. No automated payouts. |
+| KASA-007 | Deploy to existing `pamtechz/kasa` repository, Vercel project KASA, Next.js and Firebase (Auth, Firestore, Storage, App Check). Restrict private applicant data, audit administrative actions. | 15 Oct | Live site and backend skeleton deployed; integration and credentials must be tested. |
+| KASA-008 | Import the existing Google Forms template as editable database content, not hardcoded frontend fields. | 15 Oct | Google Forms export/import pathway exists; original Form questions were inaccessible to connector (403); manual import still outstanding. |
+| KASA-009 | Official white-on-green transparent KASA shield on appropriate screens and acceptance letters; avoid generic logo. | 15 Oct | Brand crest asset and reusable component added. |
+| KASA-010 | Administrators manage website text, About, How it works, contacts, programme and form content, agents, staff, approvals, notes, payments, commissions, referral sharing and internal automations. | 15 Oct | Management pages and secured APIs present. External payment and messaging integrations deferred. |
+| KASA-011 | All GitHub Actions jobs on a self-hosted runner KASAINSTITUTE, not GitHub-hosted. | 15 Oct | Workflow uses self-hosted label. User reports runner online; verify that GitHub job actually executes and required labels are assigned. |
+| KASA-012 | Replace single-page marketing site with industrial multi-page information architecture. | 15 Oct | Home, About, How it works, Programmes, Course detail, Fees, Admissions, Agents, Announcements, Announcement detail, Contact routes added. |
+| KASA-013 | Announcements page and admin CRUD; seed KASA programmes and proposed fees from supplied curriculum and 2027 fee documents to Firestore. | 15 Oct | Typed content endpoints, editorial screens, source-grounded seed JSON and protected seed endpoint added. Actual database initialization requires first super-admin action. |
+| KASA-014 | KASA admin decides when applications open and close; do not use hardcoded dates or `KASA_APPLICATIONS_ENABLED`. | 15 Oct | Firestore policy with global open, optional dates, per-form overrides, default closed. Server checks on reads and submission transactions. |
+| KASA-015 | Implement secure initial admin bootstrap and provide direct link. | 15 Oct | Verified-email single-use `/bootstrap` page and API; alternative `scripts/bootstrap-admin.mjs`. |
+| KASA-016 | Preserve every request and technical decision so work remains traceable and does not drift. | 15 Oct | This file, release log and source/data notes introduced; update with every change. |
+| KASA-017 | Treat CDF as government-sponsored fee payment, distinct from cash actually received. Require applicable supporting documents and independent approval verification. | 15 Oct | Added required-document checklist and separate funding status / commission trigger. |
+| KASA-020 | Provide a clear applicant privacy and terms page, editable in the public website content studio. | 15 Oct | Added source-controlled default copy and admin-editable fields; formal institutional legal review still required. |\n| KASA-019 | Secure student Firebase login, own application status and verified-email linking of older submissions. | 15 Oct | Authenticated student portal and claim endpoints added; real Firebase tests pending. |\n| KASA-018 | Keep security gates, prevent unofficial fees, and avoid claims of TEVETA/FAZ certification without verified approval. | Ongoing | Documented requirements and website source records. |
+
+## Required acceptance tests
+- First admin bootstrap: mismatched email, unverified email, replay after another account completed setup and missing App Check must all be rejected.
+- Public intake: absent policy and unpublished forms default to closed; admin opens/closes; before/after window rejected, including transactions started before closure; per-form overrides enforced.
+- Student admission: duplicate prevention, field validation, uploaded document integrity and origin/App Check enforcement; private documents inaccessible to other users.
+- CDF: incomplete/unverified required documents block approval; official reference and authorized approver required; CDF is `fundingMethod='cdf'` and records government approval, NOT a claim of settled cash.
+- Self-funded: verified payment evidence, explicit successful enrollment confirmation and configured minimum amount for an attributed agent; no automatic payouts.
+- Agent: restricted to own referrals, cannot see student private answers, identity numbers, documents, staff notes or financial evidence.
+- Catalogue: staff can create, publish, edit and unpublish programmes, prices, announcements; public only sees published records; seed never overwrites edited documents.
+- Desktop and mobile navigation; forms usable from phone; acceptance-letter PDF with KASA branding; no exposing Firebase Admin secrets.
+- Operational: production Vercel build, self-hosted CI and real Firebase smoke tests pass before open enrollment.
+
+## Future / deferred work
+- Confirm KASA qualification accreditation status with TEVETA/awarding bodies before public accreditation claims.
+- Confirm constituency-specific CDF document checklists and formal sponsorship/payment reconciliation policy.
+- Direct email/PDF delivery, SMS/WhatsApp integration, verifiable tuition payment gateway and actual payout transfer integrations.
+- Searchable intake catalogue, notifications delivery/read status, document retention schedules and data subject rights workflows.
+- Original Google Forms full question import once authenticated access is available.
+
+## Change control
+For every implementation PR: reference IDs above, update `docs/IMPLEMENTATION_LOG.md`, list affected Firestore collections and rules, identify security regression tests, and state deployment status accurately. A Firebase collection existing in source code does **not** mean it has been seeded in the real database.

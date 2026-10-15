@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "bootstrap": "node scripts/bootstrap-admin.mjs",
-    "seed": "node scripts/seed-forms.mjs"
+    "seed": "node scripts/seed-forms.mjs",
+    "seed:catalog": "node scripts/seed-catalog.mjs"
   },
   "engines": {
     "node": ">=22 <23"

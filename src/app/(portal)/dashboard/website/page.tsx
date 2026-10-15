@@ -11,6 +11,7 @@ const groups:{title:string;fields:Editable[]}[]=[
  {title:'Homepage hero',fields:[{key:'badge',label:'Announcement'},{key:'heroTitle',label:'Headline'},{key:'heroEmphasis',label:'Highlighted headline text'},{key:'heroDescription',label:'Introduction',multiline:true},{key:'heroCardTitle',label:'Illustration headline'},{key:'heroCardDescription',label:'Illustration caption'}]},
  {title:'How it works',fields:[{key:'howEyebrow',label:'Section label'},{key:'howTitle',label:'Section heading'},{key:'howDescription',label:'Section description',multiline:true}]},
  {title:'About us',fields:[{key:'aboutTitle',label:'Heading'},{key:'aboutDescription',label:'Description',multiline:true}]},
+ {title:'Privacy and applications policy',fields:[{key:'privacyText',label:'Privacy notice',multiline:true},{key:'termsText',label:'Application terms',multiline:true}]},
  {title:'Contact details',fields:[{key:'contactTitle',label:'Heading'},{key:'contactDescription',label:'Description',multiline:true},{key:'contactEmail',label:'Public email'},{key:'contactPhone',label:'Public phone number'}]},
  {title:'Agents and recruitment campaign',fields:[{key:'ctaEyebrow',label:'Campaign label'},{key:'ctaTitle',label:'Campaign heading'},{key:'ctaDescription',label:'Commission disclosure and invitation',multiline:true}]}
 ];

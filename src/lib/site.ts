@@ -14,6 +14,7 @@ export const siteSchema=z.object({
  contactEmail:z.union([z.literal(''),z.string().email().max(220)]),
  contactPhone:text.max(60),
  ctaEyebrow:text.max(100),ctaTitle:text.max(180),ctaDescription:text.max(900),
+ privacyText:text.max(5000).optional(),termsText:text.max(5000).optional(),
  footer:text.max(300)
 }).strict();
 export type SiteSettings=z.infer<typeof siteSchema>;
@@ -38,9 +39,11 @@ export const defaultSite:SiteSettings={
  contactEmail:'',contactPhone:'',
  ctaEyebrow:'BUILD COMMUNITY OPPORTUNITIES',ctaTitle:'Represent KASA in your district.',
  ctaDescription:'Agents may earn commission only on independently verified student enrollment payments or officially approved CDF sponsorship. No agent can guarantee CDF approval or charge for CDF application forms.',
+ privacyText:'KASA uses submitted contact, course, identity and supporting document information for admissions assessment, enrollment administration, student support, verified government sponsorship processes and attributable agent referrals. Only authorized staff access applicant records. Information is stored in the KASA Firebase-backed system. Contact KASA for questions or requests about your records; a formal institutional retention schedule should be published before live enrollment.',
+ termsText:'Submitting an application does not guarantee admission or Constituency Development Fund sponsorship. CDF decisions are made by the authorized government bodies. Applicants must provide accurate information and the required documentation. Only payments made through approved KASA channels and independently verified official sponsorship decisions can establish successful enrollment. Agents must not demand unofficial CDF application fees or promise government approval.',
  footer:'KASA · Kamaila Academics, Sports and Apprenticeship'
 };
 export function sanitizeSite(data:unknown):SiteSettings{
  const parsed=siteSchema.safeParse(data);
- return parsed.success?parsed.data:defaultSite;
+ return parsed.success?{...defaultSite,...parsed.data}:defaultSite;
 }
