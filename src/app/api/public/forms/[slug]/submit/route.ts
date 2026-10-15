@@ -1,5 +1,5 @@
 import type {NextRequest} from 'next/server';
-import {db,storage} from '@/lib/firebase-admin';
+import {db,storage,adminAuth} from '@/lib/firebase-admin';
 import {fail,HttpError,json} from '@/lib/errors';
 import {cleanAnswers,applicantFingerprint} from '@/lib/schema';
 import {digest,newId,rateLimit,requireAppCheck,sameOrigin} from '@/lib/security';
@@ -29,6 +29,18 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{slug:string
   if(!state.open)throw new HttpError(403,state.reason);
   if(body.formVersion!==form.version)throw new HttpError(409,'Form has changed. Refresh to submit the current version.');
   const answers=cleanAnswers(form,body.answers);
+  let applicantUid:string|null=null;
+  const bearer=req.headers.get('authorization')||'';
+  if(form.kind==='student'&&bearer){
+   if(!bearer.startsWith('Bearer '))throw new HttpError(401,'Invalid student sign-in session.');
+   const claims=await adminAuth.verifyIdToken(bearer.slice(7),true).catch(()=>null);
+   if(!claims?.email_verified||!claims.email)throw new HttpError(401,'Sign in with a verified email before submitting from your account.');
+   const field=form.sections.flatMap(s=>s.fields).find(x=>x.type==='email');
+   const answerEmail=field?String(answers[field.id]||'').trim().toLowerCase():'';
+   if(answerEmail!==claims.email.toLowerCase())throw new HttpError(403,'The application email must match your verified account email.');
+   applicantUid=claims.uid;
+  }
+
   let agentId:string|null=null;
   if(form.kind==='student'&&body.agentCode!==undefined && body.agentCode!==null && body.agentCode!==''){
    const referralSettings=await db.collection('settings').doc('operations').get();
@@ -72,7 +84,7 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{slug:string
    fileRefs.forEach((ref,index)=>tx.create(ref,{submissionId:id,path:attachments[index].path}));
    tx.create(db.collection('submissions').doc(id),{
     reference,formId:form.id,formTitle:form.title,formKind:form.kind,formVersion:form.version,
-    status:'submitted',answers,agentId,formSnapshot:{title:form.title,slug:form.slug,sections:form.sections,version:form.version},submittedAt:now,updatedAt:now,history:[{at:now,status:'submitted',by:'applicant'}]
+    status:'submitted',answers,agentId,applicantUid,formSnapshot:{title:form.title,slug:form.slug,sections:form.sections,version:form.version},submittedAt:now,updatedAt:now,history:[{at:now,status:'submitted',by:'applicant'}]
    });
    for(const rule of automationConfig.rules.filter(r=>r.enabled&&r.event==='submitted')){
     if(rule.recipient==='agent'&&!agentId)continue;
