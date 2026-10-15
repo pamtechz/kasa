@@ -8,6 +8,8 @@ const requiredKeys=[
 export function isFirebaseConfigured():boolean {
  if(!requiredKeys.every(key=>Boolean(process.env[key]?.trim())))return false;
  if((process.env.RATE_LIMIT_SALT||'').length<32)return false;
+ const privateKey=(process.env.FIREBASE_PRIVATE_KEY||'').trim().replace(/^"|"$/g,'').replace(/\\n/g,'\n');
+ if(!privateKey.startsWith('-----BEGIN PRIVATE KEY-----')||!privateKey.includes('-----END PRIVATE KEY-----')||privateKey.length<1000)return false;
  return process.env.FIREBASE_PROJECT_ID===process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
   && process.env.FIREBASE_STORAGE_BUCKET===process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
 }
