@@ -25,7 +25,7 @@ Firestore document: `settings/intake`, field `policy`.
 ## Non-destructive Firestore seed
 Use `/dashboard/setup` → **Seed missing Firestore records** after signing in as super admin. The server-side operation creates missing course, announcement and draft-form documents, and only if missing seeds website contacts/intake policy. It never overwrites edited records.
 Source records are in `src/data/kasa-starter-content.json`.
-Offline script `npm run seed` continues to seed initial forms using developer credentials, but the integrated seeding screen includes programmes and announcements.
+Offline scripts: `npm run seed` seeds initial draft forms; `npm run seed:catalog` seeds the proposed programmes, prices and announcements without overwriting records. Run with server-only Firebase Admin credentials on a trusted computer; do not commit `.env.local`.\nExample on Node 22: `node --env-file=.env.local scripts/seed-catalog.mjs`. The connected app cannot automatically seed the database until valid Firebase credentials and authorized super-admin bootstrap are verified.\nIn the dynamic form builder, set question Options data source to **Published Firestore programmes** or **Admin-managed intakes**. These lists update without changing frontend code.
 Pricing source: user-uploaded `Fee Structure 2 -4.pdf`, label **2027 proposed fees**. Curricular source: `Curriculum on Headed Paper_merged.pdf`, label **proposed curriculum**.
 No externally accredited award is assumed.
 
@@ -34,7 +34,7 @@ CDF stands for Constituency Development Fund: government-sponsored training paym
 A self-funded student requires a verified payment reference, paid amount, explicit enrollment confirmation and an admin-configured minimum successful-enrollment payment threshold for agent commission.
 Agent commissions are **not** transferred automatically.
 
-## Known operational blockers
+## Known operational blockers\n- Vercel reported a daily deployment quota error `api-deployments-free-per-day` (HTTP 402). New releases cannot be verified or deployed until the quota resets or the owner resolves billing/limits.\n- Pending quality runs require the custom `KASAINSTITUTE` runner label and repo/org authorization; check https://github.com/pamtechz/kasa/settings/actions/runners .
 - Revalidate the Firebase Admin service-account private key format and authorization (a previous Vercel preview failed parsing an uploaded key).
 - Verify GitHub Actions self-hosted `KASAINSTITUTE` runner is assigned at repository/organization scope, active and has the `self-hosted` label.
 - CDF government sponsorship decisions and eligible-programme status must be checked against current official records, never inferred from a course title.
