@@ -65,3 +65,11 @@ Read `docs/REQUIREMENTS_REGISTER.md` and this log before coding. Update both for
 - The preview has insufficient Firebase environment configuration, so neither the live first-admin bootstrap nor actual Firestore seeding can be verified there. Live Firebase integration remains outstanding.
 - Self-hosted `KASAINSTITUTE` GitHub Actions jobs remain queued/cancelled rather than green. Check the registered runner's repository assignment, online service status and labels.
 - **Next action:** once the Vercel deployment allowance resets or its owner resolves the limit, deploy production commit `2bf4ec33`. Then verify `https://kasaschool.vercel.app/bootstrap`, `/api/status`, Firebase Authentication and App Check, followed by super-admin bootstrap, non-destructive Firestore seed, security-rule tests and a controlled application test before admin opens intake.
+
+## 15 October 2026 — Follow-up stability and deployment
+- Rechecked production deployment: latest production was still commit `f3008add`, not the merged `main` release; `/bootstrap` returned 404.
+- Direct deployment attempt with current main commit `5a4cf19e` was denied by Vercel HTTP 402 `api-deployments-free-per-day`. Deployment allowance is the external blocker; do not claim publication or run Firebase seeding against an unverified production release.
+- The live old release's `/api/status` returned `acceptingApplications: true` but public forms list was empty, so this is **not** proof of an operational admissions workflow. The new Firestore-controlled intake defaults closed.
+- Fixed self-hosted Actions workflow selection: a runner named `KASAINSTITUTE` need not have that name as a custom label. The workflow now requires the built-in `self-hosted` label, still excluding GitHub-hosted jobs. For exclusive runner pinning, add the `KASAINSTITUTE` custom label in GitHub runner settings and restore it explicitly.
+- CDF document upload now repeats the application-status lock **inside** the same transaction that saves document metadata, preventing a concurrent approval/rejection from accepting a late replacement.
+- After this change is merged: inspect GitHub Actions job assignment and ensure the runner has access to pamtechz/kasa; verify Vercel production deployment when quota allows; execute authorized bootstrap and Firestore seed only after Firebase/Auth/App Check tests.
