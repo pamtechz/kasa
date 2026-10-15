@@ -3,7 +3,8 @@ import {db,storage} from '@/lib/firebase-admin';
 import {fail,HttpError,json} from '@/lib/errors';
 import {cleanAnswers,applicantFingerprint} from '@/lib/schema';
 import {digest,newId,rateLimit,requireAppCheck,sameOrigin} from '@/lib/security';
-import type {FormSchema,Attachment} from '@/lib/types';
+import type {FormSchema} from '@/lib/types';
+import type {Attachment} from '@/lib/schema';
 export const runtime='nodejs';
 export async function POST(req:NextRequest,{params}:{params:Promise<{slug:string}>}){
  try{

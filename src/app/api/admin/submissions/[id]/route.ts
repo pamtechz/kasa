@@ -28,6 +28,8 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
    const snap=await tx.get(ref);if(!snap.exists)throw new HttpError(404,'Application not found.');
    const old=snap.data()!;
    if(!stages[old.status as SubmissionStatus]?.includes(status))throw new HttpError(400,'Invalid status transition.');
+   // Recruitment and custom forms stop at acceptance; CDF and letters are student-only.
+   if(old.formKind!=='student' && ['letter_issued','cdf_submitted','cdf_approved','commission_paid'].includes(status))throw new HttpError(400,'CDF sponsorship and acceptance letters apply only to student enrollments.');
    const now=new Date().toISOString();
    const changes:Record<string,unknown>={status,updatedAt:now,history:[...(old.history||[]).slice(-80),{status,at:now,by:user.uid}]};
    if(status==='cdf_approved'){
