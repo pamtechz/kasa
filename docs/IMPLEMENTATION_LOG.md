@@ -57,3 +57,11 @@ Read `docs/REQUIREMENTS_REGISTER.md` and this log before coding. Update both for
 - GitHub Actions checks on the requested self-hosted KASAINSTITUTE runner are queued/cancelled; no successful Actions run is claimed. Repository runner assignment and labels require verification.
 - Firestore seed not executed and bootstrap not verified end-to-end. Do not claim live admissions, CDF approvals, email delivery or commission transfers.
 - After merge, verify a new production deployment, `/bootstrap`, and complete a signed-in administrator bootstrap, Firestore initialization, authorization tests and controlled applicant submission before opening intake.
+
+## 15 October 2026 — PR #5 MERGED; production deployment quota blocker
+- PR #5 was squash-merged successfully into `main` at commit `2bf4ec335d99fb9583e3e72a8e6ca7e53ac27d07`. Earlier notes saying PR #5 was open/unmerged describe an earlier point in time and are **superseded**.
+- Pre-merge Vercel staging deployment `dpl_A8ovFr9hZ3HuRPQERVQhU7RrikkP` was **READY**, with successful production compilation, TypeScript checking, generation of 51 static pages, and HTTP 200 smoke checks for bootstrap and the principal information pages.
+- After merging, an explicit deployment of the exact `main` SHA to production was attempted, but Vercel rejected it with HTTP 402 `api-deployments-free-per-day` and a retry-after indication of 86400 seconds. **The new merged release is not deployed to production.** The production domain continues to serve the earlier release `f3008add` until a new deployment succeeds.
+- The preview has insufficient Firebase environment configuration, so neither the live first-admin bootstrap nor actual Firestore seeding can be verified there. Live Firebase integration remains outstanding.
+- Self-hosted `KASAINSTITUTE` GitHub Actions jobs remain queued/cancelled rather than green. Check the registered runner's repository assignment, online service status and labels.
+- **Next action:** once the Vercel deployment allowance resets or its owner resolves the limit, deploy production commit `2bf4ec33`. Then verify `https://kasaschool.vercel.app/bootstrap`, `/api/status`, Firebase Authentication and App Check, followed by super-admin bootstrap, non-destructive Firestore seed, security-rule tests and a controlled application test before admin opens intake.
