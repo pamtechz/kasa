@@ -3,7 +3,7 @@ import {useEffect,useState} from 'react';
 import {onAuthStateChanged,signOut} from 'firebase/auth';
 import {useRouter,usePathname} from 'next/navigation';
 import Link from 'next/link';
-import {BarChart3,ChevronLeft,ChevronRight,ClipboardList,FilePlus2,LayoutDashboard,LogOut,Menu,Settings,Users,X} from 'lucide-react';
+import {BarChart3,ChevronLeft,ChevronRight,ClipboardList,FilePlus2,LayoutDashboard,LogOut,Menu,Settings,Users,X,Bell} from 'lucide-react';
 import {auth,authHeaders,firebaseConfigured} from '@/lib/firebase-client';
 import type {Profile} from '@/lib/types';
 import {BrandLogo} from '@/components/BrandLogo';
@@ -20,9 +20,9 @@ export function Portal({children}:{children:React.ReactNode}){
   if(!user){router.replace('/login');return;}
   try{const r=await api<{profile:Profile}>('/api/me');setProfile(r.profile);}catch{router.replace('/login');}finally{setLoading(false);}
  });},[router]);
- const links=[{name:'Overview',href:'/dashboard',icon:LayoutDashboard},
+ const links=[{name:'Overview',href:'/dashboard',icon:LayoutDashboard},{name:'Notifications',href:'/dashboard/notifications',icon:Bell},
   ...(profile?.role==='agent'?[{name:'My referrals',href:'/dashboard/referrals',icon:Users}]:[{name:'Applications',href:'/dashboard/applications',icon:ClipboardList}]),
-  ...(!['super_admin','admin'].includes(profile?.role||'')?[]:[{name:'Website',href:'/dashboard/website',icon:Settings},{name:'Form builder',href:'/dashboard/forms',icon:FilePlus2},{name:'District agents',href:'/dashboard/agents',icon:Users},{name:'Commissions',href:'/dashboard/commissions',icon:BarChart3},{name:'Settings',href:'/dashboard/settings',icon:Settings}])];
+  ...(!['super_admin','admin'].includes(profile?.role||'')?[]:[{name:'Website',href:'/dashboard/website',icon:Settings},{name:'Form builder',href:'/dashboard/forms',icon:FilePlus2},{name:'District agents',href:'/dashboard/agents',icon:Users},{name:'Commissions',href:'/dashboard/commissions',icon:BarChart3},{name:'Automations',href:'/dashboard/automations',icon:Bell},{name:'Settings',href:'/dashboard/settings',icon:Settings}])];
  if(!firebaseConfigured)return <main className="page-loader">KASA enrollment is being configured. Firebase credentials are not yet available for this deployment.</main>;
  if(loading||!profile)return <main className="page-loader">Loading secure workspace…</main>;
  return <div className="portal-shell"><aside className={`sidebar ${collapsed?'collapsed':''} ${mobile?'mobile-open':''}`}>
