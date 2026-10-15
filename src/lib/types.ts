@@ -11,10 +11,13 @@ export type FormSchema = {id:string;slug:string;title:string;subtitle:string;kin
 export type SubmissionStatus = 'submitted'|'under_review'|'needs_information'|'accepted'|'rejected'|'letter_issued'|'cdf_submitted'|'cdf_approved'|'payment_verified'|'commission_paid';
 export type ApplicantRecord = {id:string;reference:string;formId:string;formTitle:string;formKind:FormKind;
   formVersion:number;status:SubmissionStatus;answers:Record<string,unknown>;agentId:string|null;
-  submittedAt:string;updatedAt:string;cdfVerification?:{reference:string;verifiedAt:string;verifiedBy:string};
+  submittedAt:string;updatedAt:string;cdfVerification?:{reference:string;verifiedAt:string;verifiedBy:string;fundingMethod?:'cdf';documentChecklist?:string[]};
   formSnapshot?:Pick<FormSchema,'title'|'slug'|'sections'|'version'>;
   paymentVerification?:{reference:string;amount:number;verifiedAt:string;verifiedBy:string};
   internalNotes?:{body:string;at:string;by:string}[];
+  fundingMethod?:'cdf'|'self_funded';
+  fundingStatus?:'government_approval_verified'|'enrollment_payment_verified';
+  documents?:Record<string,{kind:string;label:string;path:string;fileName:string;contentType:string;size:number;uploadedAt:string;uploadedBy:string;verifiedAt:string|null;verifiedBy:string|null}>;
   commission?:{amount:number;currency:string;trigger?:'cdf_approval'|'payment';approvedAt?:string;paidAt?:string;paymentReference?:string};
 };
 export type Role = 'super_admin'|'admin'|'reviewer'|'agent';
