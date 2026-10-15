@@ -7,8 +7,8 @@ permissions:
   contents: read
 jobs:
   check:
-    # KASAINSTITUTE is the runner name; self-hosted is the actual built-in label.
-    runs-on: self-hosted
+    # Require the custom KASAINSTITUTE label for the dedicated self-hosted runner.
+    runs-on: [self-hosted, KASAINSTITUTE]
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
