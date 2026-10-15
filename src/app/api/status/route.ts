@@ -1,9 +1,13 @@
 import {NextResponse} from 'next/server';
-import {isFirebaseReady} from '@/lib/readiness';
+import {isFirebaseConfigured,isFirebaseReady} from '@/lib/readiness';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
-/** Public health endpoint. Never disclose credentials or project identifiers. */
 export async function GET(){
- const ready=isFirebaseReady();
- return NextResponse.json({service:'KASA Enrollment Network',status:ready?'ready':'configuration_required',acceptingApplications:ready},{status:200,headers:{'Cache-Control':'no-store'}});
+ const configured=isFirebaseConfigured(),open=isFirebaseReady();
+ return NextResponse.json({
+  service:'KASA Enrollment Network',
+  status:!configured?'configuration_required':open?'ready':'paused',
+  configurationReady:configured,
+  acceptingApplications:open
+ },{status:200,headers:{'Cache-Control':'no-store'}});
 }
