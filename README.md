@@ -122,7 +122,7 @@ Public recruitment links and the training application buttons are now driven by 
 
 ## Required production activation checklist
 
-The API remains closed after configuring Firebase until **KASA_APPLICATIONS_ENABLED=true** is explicitly set in Vercel. Keep it `false` during setup, staging, rules deployment, App Check configuration, and testing. To open for real applicants, an authorized KASA administrator should verify that:
+The API remains closed after configuring Firebase until **FireStore-controlled intake policy** is explicitly set in Vercel. Keep it `false` during setup, staging, rules deployment, App Check configuration, and testing. To open for real applicants, an authorized KASA administrator should verify that:
 
 1. Authentication registration, email verification, and approval-based staff access work.
 2. Firestore and Storage deny direct client reads/writes; authorized server endpoints function.
@@ -130,4 +130,4 @@ The API remains closed after configuring Firebase until **KASA_APPLICATIONS_ENAB
 4. Applicant and agent records, secure uploads, CDF verification, letter generation, and commission permissions have passed real Firebase integration tests.
 5. Data retention, backups, privacy notices, and a support contact are approved by KASA.
 
-Then set `KASA_APPLICATIONS_ENABLED=true` for production and redeploy. The public `/api/status` response switches to `ready`; monitor runtime logs and test a controlled submission before broad advertising. If an incident occurs, set this variable back to `false` and redeploy to prevent further submissions.
+Then set KASA administrator opening in `/dashboard/intake` for production and redeploy. The public `/api/status` response switches to `ready`; monitor runtime logs and test a controlled submission before broad advertising. If an incident occurs, set this variable back to `false` and redeploy to prevent further submissions.
