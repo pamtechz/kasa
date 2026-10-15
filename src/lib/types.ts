@@ -1,7 +1,7 @@
 export type FieldType = 'text'|'textarea'|'email'|'tel'|'number'|'date'|'select'|'radio'|'checkbox'|'file';
 export type Field = {
   id:string; label:string; type:FieldType; required:boolean;
-  description?:string; placeholder?:string; options?:string[];
+  description?:string; placeholder?:string; options?:string[];optionsSource?:'programmes'|'intakes';
   condition?:{fieldId:string;equals:string};
 };
 export type Section = {id:string;title:string;description?:string;fields:Field[]};
