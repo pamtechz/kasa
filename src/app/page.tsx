@@ -18,7 +18,7 @@ export default function Home(){
  return <main>
   <div className="hero-shell">
    <nav className="top-nav container"><Link href="/" className="brand"><BrandLogo size={62}/><span><strong>{site.organization}</strong><small>{site.subtitle}</small></span></Link>
-    <div className="nav-links"><Link href="/about">About</Link><Link href="/programmes">Programmes</Link><Link href="/fees">Fees</Link><Link href="/announcements">Announcements</Link><Link href="/admissions">Admissions</Link><Link href="/contact">Contact</Link><Link href="/login">Staff login</Link><PublicApplicationLinks placement="nav"/></div></nav>
+    <div className="nav-links"><Link href="/about">About</Link><Link href="/programmes">Programmes</Link><Link href="/fees">Fees</Link><Link href="/announcements">Announcements</Link><Link href="/admissions">Admissions</Link><Link href="/contact">Contact</Link><Link href="/my-applications">My applications</Link><Link href="/login">Staff login</Link><PublicApplicationLinks placement="nav"/></div></nav>
    <div className="container hero-grid"><div className="hero-copy">
     <div className="eyebrow"><span className="pulse-dot"/>{site.badge}</div>
     <h1>{site.heroTitle} <em>{site.heroEmphasis}</em></h1><p>{site.heroDescription}</p>
