@@ -119,3 +119,15 @@ Keep `firebase-admin` at version 13.10.0 for this Next.js/Vercel runtime until t
 Public recruitment links and the training application buttons are now driven by the **published Firestore forms**, not fixed Google Forms or hardcoded slugs. Publishing or unpublishing a form automatically changes the home page and the public form catalog. The metadata-only `GET /api/public/forms` endpoint excludes drafts, form answers and applicant data.
 
 `GET /api/status` is a public status check; it never returns credentials. A missing or inconsistent Firebase configuration, App Check site key, or 32-character rate-limit salt keeps private and public application APIs closed with HTTP 503. Required public and server Firestore project and Storage bucket values must match. After configuration, deploy and test Firestore/Storage deny-by-default rules, the initial admin account and editable forms before publishing links. Readiness is a configuration check, **not** an end-to-end security certification.
+
+## Required production activation checklist
+
+The API remains closed after configuring Firebase until **KASA_APPLICATIONS_ENABLED=true** is explicitly set in Vercel. Keep it `false` during setup, staging, rules deployment, App Check configuration, and testing. To open for real applicants, an authorized KASA administrator should verify that:
+
+1. Authentication registration, email verification, and approval-based staff access work.
+2. Firestore and Storage deny direct client reads/writes; authorized server endpoints function.
+3. The custom form template is imported and reviewed, then published from the admin console.
+4. Applicant and agent records, secure uploads, CDF verification, letter generation, and commission permissions have passed real Firebase integration tests.
+5. Data retention, backups, privacy notices, and a support contact are approved by KASA.
+
+Then set `KASA_APPLICATIONS_ENABLED=true` for production and redeploy. The public `/api/status` response switches to `ready`; monitor runtime logs and test a controlled submission before broad advertising. If an incident occurs, set this variable back to `false` and redeploy to prevent further submissions.

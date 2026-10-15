@@ -6,6 +6,8 @@ const requiredKeys=[
  'RATE_LIMIT_SALT'
 ] as const;
 export function isFirebaseReady():boolean {
+ // Production applications only open after an explicit security and admissions sign-off.
+ if(process.env.KASA_APPLICATIONS_ENABLED!=='true')return false;
  if(!requiredKeys.every(key=>Boolean(process.env[key]?.trim())))return false;
  if((process.env.RATE_LIMIT_SALT||'').length<32)return false;
  return process.env.FIREBASE_PROJECT_ID===process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
