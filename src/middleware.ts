@@ -1,11 +1,16 @@
 import {NextResponse} from 'next/server';
 import type {NextRequest} from 'next/server';
-import {isFirebaseReady} from '@/lib/readiness';
-/** Application APIs fail closed until all required backend configuration is supplied. */
+import {isFirebaseConfigured,isFirebaseReady} from '@/lib/readiness';
+
 export function middleware(req:NextRequest){
- if(req.nextUrl.pathname==='/api/status')return NextResponse.next();
- if(!isFirebaseReady()){
-  return NextResponse.json({error:'KASA applications are not yet open. Backend configuration is in progress.'},{status:503,headers:{'Cache-Control':'no-store','Retry-After':'3600'}});
+ const path=req.nextUrl.pathname;
+ if(path==='/api/status'||path==='/api/public/site')return NextResponse.next();
+ if(!isFirebaseConfigured()){
+  return NextResponse.json({error:'KASA Firebase is not configured. Contact the system administrator.'},{status:503,headers:{'Cache-Control':'no-store'}});
+ }
+ // Staff can configure forms and content before launching public enrollment.
+ if(path.startsWith('/api/public/')&&!isFirebaseReady()){
+  return NextResponse.json({error:'KASA applications are not yet open.'},{status:503,headers:{'Cache-Control':'no-store'}});
  }
  return NextResponse.next();
 }
