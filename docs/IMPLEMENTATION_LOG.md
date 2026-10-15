@@ -20,7 +20,7 @@ Changes in branch (verification outcome to be appended when build/merge complete
 7. Staff CDF document upload/verification with required-doc checklist, official approval evidence and separate funding method.
 8. Self-funded commissions require verified successful enrollment and configured payment threshold.
 9. Administrative screens for intake controls, data seeding and programme/announcement management.
-10. Documentation, traceability and delivery gates.
+10. Verified-email student sign-in, own-status portal and secure legacy-application claiming; optional automatic linking on authenticated submission.\n11. Documentation, traceability and delivery gates.
 
 ## Deployment gates
 - **Build and TypeScript check:** not yet recorded as passed for this branch.
