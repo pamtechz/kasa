@@ -20,13 +20,13 @@ Changes in branch (verification outcome to be appended when build/merge complete
 7. Staff CDF document upload/verification with required-doc checklist, official approval evidence and separate funding method.
 8. Self-funded commissions require verified successful enrollment and configured payment threshold.
 9. Administrative screens for intake controls, data seeding and programme/announcement management.
-10. Verified-email student sign-in, own-status portal and secure legacy-application claiming; optional automatic linking on authenticated submission.\n11. Documentation, traceability and delivery gates.
+10. Firestore-powered programme and intake choice sources for the editable application builder.\n11. Admin-editable privacy and application terms, published as dedicated pages.\n12. Verified-email student sign-in, own-status portal and secure legacy-application claiming; optional automatic linking on authenticated submission.\n13. Documentation, traceability and delivery gates.
 
 ## Deployment gates
-- **Build and TypeScript check:** not yet recorded as passed for this branch.
-- **GitHub self-hosted runner:** user confirms KASAINSTITUTE online; existing workflow jobs have been observed queued. Runner label and scope require operational verification.
+- **Build and TypeScript check:** NOT PASSED/VERIFIED for the full current branch; earlier intermediate previews failed on a Firestore document typing error, which was corrected. A fresh full build remains required.
+- **Vercel:** New deployments are currently rejected with HTTP 402 `api-deployments-free-per-day` (more than 100 per day); the user must wait for the quota reset or resolve their plan quota. Existing production remains on the previous merged release.\n- **GitHub self-hosted runner:** user confirms KASAINSTITUTE online; existing workflow jobs have been observed queued. Runner label and scope require operational verification.
 - **Firebase Auth/Firestore/Storage/App Check:** credentials exist in Vercel, but that is not proof of live integration; first-admin bootstrap, real Firestore seed, rules deployment and end-to-end tests must be verified before public intake opens.
-- **Firestores seeded:** Not yet confirmed; server-side /admin/seed feature is a preparation step, not a claim of execution.
+- **Firestore seeded:** Not yet confirmed; server-side /admin/seed feature is a preparation step, not a claim of execution.
 - **CDF official approvals and payments:** No live transactions or external government approval has been verified by this work.
 - **Email/SMS/WhatsApp/payout automation:** Not active.
 - **Published site:** Existing production deployment may continue while feature branch is tested.
