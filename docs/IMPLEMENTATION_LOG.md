@@ -41,3 +41,11 @@ Changes in branch (verification outcome to be appended when build/merge complete
 
 ## Instructions for future maintainers
 Read `docs/REQUIREMENTS_REGISTER.md` and this log before coding. Update both for scope or status changes; don't silently change dates, fee values, user roles, funding conditions or qualification wording.
+
+## 15 October 2026 — Bootstrap production 404 follow-up
+- Confirmed `https://kasaschool.vercel.app/bootstrap` returned HTTP 404 because the new route existed only in feature PR #5.
+- Delivered a minimal, independently mergeable security fix as GitHub PR #6. Merged to `main` at `c0d15ffe2d31bf77b07191eea85f39e6e7b8b7e5` (protected bootstrap API and page, login link).
+- Verified `/bootstrap` returns HTTP 200 on the linked Vercel preview; the preview `/api/bootstrap` returned 503 because the preview environment is not fully configured with Firebase public web settings.
+- The production domain was still serving an older release after merge. An explicit production deployment attempt failed with Vercel HTTP 402 `api-deployments-free-per-day` (daily quota exceeded), retry after approximately 24 hours or use plan/billing options; deployment success **not** claimed.
+- GitHub Actions jobs still queued: check whether the repository can use the online `KASAINSTITUTE` self-hosted runner and whether its required labels are configured.
+- PR #5 remains unmerged until its full Next.js/TypeScript build and Firebase security checks pass, with the bootstrap fix preserved in its branch.
