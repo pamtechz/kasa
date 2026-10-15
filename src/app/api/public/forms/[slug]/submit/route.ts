@@ -25,7 +25,9 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{slug:string
   if(body.formVersion!==form.version)throw new HttpError(409,'Form has changed. Refresh to submit the current version.');
   const answers=cleanAnswers(form,body.answers);
   let agentId:string|null=null;
-  if(body.agentCode!==undefined && body.agentCode!==null && body.agentCode!==''){
+  if(form.kind==='student'&&body.agentCode!==undefined && body.agentCode!==null && body.agentCode!==''){
+   const referralSettings=await db.collection('settings').doc('operations').get();
+   if(referralSettings.data()?.referralsEnabled===false)throw new HttpError(400,'The referral program is currently paused.');
    if(typeof body.agentCode!=='string'||!/^[A-Z0-9-]{5,24}$/.test(body.agentCode))throw new HttpError(400,'Invalid agent referral code.');
    const agent=await db.collection('profiles').where('agentCode','==',body.agentCode).limit(1).get();
    if(agent.empty||agent.docs[0].data().role!=='agent'||!agent.docs[0].data().active)throw new HttpError(400,'Agent code is not active.');
