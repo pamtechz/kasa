@@ -4,6 +4,7 @@ export const policySchema=z.object({
  opensAt:z.string().datetime({offset:true}).nullable(),
  closesAt:z.string().datetime({offset:true}).nullable(),
  formOverrides:z.record(z.boolean()),
+ intakes:z.array(z.object({id:z.string().regex(/^[a-z0-9-]{3,80}$/),label:z.string().trim().min(3).max(120),active:z.boolean()})).max(24).default([]),
  cdfRequiredDocuments:z.array(z.object({
   id:z.string().regex(/^[a-z][a-z0-9-]{1,60}$/),
   label:z.string().trim().min(3).max(120)
@@ -17,7 +18,7 @@ export const policySchema=z.object({
 });
 export type IntakePolicy=z.infer<typeof policySchema>;
 export const initialIntake:IntakePolicy={
- applicationsOpen:false,opensAt:null,closesAt:null,formOverrides:{},
+ applicationsOpen:false,opensAt:null,closesAt:null,formOverrides:{},intakes:[],
  cdfRequiredDocuments:[
   {id:'identity-document',label:'Proof of applicant identity'},
   {id:'cdf-application-evidence',label:'Evidence of CDF bursary application submission'},
