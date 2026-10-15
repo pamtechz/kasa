@@ -3,6 +3,7 @@ import {db,storage,adminAuth} from '@/lib/firebase-admin';
 import {fail,HttpError,json} from '@/lib/errors';
 import {cleanAnswers,applicantFingerprint} from '@/lib/schema';
 import {digest,newId,rateLimit,requireAppCheck,sameOrigin} from '@/lib/security';
+import {populateDynamicOptions} from '@/lib/form-options';
 import type {FormSchema} from '@/lib/types';
 import type {Attachment} from '@/lib/schema';
 import {loadIntake} from '@/lib/intake-server';
@@ -24,7 +25,7 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{slug:string
   const q=await db.collection('forms').where('slug','==',slug).limit(1).get();
   const formDoc=q.docs[0];
   if(!formDoc||!formDoc.data().published)throw new HttpError(404,'This form is closed.');
-  const form={...formDoc.data(),id:formDoc.id} as FormSchema;
+  const form=await populateDynamicOptions({...formDoc.data(),id:formDoc.id} as FormSchema);
   const state=intakeWindow(await loadIntake(),slug);
   if(!state.open)throw new HttpError(403,state.reason);
   if(body.formVersion!==form.version)throw new HttpError(409,'Form has changed. Refresh to submit the current version.');
