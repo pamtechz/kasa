@@ -19,7 +19,7 @@ export function Portal({children}:{children:React.ReactNode}){
   try{const r=await api<{profile:Profile}>('/api/me');setProfile(r.profile);}catch{router.replace('/login');}finally{setLoading(false);}
  }),[router]);
  const links=[{name:'Overview',href:'/dashboard',icon:LayoutDashboard},{name:'Applications',href:'/dashboard/applications',icon:ClipboardList},
-  ...(profile?.role==='agent'?[]:[{name:'Form builder',href:'/dashboard/forms',icon:FilePlus2},{name:'District agents',href:'/dashboard/agents',icon:Users},{name:'Settings',href:'/dashboard/settings',icon:Settings}])];
+  ...(!['super_admin','admin'].includes(profile?.role||'')?[]:[{name:'Form builder',href:'/dashboard/forms',icon:FilePlus2},{name:'District agents',href:'/dashboard/agents',icon:Users},{name:'Settings',href:'/dashboard/settings',icon:Settings}])];
  if(loading||!profile)return <main className="page-loader">Loading secure workspace…</main>;
  return <div className="portal-shell"><aside className={`sidebar ${collapsed?'collapsed':''} ${mobile?'mobile-open':''}`}>
   <div className="side-header"><Link href="/dashboard" className="brand"><span className="brand-mark">K</span>{!collapsed&&<span><strong>KASA</strong><small>Administration</small></span>}</Link><button className="icon-btn close-mobile" onClick={()=>setMobile(false)} aria-label="Close menu"><X size={20}/></button></div>
