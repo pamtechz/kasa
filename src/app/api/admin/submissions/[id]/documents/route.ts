@@ -24,7 +24,7 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{id:string}>
   if(!validMime(bytes,file.type))throw new HttpError(400,'File content does not match its declared type.');
   const ref=db.collection('submissions').doc(id),record=await ref.get();
   if(!record.exists||record.data()?.formKind!=='student')throw new HttpError(404,'Student application not found.');
-  if(['rejected','commission_paid'].includes(String(record.data()?.status)))throw new HttpError(409,'Cannot modify documents for this status.');
+  if(['rejected','cdf_approved','payment_verified','commission_paid'].includes(String(record.data()?.status)))throw new HttpError(409,'Cannot modify documents for this status.');
   const path='cdf-documents/'+id+'/'+newId()+'.'+allowed[file.type];
   const obj=storage.bucket().file(path);
   await obj.save(bytes,{resumable:false,contentType:file.type,metadata:{cacheControl:'private,no-store'}});
@@ -50,6 +50,7 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
   const ref=db.collection('submissions').doc(id),now=new Date().toISOString();
   await db.runTransaction(async tx=>{
    const snap=await tx.get(ref),document=snap.data()?.documents?.[kind];
+   if(['rejected','cdf_approved','payment_verified','commission_paid'].includes(String(snap.data()?.status)))throw new HttpError(409,'Funding documentation is locked after verification.');
    if(!snap.exists||!document?.path)throw new HttpError(404,'Document not found.');
    tx.update(ref,{['documents.'+kind+'.verifiedAt']:body?.verified===true?now:null,['documents.'+kind+'.verifiedBy']:body?.verified===true?actor.uid:null,updatedAt:now});
   });
