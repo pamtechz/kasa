@@ -32,6 +32,7 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{id:string}>
   try{
    await db.runTransaction(async tx=>{
     const snap=await tx.get(ref);if(!snap.exists||snap.data()?.formKind!=='student')throw new HttpError(404,'Application changed.');
+    if(['rejected','cdf_approved','payment_verified','commission_paid'].includes(String(snap.data()?.status)))throw new HttpError(409,'Funding documentation is locked after approval or rejection.');
     const old=snap.data()?.documents||{};
     replaced=old[kind]?.path||'';
     tx.update(ref,{['documents.'+kind]:{kind,label:rule.label,path,fileName:file.name.slice(0,150),contentType:file.type,size:file.size,uploadedBy:actor.uid,uploadedAt:new Date().toISOString(),verifiedAt:null,verifiedBy:null},updatedAt:new Date().toISOString()});
