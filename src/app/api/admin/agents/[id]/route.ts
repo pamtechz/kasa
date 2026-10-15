@@ -7,6 +7,13 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
  const body=await req.json();const changes:Record<string,unknown>={updatedAt:new Date().toISOString()};
  if(typeof body.active==='boolean')changes.active=body.active;
  if(body.district!==undefined){const district=safeText(body.district,120);if(district.length<2)throw new HttpError(400,'Valid district required.');changes.district=district;}
+ for(const field of ['province','constituency','ward','displayName'] as const){
+  if(body[field]!==undefined){
+   const value=safeText(body[field],field==='displayName'?120:100);
+   if(field==='displayName'&&value.length<2)throw new HttpError(400,'Enter the agent full name.');
+   changes[field]=value;
+  }
+ }
  if(Object.keys(changes).length===1)throw new HttpError(400,'No valid changes supplied.');
  const ref=db.collection('profiles').doc(id);const snap=await ref.get();
  if(!snap.exists||snap.data()?.role!=='agent')throw new HttpError(404,'Agent not found.');

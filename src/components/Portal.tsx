@@ -3,9 +3,10 @@ import {useEffect,useState} from 'react';
 import {onAuthStateChanged,signOut} from 'firebase/auth';
 import {useRouter,usePathname} from 'next/navigation';
 import Link from 'next/link';
-import {BarChart3,ChevronLeft,ChevronRight,ClipboardList,FilePlus2,LayoutDashboard,LogOut,Menu,Settings,Users,X} from 'lucide-react';
+import {BarChart3,ChevronLeft,ChevronRight,ClipboardList,FilePlus2,LayoutDashboard,LogOut,Menu,Settings,Users,X,Bell} from 'lucide-react';
 import {auth,authHeaders,firebaseConfigured} from '@/lib/firebase-client';
 import type {Profile} from '@/lib/types';
+import {BrandLogo} from '@/components/BrandLogo';
 export async function api<T=any>(path:string,init:RequestInit={}):Promise<T>{
  const headers=await authHeaders();
  const response=await fetch(path,{...init,cache:'no-store',headers:{...headers,...(init.body instanceof FormData?{}:{'Content-Type':'application/json'}),...init.headers}});
@@ -19,12 +20,13 @@ export function Portal({children}:{children:React.ReactNode}){
   if(!user){router.replace('/login');return;}
   try{const r=await api<{profile:Profile}>('/api/me');setProfile(r.profile);}catch{router.replace('/login');}finally{setLoading(false);}
  });},[router]);
- const links=[{name:'Overview',href:'/dashboard',icon:LayoutDashboard},{name:'Applications',href:'/dashboard/applications',icon:ClipboardList},
-  ...(!['super_admin','admin'].includes(profile?.role||'')?[]:[{name:'Form builder',href:'/dashboard/forms',icon:FilePlus2},{name:'District agents',href:'/dashboard/agents',icon:Users},{name:'Settings',href:'/dashboard/settings',icon:Settings}])];
+ const links=[{name:'Overview',href:'/dashboard',icon:LayoutDashboard},{name:'Notifications',href:'/dashboard/notifications',icon:Bell},
+  ...(profile?.role==='agent'?[{name:'My referrals',href:'/dashboard/referrals',icon:Users}]:[{name:'Applications',href:'/dashboard/applications',icon:ClipboardList}]),
+  ...(!['super_admin','admin'].includes(profile?.role||'')?[]:[{name:'Website',href:'/dashboard/website',icon:Settings},{name:'Form builder',href:'/dashboard/forms',icon:FilePlus2},{name:'District agents',href:'/dashboard/agents',icon:Users},{name:'Commissions',href:'/dashboard/commissions',icon:BarChart3},{name:'Automations',href:'/dashboard/automations',icon:Bell},{name:'Settings',href:'/dashboard/settings',icon:Settings}]),...(profile?.role==='super_admin'?[{name:'Staff roles',href:'/dashboard/staff',icon:Users}]:[])];
  if(!firebaseConfigured)return <main className="page-loader">KASA enrollment is being configured. Firebase credentials are not yet available for this deployment.</main>;
  if(loading||!profile)return <main className="page-loader">Loading secure workspace…</main>;
  return <div className="portal-shell"><aside className={`sidebar ${collapsed?'collapsed':''} ${mobile?'mobile-open':''}`}>
-  <div className="side-header"><Link href="/dashboard" className="brand"><span className="brand-mark">K</span>{!collapsed&&<span><strong>KASA</strong><small>Administration</small></span>}</Link><button className="icon-btn close-mobile" onClick={()=>setMobile(false)} aria-label="Close menu"><X size={20}/></button></div>
+  <div className="side-header"><Link href="/dashboard" className="brand"><BrandLogo size={48}/>{!collapsed&&<span><strong>KASA</strong><small>Administration</small></span>}</Link><button className="icon-btn close-mobile" onClick={()=>setMobile(false)} aria-label="Close menu"><X size={20}/></button></div>
   <div className="side-label">{!collapsed?'WORKSPACE':'·'}</div><nav className="side-links">{links.map(l=>{const I=l.icon;return <Link key={l.href} title={l.name} className={`side-link ${path===l.href||l.href!=='/dashboard'&&path.startsWith(l.href+'/')?'active':''}`} href={l.href} onClick={()=>setMobile(false)}><I size={19}/>{!collapsed&&<span>{l.name}</span>}</Link>})}</nav>
   <div className="side-bottom"><button className="side-link" onClick={()=>setCollapsed(s=>!s)}><ChevronLeft size={18} style={{transform:collapsed?'rotate(180deg)':undefined}}/>{!collapsed&&'Collapse sidebar'}</button><button className="side-link" onClick={()=>void signOut(auth).then(()=>router.replace('/login'))}><LogOut size={18}/>{!collapsed&&'Sign out'}</button></div>
  </aside>{mobile&&<button className="sidebar-overlay" onClick={()=>setMobile(false)} aria-label="Close menu"/>}<div className="portal-body"><header className="portal-top"><div className="top-title"><button onClick={()=>setMobile(true)} className="icon-btn menu-button" aria-label="Open menu"><Menu size={20}/></button><span>Enrollment Operations</span><ChevronRight size={14}/><span className="muted">{links.find(l=>path.startsWith(l.href)&&l.href!=='/dashboard')?.name||'Overview'}</span></div><div className="avatar-area"><span className="role-pill">{profile.role.replace('_',' ')}</span><div className="mini-avatar">{(profile.displayName||profile.email)[0].toUpperCase()}</div><span className="profile-name">{profile.displayName||profile.email}</span></div></header><div className="portal-main">{children}</div></div></div>;

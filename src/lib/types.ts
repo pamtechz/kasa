@@ -8,12 +8,14 @@ export type Section = {id:string;title:string;description?:string;fields:Field[]
 export type FormKind = 'agent'|'student'|'custom';
 export type FormSchema = {id:string;slug:string;title:string;subtitle:string;kind:FormKind;
   published:boolean;version:number;sections:Section[];createdAt?:string;updatedAt?:string};
-export type SubmissionStatus = 'submitted'|'under_review'|'needs_information'|'accepted'|'rejected'|'letter_issued'|'cdf_submitted'|'cdf_approved'|'commission_paid';
+export type SubmissionStatus = 'submitted'|'under_review'|'needs_information'|'accepted'|'rejected'|'letter_issued'|'cdf_submitted'|'cdf_approved'|'payment_verified'|'commission_paid';
 export type ApplicantRecord = {id:string;reference:string;formId:string;formTitle:string;formKind:FormKind;
   formVersion:number;status:SubmissionStatus;answers:Record<string,unknown>;agentId:string|null;
   submittedAt:string;updatedAt:string;cdfVerification?:{reference:string;verifiedAt:string;verifiedBy:string};
   formSnapshot?:Pick<FormSchema,'title'|'slug'|'sections'|'version'>;
-  commission?:{amount:number;currency:string;paidAt?:string;paymentReference?:string};
+  paymentVerification?:{reference:string;amount:number;verifiedAt:string;verifiedBy:string};
+  internalNotes?:{body:string;at:string;by:string}[];
+  commission?:{amount:number;currency:string;trigger?:'cdf_approval'|'payment';approvedAt?:string;paidAt?:string;paymentReference?:string};
 };
 export type Role = 'super_admin'|'admin'|'reviewer'|'agent';
-export type Profile = {uid:string;email:string;displayName:string;role:Role;active:boolean;agentCode?:string;district?:string};
+export type Profile = {uid:string;email:string;displayName:string;role:Role;active:boolean;agentCode?:string;district?:string;province?:string;constituency?:string;ward?:string;commissionOverride?:number};
