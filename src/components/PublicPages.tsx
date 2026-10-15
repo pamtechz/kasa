@@ -5,13 +5,14 @@ import {ArrowRight,CalendarDays,BookOpen,Info} from 'lucide-react';
 import {defaultSite,type SiteSettings} from '@/lib/site';
 import type {Programme,Announcement} from '@/lib/content';
 import {PublicApplicationLinks} from '@/components/PublicApplicationLinks';
-type Mode='about'|'how'|'contact'|'agents'|'admissions';
+type Mode='about'|'how'|'contact'|'agents'|'admissions'|'privacy'|'terms';
 export function InformationPage({mode}:{mode:Mode}){
  const [site,setSite]=useState<SiteSettings>(defaultSite),[intake,setIntake]=useState<{open:boolean;reason?:string;opensAt?:string|null;closesAt?:string|null}|null>(null);
  useEffect(()=>{
   fetch('/api/public/site').then(r=>r.json()).then(r=>{if(r?.site)setSite(r.site)}).catch(()=>{});
   if(mode==='admissions')fetch('/api/public/intake').then(r=>r.json()).then(setIntake).catch(()=>{});
  },[mode]);
+ if(mode==='privacy'||mode==='terms')return <div className="site-article"><h2>{mode==='privacy'?'Applicant privacy notice':'Application terms'}</h2><div className="site-prose">{mode==='privacy'?site.privacyText:site.termsText}</div><p>For clarification, use the official <Link href="/contact" className="text-link">KASA contact page</Link>.</p></div>;
  if(mode==='about')return <><p className="lead-copy">{site.aboutDescription}</p><div className="site-cards">{site.aboutValues.map((x,i)=><article className="site-card" key={i}><h2>{x.title}</h2><p>{x.description}</p></article>)}</div><p>Interested in the programmes? <Link className="text-link" href="/programmes">Explore available courses <ArrowRight size={15}/></Link></p></>;
  if(mode==='how')return <><p className="lead-copy">{site.howDescription}</p><div className="site-cards">{site.steps.map((x,i)=><article className="site-card" key={i}><span className="overline">STEP {i+1}</span><h2>{x.title}</h2><p>{x.description}</p></article>)}</div><p>Acceptance to a programme is separate from government sponsorship approval.</p></>;
  if(mode==='contact')return <div className="site-cards"><article className="site-card"><h2>{site.contactTitle}</h2><p>{site.contactDescription}</p><p>{site.contactEmail?<a href={'mailto:'+site.contactEmail}>{site.contactEmail}</a>:'Email not published yet'}</p><p>{site.contactPhone?<a href={'tel:'+site.contactPhone}>{site.contactPhone}</a>:'Phone contact not published yet'}</p></article></div>;
