@@ -2,7 +2,7 @@
 import {useMemo,useState} from 'react';
 import {ArrowLeft,ArrowRight,CheckCircle2,LoaderCircle,Paperclip,ShieldCheck} from 'lucide-react';
 import type {Field,FormSchema} from '@/lib/types';
-import {appCheckToken} from '@/lib/firebase-client';
+import {appCheckToken,auth} from '@/lib/firebase-client';
 function valString(v:unknown){return typeof v==='string'?v:'';}
 export function DynamicForm({form,agentCode}:{form:FormSchema;agentCode?:string}){
  const [answers,setAnswers]=useState<Record<string,unknown>>({});
@@ -39,8 +39,9 @@ export function DynamicForm({form,agentCode}:{form:FormSchema;agentCode?:string}
   setBusy(true);setError('');
   try{
    const token=await appCheckToken();
+   const idToken=auth?.currentUser&&form.kind==='student'?await auth.currentUser.getIdToken():'';
    const res=await fetch(`/api/public/forms/${encodeURIComponent(form.slug)}/submit`,{
-    method:'POST',headers:{'Content-Type':'application/json',...(token?{'X-Firebase-AppCheck':token}:{})},
+    method:'POST',headers:{'Content-Type':'application/json',...(token?{'X-Firebase-AppCheck':token}:{}),...(idToken?{'Authorization':'Bearer '+idToken}:{})},
     body:JSON.stringify({formVersion:form.version,answers,agentCode:agentCode||undefined})
    });
    const out=await res.json();if(!res.ok)throw Error(out.error||'Submission failed.');
