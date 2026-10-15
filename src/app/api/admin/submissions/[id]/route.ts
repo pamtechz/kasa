@@ -2,6 +2,7 @@ import {db} from '@/lib/firebase-admin';
 import {fail,json,HttpError} from '@/lib/errors';
 import {operator,audit,safeText,sameOrigin} from '@/lib/security';
 import type {SubmissionStatus} from '@/lib/types';
+import {automationSchema,defaultAutomations,formatNotification} from '@/lib/automations';
 export const runtime='nodejs';
 const stages:Record<SubmissionStatus,SubmissionStatus[]>={
  submitted:['under_review','needs_information','rejected'],
@@ -27,6 +28,9 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
   const ref=db.collection('submissions').doc(id);
   const settingsDoc=await db.collection('settings').doc('operations').get();
   const settings=settingsDoc.data()||{};
+  const automationDoc=await db.collection('settings').doc('automations').get();
+  const parsedAutomations=automationSchema.safeParse(automationDoc.data()?.config);
+  const automationConfig=parsedAutomations.success?parsedAutomations.data:defaultAutomations;
   const now=new Date().toISOString();
   await db.runTransaction(async tx=>{
    const snap=await tx.get(ref);
@@ -71,6 +75,17 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
     });
    }
    tx.update(ref,changes);
+   // In-app event queue is part of the same transaction as the status change.
+   // No email/SMS or money transfer is initiated here.
+   for(const rule of automationConfig.rules.filter(r=>r.enabled&&r.event===status)){
+    if(rule.recipient==='agent'&&!previous.agentId)continue;
+    tx.create(db.collection('notificationOutbox').doc(),{
+     kind:'application_status',submissionId:id,reference:String(previous.reference||''),
+     event:status,recipient:rule.recipient,recipientUid:rule.recipient==='agent'?previous.agentId:null,
+     title:rule.name,message:formatNotification(rule.template,String(previous.reference||'')),
+     state:'pending',createdAt:now
+    });
+   }
   });
   await audit(actor.uid,'application.status_changed',id,{status});
   return json({ok:true});
