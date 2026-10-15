@@ -1,4 +1,6 @@
 import {PDFDocument,StandardFonts,rgb} from 'pdf-lib';
+import {readFile} from 'node:fs/promises';
+import {join} from 'node:path';
 import {db} from '@/lib/firebase-admin';
 import {fail,HttpError} from '@/lib/errors';
 import {operator} from '@/lib/security';
@@ -23,7 +25,7 @@ export async function GET(req:Request,{params}:{params:Promise<{id:string}>}){
   const {id}=await params;const snap=await db.collection('submissions').doc(id).get();
   if(!snap.exists)throw new HttpError(404,'Application not found.');
   const applicant=snap.data()!;
-  if(applicant.formKind!=='student'||!['letter_issued','cdf_submitted','cdf_approved','commission_paid'].includes(applicant.status))
+  if(applicant.formKind!=='student'||!['letter_issued','cdf_submitted','cdf_approved','payment_verified','commission_paid'].includes(applicant.status))
    throw new HttpError(403,'A letter can only be generated after KASA has issued admission acceptance.');
   const settings=(await db.collection('settings').doc('operations').get()).data()||{};
   const cfg=settings.acceptanceLetter;
@@ -40,8 +42,9 @@ export async function GET(req:Request,{params}:{params:Promise<{id:string}>}){
   const regular=await pdf.embedFont(StandardFonts.Helvetica),bold=await pdf.embedFont(StandardFonts.HelveticaBold);
   const x=65,maxW=465;
   page.drawRectangle({x:0,y:778,width:595,height:64,color:rgb(.07,.24,.17)});
-  page.drawText(ascii(settings.organization||'KASA'),{x,y:803,size:23,font:bold,color:rgb(1,1,1)});
-  page.drawText('OFFICIAL ADMISSIONS CORRESPONDENCE',{x,y:787,size:9,font:regular,color:rgb(.82,.92,.85)});
+  try{const logo=await pdf.embedPng(await readFile(join(process.cwd(),'public','kasa-logo-white.png')));page.drawImage(logo,{x:62,y:784,width:48,height:50});}catch{/* Header remains legible if the asset is unavailable. */}
+  page.drawText(ascii(settings.organization||'KASA'),{x:120,y:803,size:23,font:bold,color:rgb(1,1,1)});
+  page.drawText('OFFICIAL ADMISSIONS CORRESPONDENCE',{x:120,y:787,size:9,font:regular,color:rgb(.82,.92,.85)});
   let y=734;
   page.drawText('ACCEPTANCE LETTER',{x,y,size:18,font:bold,color:rgb(.06,.25,.16)});y-=33;
   page.drawText(`Reference: ${ascii(applicant.reference)}`,{x,y,size:10,font:bold,color:rgb(.1,.2,.16)});y-=19;
