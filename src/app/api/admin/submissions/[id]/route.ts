@@ -1,6 +1,6 @@
 import {db} from '@/lib/firebase-admin';
 import {fail,json,HttpError} from '@/lib/errors';
-import {operator,audit,safeText,sameOrigin} from '@/lib/security';
+import {operator,audit,safeText,sameOrigin,digest} from '@/lib/security';
 import {normalizedIntake} from '@/lib/intake-policy';
 import type {SubmissionStatus} from '@/lib/types';
 import {automationSchema,defaultAutomations,formatNotification} from '@/lib/automations';
@@ -51,6 +51,10 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
     const trigger=status==='payment_verified'?'payment':'cdf_approval';
     const evidence=safeText(trigger==='payment'?body?.enrollmentPaymentReference:body?.cdfReference,160);
     if(evidence.length<5)throw new HttpError(400,trigger==='payment'?'An independently verified enrollment payment reference is required.':'Official CDF approval reference is required.');
+    // Reserve each official approval/payment transaction reference for one application.
+    const verificationRef=db.collection('fundingVerifications').doc(digest(trigger+':'+evidence.toLowerCase()));
+    const priorVerification=await tx.get(verificationRef);
+    if(priorVerification.exists && priorVerification.data()?.submissionId!==id)throw new HttpError(409,'This funding evidence reference has already been used for another application.');
     if(trigger==='payment'){
      if(body?.enrollmentConfirmed!==true)throw new HttpError(400,'Confirm that enrollment is successful and the verified payment satisfies the institution payment requirement.');
      const paid=Number(body?.enrollmentPaymentAmount);
@@ -75,7 +79,14 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
      changes.commission={amount:rate,currency:'ZMW',trigger,approvedAt:now};
     }
    }
-   if(status==='commission_paid'){
+   if(['payment_verified','cdf_approved'].includes(status)){
+    const trigger=status==='payment_verified'?'payment':'cdf_approval';
+    const source=safeText(trigger==='payment'?body?.enrollmentPaymentReference:body?.cdfReference,160);
+    tx.create(db.collection('fundingVerifications').doc(digest(trigger+':'+source.toLowerCase())),{
+     submissionId:id,kind:trigger,reference:source,verifiedBy:actor.uid,verifiedAt:now
+    });
+   }
+    if(status==='commission_paid'){
     if(!previous.agentId||!previous.commission||previous.commission.paidAt)throw new HttpError(400,'No outstanding commission exists for this application.');
     const paymentReference=safeText(body?.paymentReference,160);
     if(paymentReference.length<5)throw new HttpError(400,'A verified commission transfer reference is required.');
