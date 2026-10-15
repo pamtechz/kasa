@@ -113,3 +113,9 @@ After screening an agent-recruitment application, instruct the successful candid
 The Vercel frontend can deploy before Firebase is connected. All `/api/*` routes return HTTP 503 with a clear JSON message until `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`, and `FIREBASE_STORAGE_BUCKET` are configured. The public Firebase web values (including App Check) must also be configured in Vercel for enrollment and staff login. Do not publish or accept applications until Firebase rules, Authentication and App Check have been deployed and tested.
 
 Keep `firebase-admin` at version 13.10.0 for this Next.js/Vercel runtime until the upstream `jwks-rsa`/`jose` ESM interoperability issue is resolved and integration-tested; the v14 transitive combination can throw `ERR_REQUIRE_ESM` during serverless startup. Never put a service-account private key in a `NEXT_PUBLIC_*` variable or commit one to Git.
+
+## Published forms and public readiness
+
+Public recruitment links and the training application buttons are now driven by the **published Firestore forms**, not fixed Google Forms or hardcoded slugs. Publishing or unpublishing a form automatically changes the home page and the public form catalog. The metadata-only `GET /api/public/forms` endpoint excludes drafts, form answers and applicant data.
+
+`GET /api/status` is a public status check; it never returns credentials. A missing or inconsistent Firebase configuration, App Check site key, or 32-character rate-limit salt keeps private and public application APIs closed with HTTP 503. Required public and server Firestore project and Storage bucket values must match. After configuration, deploy and test Firestore/Storage deny-by-default rules, the initial admin account and editable forms before publishing links. Readiness is a configuration check, **not** an end-to-end security certification.
