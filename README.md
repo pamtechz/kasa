@@ -107,3 +107,9 @@ After screening an agent-recruitment application, instruct the successful candid
 ## Status
 
 **Source-code prototype / deployment-ready structure** (not deployed, not production-certified). The original form's exact questions remain unimported because its contents were not accessible. The app requires your Firebase project credentials and Vercel setup to become live.
+
+## Production readiness and runtime compatibility
+
+The Vercel frontend can deploy before Firebase is connected. All `/api/*` routes return HTTP 503 with a clear JSON message until `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`, and `FIREBASE_STORAGE_BUCKET` are configured. The public Firebase web values (including App Check) must also be configured in Vercel for enrollment and staff login. Do not publish or accept applications until Firebase rules, Authentication and App Check have been deployed and tested.
+
+Keep `firebase-admin` at version 13.10.0 for this Next.js/Vercel runtime until the upstream `jwks-rsa`/`jose` ESM interoperability issue is resolved and integration-tested; the v14 transitive combination can throw `ERR_REQUIRE_ESM` during serverless startup. Never put a service-account private key in a `NEXT_PUBLIC_*` variable or commit one to Git.
