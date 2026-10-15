@@ -5,11 +5,11 @@ const requiredKeys=[
  'NEXT_PUBLIC_FIREBASE_APP_ID','NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET','NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY',
  'RATE_LIMIT_SALT'
 ] as const;
-export function isFirebaseReady():boolean {
- // Production applications only open after an explicit security and admissions sign-off.
- if(process.env.KASA_APPLICATIONS_ENABLED!=='true')return false;
+export function isFirebaseConfigured():boolean {
  if(!requiredKeys.every(key=>Boolean(process.env[key]?.trim())))return false;
  if((process.env.RATE_LIMIT_SALT||'').length<32)return false;
  return process.env.FIREBASE_PROJECT_ID===process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
   && process.env.FIREBASE_STORAGE_BUCKET===process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
 }
+export function isFirebaseReady():boolean {return isFirebaseConfigured()&&process.env.KASA_APPLICATIONS_ENABLED==='true';}
+
