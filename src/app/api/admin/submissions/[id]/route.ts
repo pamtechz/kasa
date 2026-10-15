@@ -8,51 +8,71 @@ const stages:Record<SubmissionStatus,SubmissionStatus[]>={
  under_review:['needs_information','accepted','rejected'],
  needs_information:['under_review','rejected'],
  accepted:['letter_issued','rejected'],
- letter_issued:['cdf_submitted','rejected'],
+ letter_issued:['cdf_submitted','payment_verified','rejected'],
  cdf_submitted:['cdf_approved','rejected'],
- cdf_approved:['commission_paid'],
+ cdf_approved:['commission_paid'],payment_verified:['commission_paid'],
  commission_paid:[],rejected:[]
 };
 export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
  try{
-  sameOrigin(req);const user=await operator(req,['super_admin','admin','reviewer']);
-  const {id}=await params;const body=await req.json();
+  sameOrigin(req);
+  const actor=await operator(req,['super_admin','admin','reviewer']);
+  const {id}=await params;
+  const body=await req.json();
   const status=body?.status as SubmissionStatus;
-  if(!Object.hasOwn(stages,status))throw new HttpError(400,'Invalid status.');
-  if(status==='cdf_approved'&&!(user.role==='super_admin'||user.role==='admin'))throw new HttpError(403,'Administrator approval is required.');
-  if(status==='commission_paid'&&!(user.role==='super_admin'||user.role==='admin'))throw new HttpError(403,'Only administrators can register commission payments.');
+  const note=safeText(body?.note,1000);
+  if(!Object.hasOwn(stages,status))throw new HttpError(400,'Invalid application status.');
+  if(['cdf_approved','payment_verified','commission_paid'].includes(status)&&actor.role==='reviewer')
+   throw new HttpError(403,'An administrator must verify funding and commission payments.');
   const ref=db.collection('submissions').doc(id);
-  const settingsSnap=await db.collection('settings').doc('operations').get();
-  const settings=settingsSnap.data()||{};
+  const settingsDoc=await db.collection('settings').doc('operations').get();
+  const settings=settingsDoc.data()||{};
+  const now=new Date().toISOString();
   await db.runTransaction(async tx=>{
-   const snap=await tx.get(ref);if(!snap.exists)throw new HttpError(404,'Application not found.');
-   const old=snap.data()!;
-   if(!stages[old.status as SubmissionStatus]?.includes(status))throw new HttpError(400,'Invalid status transition.');
-   // Recruitment and custom forms stop at acceptance; CDF and letters are student-only.
-   if(old.formKind!=='student' && ['letter_issued','cdf_submitted','cdf_approved','commission_paid'].includes(status))throw new HttpError(400,'CDF sponsorship and acceptance letters apply only to student enrollments.');
-   const now=new Date().toISOString();
-   const changes:Record<string,unknown>={status,updatedAt:now,history:[...(old.history||[]).slice(-80),{status,at:now,by:user.uid}]};
-   if(status==='cdf_approved'){
-    const evidence=safeText(body?.cdfReference,160);
-    if(evidence.length<5)throw new HttpError(400,'Record the official CDF approval reference.');
-    changes.cdfVerification={reference:evidence,verifiedBy:user.uid,verifiedAt:now};
-    if(old.agentId&&old.formKind==='student'){
-     const amount=Number(settings.commissionAmount||0);
-     if(!Number.isFinite(amount)||amount<=0)throw new HttpError(400,'Set a valid commission amount in Settings first.');
-     if(body.referralVerified!==true)throw new HttpError(400,'Verify the agent referral evidence before reserving commission.');
-     changes.referralVerified={by:user.uid,at:now};
-     changes.commission={amount,currency:'ZMW'};
+   const snap=await tx.get(ref);
+   if(!snap.exists)throw new HttpError(404,'Application not found.');
+   const previous=snap.data()!;
+   if(!stages[previous.status as SubmissionStatus]?.includes(status))
+    throw new HttpError(400,'Invalid status transition. Refresh this application.');
+   if(previous.formKind!=='student'&&['letter_issued','cdf_submitted','cdf_approved','payment_verified','commission_paid'].includes(status))
+    throw new HttpError(400,'Funding, letters and enrollment are for student applications only.');
+   const history=[...(previous.history||[]).slice(-80),{status,at:now,by:actor.uid,...(note?{note}:{})}];
+   const changes:Record<string,unknown>={status,updatedAt:now,history};
+   if(note)changes.internalNotes=[...(previous.internalNotes||[]).slice(-79),{body:note,at:now,by:actor.uid}];
+
+   if(status==='payment_verified'||status==='cdf_approved'){
+    const trigger=status==='payment_verified'?'payment':'cdf_approval';
+    const evidence=safeText(trigger==='payment'?body?.enrollmentPaymentReference:body?.cdfReference,160);
+    if(evidence.length<5)throw new HttpError(400,trigger==='payment'?'An independently verified enrollment payment reference is required.':'Official CDF approval reference is required.');
+    if(trigger==='payment'){
+     const paid=Number(body?.enrollmentPaymentAmount);
+     if(!Number.isFinite(paid)||paid<=0||paid>10000000)throw new HttpError(400,'Enter the verified amount the student paid (ZMW).');
+     changes.paymentVerification={reference:evidence,amount:paid,currency:'ZMW',verifiedBy:actor.uid,verifiedAt:now};
+    }else{
+     changes.cdfVerification={reference:evidence,verifiedBy:actor.uid,verifiedAt:now};
+    }
+    if(previous.agentId){
+     if(body?.referralVerified!==true)throw new HttpError(400,'Independently verify the original agent referral before commission is reserved.');
+     const rate=Number(trigger==='payment'?settings.commissionAmountPaid??settings.commissionAmount:settings.commissionAmountCdf??settings.commissionAmount);
+     if(!Number.isFinite(rate)||rate<=0||rate>50000)throw new HttpError(400,'Configure an appropriate commission rate before approving the referral.');
+     changes.referralVerified={by:actor.uid,at:now};
+     changes.commission={amount:rate,currency:'ZMW',trigger,approvedAt:now};
     }
    }
    if(status==='commission_paid'){
-    if(!old.commission||!old.agentId)throw new HttpError(400,'No commission is payable for this application.');
-    const evidence=safeText(body?.paymentReference,160);
-    if(evidence.length<5)throw new HttpError(400,'Payment reference is required.');
-    changes.commission={...old.commission,paidAt:now,paymentReference:evidence};
+    if(!previous.agentId||!previous.commission||previous.commission.paidAt)throw new HttpError(400,'No outstanding commission exists for this application.');
+    const paymentReference=safeText(body?.paymentReference,160);
+    if(paymentReference.length<5)throw new HttpError(400,'A verified commission transfer reference is required.');
+    changes.commission={...previous.commission,paidAt:now,paymentReference};
+    tx.create(db.collection('commissionPayments').doc(id),{
+     submissionId:id,agentId:previous.agentId,amount:previous.commission.amount,
+     currency:'ZMW',trigger:previous.commission.trigger||'cdf_approval',
+     paymentReference,recordedAt:now,recordedBy:actor.uid
+    });
    }
    tx.update(ref,changes);
   });
-  await audit(user.uid,'application.status_changed',id,{status});
+  await audit(actor.uid,'application.status_changed',id,{status});
   return json({ok:true});
- }catch(e){return fail(e);}
+ }catch(error){return fail(error);}
 }
