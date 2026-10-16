@@ -13,7 +13,13 @@ export const policySchema=z.object({
 }).strict().superRefine((v,ctx)=>{
  if(v.opensAt&&v.closesAt&&Date.parse(v.opensAt)>=Date.parse(v.closesAt))
   ctx.addIssue({code:'custom',message:'Opening date must precede closing date'});
- const ids=v.cdfRequiredDocuments.map(d=>d.id);
+ const intakeIds=v.intakes.map(intake=>intake.id);
+ if(new Set(intakeIds).size!==intakeIds.length)
+  ctx.addIssue({code:'custom',message:'Intake IDs must be unique.'});
+ const activeNames=v.intakes.filter(intake=>intake.active).map(intake=>intake.label.trim().toLowerCase());
+ if(new Set(activeNames).size!==activeNames.length)
+  ctx.addIssue({code:'custom',message:'Active intake names must be unique.'});
+  const ids=v.cdfRequiredDocuments.map(d=>d.id);
  if(new Set(ids).size!==ids.length)ctx.addIssue({code:'custom',message:'Document IDs must be unique'});
 });
 export type IntakePolicy=z.infer<typeof policySchema>;
