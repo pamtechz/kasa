@@ -98,3 +98,12 @@ Read `docs/REQUIREMENTS_REGISTER.md` and this log before coding. Update both for
 - User's prohibition on Vercel deployments remains effective; no Vercel build/deploy was requested. PR #9 remains unmerged to prevent automatic production deployment.
 
 - CI concurrency: newer commits on the same PR branch now cancel superseded queued/in-progress self-hosted runs, avoiding a backlog of obsolete checks. The latest run still needs a reachable authorized runner to execute.
+
+## 16 October 2026 — Null Auth crash, EDURMS parity and controlled Git merging
+- Reproduced the unsafe code path in `src/app/(site)/my-applications/page.tsx`: `signOut(auth)` could run when `auth` was null because `firebase-client.ts` falsely cast null as non-null `Auth`. Firebase Auth now has the honest `Auth|null` type with `requireClientAuth()` and `signOutClient()` guards.
+- Student portal displays checking/guest/ready/unavailable sessions, never displays private account details without a verified signed-in user, and recovers gracefully when Auth is unavailable. It guards sign-out, reference claims, and API responses.
+- Dashboard handles missing Auth, disabled/unauthorized staff profiles and invalid sessions with an actionable recovery view instead of an indefinite spinner. Sidebar preference persists locally. Login validates actual Auth at action time, formats common Firebase errors and allows only explicit safe internal return routes.
+- Compared `pamtechz/EDURMS` (`src/app/auth/login/page.tsx`, `src/app/dashboard/layout.tsx`, `src/components/ui/sidebar.tsx`, `docs/AUTHENTICATION_INTERFACES.md`). Adopted nullable service handling, session error recovery, role-aware navigation and mobile-friendly controls; no school-specific data or authorization rules were copied.
+- `vercel.json` contains `git.deploymentEnabled:false` to prevent GitHub merges from triggering Vercel deployments. Future deployments still require explicit authorization. No Vercel deployment was requested.
+- Regression tests cover nullable Auth, safe sign-out, supported App Check imports, portal navigation and Vercel Git auto-deploy being disabled.
+- **Verification:** source-level assertions performed; full installed Next.js build, Firebase Auth/Firestore E2E and self-hosted CI remain unverified while the runner is queued. Do not claim these checks passed.
