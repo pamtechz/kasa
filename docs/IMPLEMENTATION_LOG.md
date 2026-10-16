@@ -96,3 +96,5 @@ Read `docs/REQUIREMENTS_REGISTER.md` and this log before coding. Update both for
 - Added `npm run test:source`, using Node's built-in test runner, for App Check imports/verification and mobile navigation accessibility markers; all equivalent connector-side source assertions passed. The self-hosted quality workflow runs these before npm install.
 - **Do not claim full build completion**: a real `npm run typecheck` and `npm run build` after dependency installation remains necessary. There is no package lock committed. The user's local Next.js version is 16.4.2 while the repository declares Next.js `^15.5.28`; reinstall declared dependencies for a reproducible check before changing the framework version.
 - User's prohibition on Vercel deployments remains effective; no Vercel build/deploy was requested. PR #9 remains unmerged to prevent automatic production deployment.
+
+- CI concurrency: newer commits on the same PR branch now cancel superseded queued/in-progress self-hosted runs, avoiding a backlog of obsolete checks. The latest run still needs a reachable authorized runner to execute.
