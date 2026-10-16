@@ -2,6 +2,7 @@ import type {NextRequest} from 'next/server';
 import {db,storage,adminAuth} from '@/lib/firebase-admin';
 import {fail,HttpError,json} from '@/lib/errors';
 import {cleanAnswers,applicantFingerprint} from '@/lib/schema';
+import {enrollmentScope,scopedFingerprint} from '@/lib/application-dedupe';
 import {digest,newId,rateLimit,requireAppCheck,sameOrigin} from '@/lib/security';
 import {populateDynamicOptions} from '@/lib/form-options';
 import type {FormSchema} from '@/lib/types';
@@ -62,8 +63,11 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{slug:string
   const autoDoc=await db.collection('settings').doc('automations').get();
   const autoParsed=automationSchema.safeParse(autoDoc.data()?.config);
   const automationConfig=autoParsed.success?autoParsed.data:defaultAutomations;
-  const fingerprint=applicantFingerprint(form.sections.flatMap(s=>s.fields),answers);
-  const fingerprintId=fingerprint?digest(`${form.id}:${fingerprint}`):null;
+  const dedupeFields=form.sections.flatMap(section=>section.fields);
+  const fingerprint=applicantFingerprint(dedupeFields,answers);
+  const scope=enrollmentScope(dedupeFields,answers);
+  const fingerprintId=fingerprint?digest(scopedFingerprint(form.id,fingerprint,dedupeFields,answers)):null;
+  const legacyFingerprintId=fingerprint?digest(form.id+':'+fingerprint):null;
   const id=newId();
   const reference=`KASA-${new Date().getFullYear()}-${id.slice(0,8).toUpperCase()}`;
   const now=new Date().toISOString();
@@ -76,12 +80,33 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{slug:string
    if(!currentForm.exists||!currentForm.data()?.published||currentForm.data()?.version!==form.version)throw new HttpError(409,'Form has changed or closed. Refresh before applying.');
    // Firestore transactions require all reads before any writes.
    const duplicateRef=fingerprintId?db.collection('applicationDedupe').doc(fingerprintId):null;
-   const duplicate=duplicateRef?await tx.get(duplicateRef):null;
-   if(duplicate?.exists)throw new HttpError(409,'An application with this contact has already been submitted. Contact KASA for assistance.');
+   const legacyRef=legacyFingerprintId&&legacyFingerprintId!==fingerprintId
+    ?db.collection('applicationDedupe').doc(legacyFingerprintId):null;
+   const [duplicate,legacy]=await Promise.all([
+    duplicateRef?tx.get(duplicateRef):null,
+    legacyRef?tx.get(legacyRef):null
+   ]);
+   if(duplicate?.exists)throw new HttpError(409,'You have already applied for this course and intake. Contact KASA if you need to amend your application.');
+   // An old contact-only dedupe must not prevent applying to a future intake.
+   // Read its stored submission and block only when the scope matches.
+   if(legacy?.exists){
+    const oldSubmissionId=legacy.data()?.submissionId;
+    if(typeof oldSubmissionId!=='string'||!oldSubmissionId)
+     throw new HttpError(409,'An earlier application needs KASA staff review before you reapply.');
+    const oldSubmission=await tx.get(db.collection('submissions').doc(oldSubmissionId));
+    const oldData=oldSubmission.data();
+    if(!oldData)
+     throw new HttpError(409,'An earlier application needs KASA staff review before you reapply.');
+    const oldFields=(oldData.formSnapshot?.sections||form.sections)
+     .flatMap((section:{fields:typeof dedupeFields})=>section.fields);
+    const oldScope=enrollmentScope(oldFields,oldData.answers||{});
+    if(oldScope===scope)
+     throw new HttpError(409,'You have already applied for this course and intake. Contact KASA to update your application.');
+   }
    const fileRefs=attachments.map(a=>db.collection('fileClaims').doc(digest(a.path)));
    const existing=await Promise.all(fileRefs.map(ref=>tx.get(ref)));
    if(existing.some(s=>s.exists))throw new HttpError(409,'An attachment has already been used. Upload a new copy.');
-   if(duplicateRef)tx.create(duplicateRef,{submissionId:id,formId:form.id,createdAt:now});
+   if(duplicateRef)tx.create(duplicateRef,{submissionId:id,formId:form.id,scope,createdAt:now});
    fileRefs.forEach((ref,index)=>tx.create(ref,{submissionId:id,path:attachments[index].path}));
    tx.create(db.collection('submissions').doc(id),{
     reference,formId:form.id,formTitle:form.title,formKind:form.kind,formVersion:form.version,
