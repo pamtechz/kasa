@@ -48,7 +48,9 @@ async function main(){
  if(!(await availablePort(port,host))){
   console.error(`[KASA] Port ${port} is already in use. Another development server may still be running.`);
   console.error('[KASA] Stop the old server with Ctrl+C, or explicitly select a different port:');
-  console.error('[KASA]   npm run dev -- --port 3001');
+  console.error('[KASA]   npm run dev:3001');
+  console.error('[KASA]   npm run dev -- 3001');
+  console.error('[KASA] Port options passed through npm may arrive as a bare number on Windows.');
   process.exitCode=1;return;
  }
  const require=createRequire(import.meta.url);
