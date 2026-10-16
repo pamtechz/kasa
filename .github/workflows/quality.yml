@@ -5,6 +5,9 @@ on:
     branches: [main]
 permissions:
   contents: read
+concurrency:
+  group: kasa-quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   check:
     # Use an eligible self-hosted runner. The runner NAME KASAINSTITUTE is not automatically a custom label.
@@ -16,6 +19,7 @@ jobs:
         with: {persist-credentials: false}
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with: {node-version: '22'}
+      - run: npm run test:source
       - run: npm install --no-audit --no-fund
       - run: npm run typecheck
       - run: npm run build

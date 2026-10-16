@@ -2,35 +2,98 @@
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import {onAuthStateChanged} from 'firebase/auth';
+import {CheckCircle2,AlertCircle,ArrowRight,LockKeyhole,Database,Zap} from 'lucide-react';
 import {auth,appCheckToken,firebaseConfigured} from '@/lib/firebase-client';
 import {BrandLogo} from '@/components/BrandLogo';
+import {defaultSite,type SiteSettings} from '@/lib/site';
+
+type Connection={state:'checking'|'configuration_required'|'connected'|'unavailable';initialized?:boolean};
 export default function Bootstrap(){
- const [email,setEmail]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
+ const [site,setSite]=useState<SiteSettings>(defaultSite);
+ const [email,setEmail]=useState('');
+ const [verified,setVerified]=useState(false);
+ const [connection,setConnection]=useState<Connection>({state:'checking'});
+ const [busy,setBusy]=useState(false),[message,setMessage]=useState(''),[complete,setComplete]=useState(false);
+
  useEffect(()=>{
-  if(!firebaseConfigured)return;
-  return onAuthStateChanged(auth,user=>setEmail(user?.email||''));
+  const controller=new AbortController();
+  void fetch('/api/public/site',{cache:'no-store',signal:controller.signal})
+   .then(r=>r.ok?r.json():null).then(d=>{if(d?.site)setSite({...defaultSite,...d.site});}).catch(()=>{});
+  void fetch('/api/setup/health',{cache:'no-store',signal:controller.signal})
+   .then(r=>r.json()).then(d=>{
+    if(d?.state==='connected'||d?.state==='unavailable'||d?.state==='configuration_required')
+     setConnection({state:d.state,initialized:d.initialized===true});
+    else setConnection({state:'unavailable'});
+   }).catch(()=>setConnection({state:'unavailable'}));
+  return ()=>controller.abort();
+ },[]);
+ useEffect(()=>{
+  if(!firebaseConfigured||!auth)return;
+  return onAuthStateChanged(auth,user=>{
+   setEmail(user?.email||'');
+   setVerified(Boolean(user?.emailVerified));
+  });
  },[]);
  async function activate(){
   setBusy(true);setMessage('');
   try{
-   const user=auth.currentUser;
-   if(!user)throw Error('Sign in using the nominated administrator account first.');
+   const user=auth?.currentUser;
+   if(!user)throw Error('Sign in with the nominated administrator email first.');
    await user.reload();
-   if(!user.emailVerified)throw Error('Verify your Firebase Authentication email before proceeding.');
-   const token=await user.getIdToken(true);
+   setVerified(user.emailVerified);
+   if(!user.emailVerified)throw Error('Verify your Firebase Authentication email before continuing.');
+   const jwt=await user.getIdToken(true);
    const appCheck=await appCheckToken();
-   const r=await fetch('/api/bootstrap',{method:'POST',headers:{authorization:'Bearer '+token,...(appCheck?{'X-Firebase-AppCheck':appCheck}:{})}});
-   const body=await r.json();if(!r.ok)throw Error(body.error||'Bootstrap failed.');
-   setMessage('Administrator access initialized. Open the dashboard to configure KASA.');
-  }catch(e){setMessage(e instanceof Error?e.message:'Bootstrap failed.');}
+   if(!appCheck)throw Error('Firebase App Check is not available. Ask KASA to verify App Check configuration.');
+   const r=await fetch('/api/bootstrap',{
+    method:'POST',cache:'no-store',
+    headers:{authorization:'Bearer '+jwt,'X-Firebase-AppCheck':appCheck}
+   });
+   const payload=await r.json();
+   if(!r.ok)throw Error(payload.error||'Administrator setup could not be completed.');
+   setComplete(true);setMessage('Administrator account initialized successfully.');
+  }catch(e){setMessage(e instanceof Error?e.message:'Unable to initialize the administrator account.');}
   finally{setBusy(false);}
  }
- return <div className="public-root"><main className="container section-pad"><div className="page-heading"><BrandLogo size={80}/><h1>First administrator setup</h1></div>
- <p>This is a one-time security-controlled setup, not a public administrator registration page. Only the exact email configured as <code>BOOTSTRAP_ADMIN_EMAIL</code> in Vercel, with a verified Firebase Authentication address, may initialize KASA.</p>
- <ol><li>Configure Firebase Authentication (email/password and authorized domain).</li><li>Create your own account at <Link href="/login">Staff registration and login</Link>, then verify the email.</li><li>Sign in, return here and select the secure activation button.</li><li>Open the dashboard, seed the catalogue, review forms and configure the admission window before admitting applicants.</li></ol>
- <p>Signed-in email: <strong>{email||'Not signed in'}</strong></p>
- <div className="inline-form"><button className="btn btn-primary" disabled={busy||!email} onClick={()=>void activate()}>{busy?'Verifying…':'Initialize my KASA administrator account'}</button><Link className="btn btn-outline" href="/dashboard">Open dashboard</Link></div>
- {message&&<p role="status" className="notice">{message}</p>}
- <p><small>Alternative command-line bootstrap: <a href="https://github.com/pamtechz/kasa/blob/main/scripts/bootstrap-admin.mjs" target="_blank" rel="noreferrer">GitHub bootstrap script</a>. Never submit your Firebase private key through the website.</small></p>
- </main></div>;
+ const ready=firebaseConfigured&&verified&&email.length>0&&connection.state==='connected';
+ return <div className="bootstrap-root">
+  <header className="bootstrap-topbar"><div className="bootstrap-inner">
+   <Link href="/" className="bootstrap-identity"><BrandLogo size={54}/><span><strong>KASA</strong><small>Administrator setup</small></span></Link>
+   <Link href="/login?next=%2Fbootstrap" className="bootstrap-toplink">Account sign-in <ArrowRight size={16}/></Link>
+  </div></header>
+  <main className="bootstrap-main bootstrap-inner">
+   <div className="bootstrap-heading"><span className="overline">SECURE SYSTEM INITIALIZATION</span>
+    <h1>{site.bootstrapTitle||defaultSite.bootstrapTitle}</h1>
+    <p>{site.bootstrapDescription||defaultSite.bootstrapDescription}</p>
+   </div>
+   <div className="bootstrap-layout">
+    <section className="bootstrap-panel"><div className="bootstrap-panel-head"><LockKeyhole size={21}/><div><h2>Account verification</h2><p>Confirm the prerequisites before activating the first administrator.</p></div></div>
+     <div className="bootstrap-check">
+      <span className={email?'bootstrap-check-icon is-good':'bootstrap-check-icon'}>{email?<CheckCircle2 size={19}/>:<AlertCircle size={19}/>}</span>
+      <div><strong>Firebase Authentication</strong><p>{email?'Signed in as '+email:'No account signed in. Use your nominated email to sign in.'}</p></div>
+     </div>
+     <div className="bootstrap-check">
+      <span className={verified?'bootstrap-check-icon is-good':'bootstrap-check-icon'}>{verified?<CheckCircle2 size={19}/>:<AlertCircle size={19}/>}</span>
+      <div><strong>Email verification</strong><p>{verified?'Your signed-in email is verified.':'Your email must be verified before administrator initialization.'}</p></div>
+     </div>
+     <div className="bootstrap-check">
+      <span className={connection.state==='connected'?'bootstrap-check-icon is-good':'bootstrap-check-icon'}><Database size={19}/></span>
+      <div><strong>Firestore connectivity</strong><p>{connection.state==='checking'?'Checking the database…':connection.state==='connected'?'Firestore is reachable.':connection.state==='configuration_required'?'Firebase setup is incomplete in this deployment.':'Database connectivity could not be verified.'}</p></div>
+     </div>
+     {connection.initialized&&<div className="notice"><CheckCircle2 size={16}/> An initial administrator has already been registered. Existing administrators can use the dashboard.</div>}
+     {!firebaseConfigured&&<div className="alert-error">This deployment lacks the Firebase browser configuration. The Firebase web-app settings must be configured for this environment before anyone can sign in.</div>}
+     <div className="bootstrap-actions">
+      {email?<button className="btn btn-primary" disabled={!ready||busy||complete} onClick={()=>void activate()}><Zap size={16}/>{busy?'Checking…':complete?'Initialized':'Initialize administrator'}</button>:<Link href="/login?next=%2Fbootstrap" className="btn btn-primary">Sign in or register <ArrowRight size={16}/></Link>}
+      <Link href="/dashboard" className="btn btn-outline">Open dashboard</Link>
+     </div>
+     {message&&<p role="status" className={complete?'notice':'alert-error'}>{message}</p>}
+    </section>
+    <aside className="bootstrap-aside"><div className="bootstrap-aside-title"><BrandLogo size={62}/><div><span className="overline">INITIAL SETUP</span><h2>Getting KASA ready</h2></div></div>
+     <ol className="bootstrap-steps">{(site.bootstrapSteps||defaultSite.bootstrapSteps||[]).map((step,i)=><li key={i}><span>{i+1}</span><p>{step}</p></li>)}</ol>
+     <div className="bootstrap-note"><LockKeyhole size={17}/><p>Only the verified email authorized by KASA's server-side setup policy can initialize the first administrator. This screen never reveals that email or Firebase credentials.</p></div>
+    </aside>
+   </div>
+   <p className="bootstrap-footnote">Using a trusted computer? You can also use the <a href="https://github.com/pamtechz/kasa/blob/main/scripts/bootstrap-admin.mjs" target="_blank" rel="noreferrer">official GitHub bootstrap script</a>. Keep Firebase private keys outside the website and repository.</p>
+  </main>
+ </div>;
 }
