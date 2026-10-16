@@ -84,3 +84,6 @@ Read `docs/REQUIREMENTS_REGISTER.md` and this log before coding. Update both for
 - User explicitly prohibited Vercel deployments without permission. Preview deployments were disabled on the Vercel project before branch development. **No deployment was requested, triggered or promoted during this work.** This branch remains unmerged to prevent an automatic production deployment.
 - Actual Firestore seeding and first-admin activation remain **not performed**: they require the authorized user and valid Firebase Authentication/App Check configuration.
 - See `docs/ADMIN_SETUP_AND_FIRESTORE.md` for the operator checklist and current release gate.
+
+- Follow-up: updated the trusted `scripts/bootstrap-admin.mjs` to create the same single-use `settings/bootstrap` record as the web flow, transactionally and idempotently, so Firestore diagnostics do not falsely report a missing bootstrap after CLI setup. Added local no-deploy, non-destructive draft-form and catalog seeding instructions.
+- A successful environment-variable name check or HTTP 200 response **does not** imply that the real administrator is signed in or the starter content exists. No Firebase mutation was executed from this conversation.
