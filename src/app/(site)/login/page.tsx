@@ -21,6 +21,9 @@ export default function Login(){
    const credential=await signInWithEmailAndPassword(auth,email,password);
    await credential.user.reload();
    if(!credential.user.emailVerified){await sendEmailVerification(credential.user);await signOut(auth);throw Error('Please verify your email address before signing in. A new verification email has been sent.');}
+   // Returning to the bootstrap page never grants a role; the bootstrap API enforces the nominated email.
+   const requested=new URLSearchParams(window.location.search).get('next');
+   if(requested==='/bootstrap'){router.push('/bootstrap');return;}
    const token=await auth.currentUser?.getIdToken(true);
    const resp=await fetch('/api/me',{headers:{Authorization:`Bearer ${token}`}});
    const data=await resp.json();if(resp.ok)router.push('/dashboard');
