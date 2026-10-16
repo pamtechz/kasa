@@ -34,7 +34,7 @@ test('production and development do not share Next.js manifest output',()=>{
  assert.match(config,/KASA_NEXT_LOCAL_DEV === '1'/);
  assert.match(config,/\.next-dev-/);
  assert.match(config,/\: '\.next'/);
- assert.match(runner,/availablePort\(port\)/);
+ assert.match(runner,/availablePort\(port,host\)/);
  assert.match(runner,/EADDRINUSE/);
  assert.match(runner,/KASA_NEXT_LOCAL_DEV_PORT:String\(port\)/);
 });
