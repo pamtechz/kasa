@@ -12,7 +12,8 @@
     "seed": "node scripts/seed-forms.mjs",
     "seed:catalog": "node scripts/seed-catalog.mjs",
     "test:source": "node --experimental-strip-types --test scripts/tests/*.test.mjs",
-    "audit:production": "npm audit --omit=dev --audit-level=high"
+    "audit:production": "npm audit --omit=dev --audit-level=high",
+    "doctor": "node scripts/doctor.mjs"
   },
   "engines": {
     "node": ">=22 <23"
