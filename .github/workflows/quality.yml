@@ -5,6 +5,9 @@ on:
     branches: [main]
 permissions:
   contents: read
+concurrency:
+  group: kasa-quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   check:
     # Use an eligible self-hosted runner. The runner NAME KASAINSTITUTE is not automatically a custom label.
