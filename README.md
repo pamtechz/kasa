@@ -8,14 +8,14 @@ A Vercel-ready, mobile-first Next.js web app for KASA district-agent recruitment
 - Forms, sections, questions, choices, conditional visibility and publication controlled from Firestore via a protected admin builder. Draft/published status and versioning. Submitted applications preserve a snapshot of the questions.
 - Distinct **agent recruitment** and **student enrollment** draft templates to seed into Firestore. Live fields are not compiled into the public app.
 - Google Forms Apps Script template export (`scripts/google-form-export.gs`) and secure admin JSON import. The reference form was not automatically copied because Google returned `403` when retrieving its contents.
-- Applicants get a unique submission reference. Duplicate contact entries for a single form are blocked using salted digests, with per-IP Firestore rate limiting.
+- Applicants get a unique submission reference. Duplicate entries for the same contact, programme and intake are blocked with salted digests; legitimate future-intake or different-course applications are supported, with legacy duplicate-index compatibility and per-IP Firestore rate limiting.
 - Private PDF/JPG/PNG uploads, max 4 MB each, validated server-side (type signatures, metadata, one-time claims). PDFs never live in public Firebase Storage.
 - Staff dashboards, agent referral codes and district assignments. Agents see only their own referral status, **not** full applicant answers or uploaded documents.
 - Multi-stage review: submitted → under review → accepted → acceptance letter issued → CDF submitted → CDF approved → commission paid. Rejection and information-request paths are available.
 - Commission is **not payable until** authorized staff records a verified official CDF reference, verifies agent involvement, and sets a positive commission amount. A payment reference is required to mark it paid. No money is transferred automatically.
 - Dynamic acceptance-letter text and answer-to-placeholder mappings, with secure PDF download after the issued stage.
-- Every privileged endpoint authenticates an email-verified Firebase ID token against an active server-stored staff profile. Strong denial-by-default Firestore and Storage rules, server-side checks, Firebase App Check + replay protection for public POST operations, same-origin checks, no public PII read endpoint, basic request rate limits and audit records.
-- CI quality workflow uses **self-hosted KASAINSTITUTE** runners; Vercel Git integration manages deploy previews and production when a repository is connected.
+- Every privileged endpoint authenticates an email-verified Firebase ID token against an active server-stored staff profile. Strong denial-by-default Firestore and Storage rules, server-side checks, Firebase App Check verification of standard reusable tokens for public POST operations, same-origin checks, no public PII read endpoint, basic request rate limits and audit records.
+- CI quality checks require a **self-hosted GitHub Actions runner** (KASAINSTITUTE must be assigned to the repository). Vercel automatic Git deployments are disabled; deploy only when expressly authorized.
 
 ## Requirements
 
@@ -31,9 +31,16 @@ npm install
 cp .env.example .env.local
 # Populate .env.local with your own Firebase configuration.
 npm run dev
+# Optional when port 3000 belongs to a legitimate other service:
+# npm run dev -- --port 3001
 ```
 
 `npm run build` and `npm run typecheck` require dependencies from the npm registry. This package was authored in an isolated environment where registry access was unavailable, so full Next.js build and end-to-end cloud tests remain pending.
+
+
+### Windows / local Next.js cache recovery
+
+Next.js development uses `.next-dev-<port>/` while production builds continue using `.next/`. Use `npm run doctor` to inspect your local Node version, active Git branch and generated directories without modifying anything. The launcher rejects an occupied port rather than silently switching ports and colliding with generated manifests. If local Git fast-forward fails, do not reset or force-update your branch: follow [LOCAL_DEVELOPMENT_RECOVERY.md](docs/LOCAL_DEVELOPMENT_RECOVERY.md) for safe PowerShell commands, process checks and cache cleanup. This document also explains the local npm audit warnings and how to assess them without forced dependency upgrades.
 
 ### Environment configuration
 
@@ -48,7 +55,7 @@ The Firebase Web SDK values prefixed `NEXT_PUBLIC_` are public **identifiers**; 
 1. Enable Email/Password authentication and configure approved domains, email verification settings and an appropriate password policy.
 2. Create Firestore in the desired region. Deploy `firestore.rules` and `firestore.indexes.json` (deny direct client access).
 3. Enable Cloud Storage (private bucket) and deploy `storage.rules` (deny direct client access).
-4. Configure App Check for the web app using reCAPTCHA v3; set `NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY`. App Check is enforced **in production** on public submission/upload endpoints. Local dev skips App Check to ease development. The server uses limited-use tokens with replay consumption; ensure the service account can verify them.
+4. Configure App Check for the web app using reCAPTCHA v3; set `NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY`. App Check is enforced **in production** on public submission/upload endpoints. Local dev skips App Check to ease development. The current Firebase browser SDK uses standard `getToken()` App Check tokens, verified server-side without one-time consumption; ensure the service account can verify them. Do not claim replay-proof limited-use tokens.
 5. Enable the Firestore TTL policy for `rateLimits.expiresAt` to remove old throttle counters. Set a bucket lifecycle rule to purge unused `staging/` objects after an appropriate period only after implementing migration of *claimed* attachments to permanent paths; do **not** blindly purge all staging files, as the app currently stores accepted attachments there.
 6. Use least-privilege service account access where possible, limit console membership, enable MFA for all administrator account holders at the identity provider/organization level, and consider identity-platform MFA for the application. **Application-level MFA is not yet implemented.**
 7. Configure a written data retention/deletion policy, incident response processes, encrypted backups and compliance review before collecting sensitive national identification or financial documents.
