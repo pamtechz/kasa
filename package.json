@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "bootstrap": "node scripts/bootstrap-admin.mjs",
     "seed": "node scripts/seed-forms.mjs",
-    "seed:catalog": "node scripts/seed-catalog.mjs"
+    "seed:catalog": "node scripts/seed-catalog.mjs",
+    "test:source": "node --test scripts/tests/*.test.mjs"
   },
   "engines": {
     "node": ">=22 <23"
