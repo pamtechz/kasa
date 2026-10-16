@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {enrollmentScope,scopedFingerprint} from '../../src/lib/application-dedupe.ts';
 
 const fields=[
@@ -32,4 +33,18 @@ test('agents without intake or course questions still deduplicate by contact and
  const agentFields=[fields[0]];
  assert.equal(scopedFingerprint('agent','user@example.com',agentFields,{}),scopedFingerprint('agent','user@example.com',agentFields,{}));
  assert.notEqual(scopedFingerprint('agent','user@example.com',agentFields,{}),scopedFingerprint('student','user@example.com',agentFields,{}));
+});
+
+test('the server checks legacy contact-only keys and rejects stale or reused uploads',()=>{
+ const submit=readFileSync(new URL('../../src/app/api/public/forms/[slug]/submit/route.ts',import.meta.url),'utf8');
+ assert.match(submit,/legacyFingerprintId/);
+ assert.match(submit,/oldSubmission=await tx\.get/);
+ assert.match(submit,/oldScope===scope/);
+ assert.match(submit,/new Set\(attachments\.map\(a=>a\.path\)\)/);
+ assert.match(submit,/uploadAge>7\*24\*60\*60\*1000/);
+});
+test('public application links refresh instead of retaining stale forms forever',()=>{
+ const links=readFileSync(new URL('../../src/components/PublicApplicationLinks.tsx',import.meta.url),'utf8');
+ assert.match(links,/CACHE_MAX_AGE/);
+ assert.match(links,/setInterval\(refresh/);
 });
