@@ -77,5 +77,9 @@ export function cleanAnswers(schema:FormSchema,answers:unknown){
 }
 export function applicantFingerprint(fields:Field[],values:Record<string,unknown>){
  const identifier=fields.find(f=>['email','tel'].includes(f.type)&&typeof values[f.id]==='string');
- return identifier?String(values[identifier.id]).toLowerCase().replace(/[\s()-]/g,''):null;
+ if(!identifier)return null;
+ const value=String(values[identifier.id]).trim().toLowerCase();
+ // Hyphens and plus signs are meaningful in email addresses; do not collapse
+ // distinct addresses into the same applicant fingerprint.
+ return identifier.type==='email'?value:value.replace(/[\s()-]/g,'');
 }
