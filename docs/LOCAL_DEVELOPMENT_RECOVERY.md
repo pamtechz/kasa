@@ -84,6 +84,7 @@ These directories are disposable Next.js output, not Firebase records or project
 
 ```powershell
 node --version
+npm run doctor
 npm install
 npm run test:source
 npm run typecheck
