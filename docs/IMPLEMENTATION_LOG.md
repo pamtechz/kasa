@@ -155,3 +155,5 @@ Read `docs/REQUIREMENTS_REGISTER.md` and this log before coding. Update both for
 - Added behavior tests for positional / flagged / equals-style ports and an actual temporary-directory cleanup run verifying that dry-run doesn't delete, confirmation removes generated output, and unrelated files survive.
 - Preserve existing dev/production artifact separation and IPv4/IPv6 collision detection. Documented updated commands in the README and local recovery guide.
 - **No Vercel deployment** requested, initiated, or authorized. KASA remains `git.deploymentEnabled:false`.
+
+- Follow-up verification: the two new Node.js executable tests passed against a local mirror of the committed parser and cache-cleanup source. These tests cover positional port recognition and dry-run/explicit-confirmation deletion safety. The full Next.js build of this branch and Windows-only npm invocation remain to be run on the owner's workstation.
