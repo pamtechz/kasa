@@ -1,66 +1,104 @@
-import {PDFDocument,StandardFonts,rgb} from 'pdf-lib';
-import {readFile} from 'node:fs/promises';
-import {join} from 'node:path';
 import {db} from '@/lib/firebase-admin';
-import {fail,HttpError} from '@/lib/errors';
+import {fail, HttpError} from '@/lib/errors';
 import {operator} from '@/lib/security';
-export const runtime='nodejs';
-function ascii(text:string){return text.replace(/[^\x20-\x7e\n]/g,' ');}
-function wrap(text:string,size:number,maxWidth:number,font:{widthOfTextAtSize(t:string,n:number):number}){
- const lines:string[]=[];
- for(const paragraph of text.split('\n')){
-  if(!paragraph.trim()){lines.push('');continue;}
-  let line='';
-  for(const word of paragraph.split(/\s+/)){
-   const test=line?line+' '+word:word;
-   if(line&&font.widthOfTextAtSize(test,size)>maxWidth){lines.push(line);line=word;}else line=test;
+import {generateAcceptancePackPdf, type AcceptancePackData} from '@/lib/pdf-acceptance-pack';
+import {
+  type AcceptanceLetterConfig,
+  defaultAcceptanceLetterConfig,
+  acceptanceLetterConfigSchema
+} from '@/lib/acceptance-letter-config';
+
+export const runtime = 'nodejs';
+
+export async function GET(req: Request, {params}: {params: Promise<{id: string}>}) {
+  try {
+    await operator(req, ['super_admin', 'admin', 'reviewer']);
+    const {id} = await params;
+    const snap = await db.collection('submissions').doc(id).get();
+    if (!snap.exists) throw new HttpError(404, 'Application not found.');
+    const data = snap.data()!;
+
+    if (data.formKind !== 'student') {
+      throw new HttpError(400, 'Acceptance packs are for student applications only.');
+    }
+
+    const answers = data.answers || {};
+
+    // Fetch custom letter configuration from settings
+    let letterConfig: AcceptanceLetterConfig = defaultAcceptanceLetterConfig;
+    try {
+      const cfgSnap = await db.collection('settings').doc('acceptanceLetter').get();
+      if (cfgSnap.exists) {
+        const parsed = acceptanceLetterConfigSchema.safeParse(cfgSnap.data());
+        if (parsed.success) letterConfig = parsed.data;
+      }
+    } catch {}
+
+    const studentName = String(
+      answers['full-name'] || answers['student-name'] || answers['fullNames'] || 'Applicant'
+    );
+    const programme = String(
+      answers['programme-pathway'] || answers['preferred-programme'] || answers['program'] || data.formTitle || 'General Agriculture'
+    );
+    const intake = String(
+      answers['intake'] || answers['intakeAndYear'] || '2027 January Intake'
+    );
+    const nrcNumber = String(answers['nrc-number'] || answers['nrcNumber'] || '');
+    const phone = String(answers['phone'] || answers['mobileNumber'] || '');
+    const address = String(answers['residentialAddress'] || answers['district'] || 'Lusaka / Central Province, Zambia');
+
+    const isTeve = programme.toLowerCase().includes('teveta');
+    const isShort = programme.toLowerCase().includes('short');
+    const category = isTeve ? 'General Agriculture (TEVETA)' : isShort ? 'Independent short course' : 'Agri-Sport';
+
+    let academicFees = 'K8,200 (6 Months)';
+    if (programme.includes('K4,700') || programme.includes('K4,800')) academicFees = 'K4,800 (3 Months)';
+    else if (programme.includes('K8,000')) academicFees = 'K8,000 (6 Months)';
+    else if (programme.includes('K2,600')) academicFees = 'K2,600 (8 Weeks)';
+    else if (programme.includes('K3,000')) academicFees = 'K3,000 (8 Weeks)';
+    else if (programme.includes('K3,100')) academicFees = 'K3,100 (8 Weeks)';
+    else if (programme.includes('K2,500')) academicFees = 'K2,500 (8 Weeks)';
+    else if (programme.includes('K3,500')) academicFees = 'K3,500 (8 Weeks)';
+
+    const isBoarding = String(answers['package-option'] || answers['boarding-preference'] || answers['attendance'] || '').toLowerCase().includes('boarding');
+    const totalFees = isBoarding ? 'K17,200 (Full Package)' : academicFees;
+
+    const packData: AcceptancePackData = {
+      reference: data.reference,
+      date: new Date(data.submittedAt || Date.now()).toLocaleDateString('en-GB', {day: 'numeric', month: 'long', year: 'numeric'}),
+      studentName,
+      address,
+      programme,
+      category,
+      pathway: isTeve ? 'Trade Test Level II / Level III' : 'KASA Practical Apprenticeship',
+      duration: isShort ? '8 Weeks (2 Months)' : programme.includes('3 Months') ? '3 Months' : '6 Months (740 hrs)',
+      intake,
+      attendance: isBoarding ? 'Boarding' : 'Day',
+      commencementDate: 'January 2027',
+      reportingDate: 'Admissions Office, Kamaila Campus',
+      reportingTime: '08:00 - 15:00 hrs',
+      acceptanceDeadline: '14 days from issue date',
+      academicFees,
+      boardingMealsFees: isBoarding ? 'K9,000 (Meals & Bed Space)' : 'K0.00 (Day scholar)',
+      totalFees,
+      initialPayment: isBoarding ? '40% registration deposit' : 'Refer to 2027 schedule',
+      signatory: letterConfig.letter.signatory || 'Authorised Admissions Officer',
+      signatoryTitle: letterConfig.letter.signatoryTitle || 'Admissions Directorate / Registrar',
+      fundingMethod: data.fundingMethod || 'CDF',
+      nrcNumber,
+      phone
+    };
+
+    const bytes = await generateAcceptancePackPdf(packData, letterConfig);
+    return new Response(Buffer.from(bytes), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="KASA-Acceptance-${data.reference}.pdf"`,
+        'Cache-Control': 'private, no-store'
+      }
+    });
+  } catch (e) {
+    return fail(e);
   }
-  if(line)lines.push(line);
- }
- return lines;
-}
-export async function GET(req:Request,{params}:{params:Promise<{id:string}>}){
- try{
-  await operator(req,['super_admin','admin','reviewer']);
-  const {id}=await params;const snap=await db.collection('submissions').doc(id).get();
-  if(!snap.exists)throw new HttpError(404,'Application not found.');
-  const applicant=snap.data()!;
-  if(applicant.formKind!=='student'||!['letter_issued','cdf_submitted','cdf_approved','payment_verified','commission_paid'].includes(applicant.status))
-   throw new HttpError(403,'A letter can only be generated after KASA has issued admission acceptance.');
-  const settings=(await db.collection('settings').doc('operations').get()).data()||{};
-  const cfg=settings.acceptanceLetter;
-  if(!cfg||!cfg.body||!cfg.nameField||!cfg.courseField)throw new HttpError(400,'Configure the acceptance-letter template and answer field mappings in Settings first.');
-  const answer=applicant.answers||{};
-  const substitutions:Record<string,string>={
-   applicant:String(answer[cfg.nameField]||''),course:String(answer[cfg.courseField]||''),
-   intake:String(answer[cfg.intakeField]||''),reference:String(applicant.reference),
-   date:new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})
-  };
-  if(!substitutions.applicant||!substitutions.course)throw new HttpError(400,'Letter field mappings do not match applicant answers.');
-  const substitute=(str:string)=>ascii(str.replace(/\{\{(applicant|course|intake|reference|date)\}\}/g,(_,key:string)=>substitutions[key]||''));
-  const pdf=await PDFDocument.create();const page=pdf.addPage([595,842]);
-  const regular=await pdf.embedFont(StandardFonts.Helvetica),bold=await pdf.embedFont(StandardFonts.HelveticaBold);
-  const x=65,maxW=465;
-  page.drawRectangle({x:0,y:778,width:595,height:64,color:rgb(.07,.24,.17)});
-  try{const logo=await pdf.embedPng(await readFile(join(process.cwd(),'public','kasa-logo-white.png')));page.drawImage(logo,{x:62,y:784,width:48,height:50});}catch{/* Header remains legible if the asset is unavailable. */}
-  page.drawText(ascii(settings.organization||'KASA'),{x:120,y:803,size:23,font:bold,color:rgb(1,1,1)});
-  page.drawText('OFFICIAL ADMISSIONS CORRESPONDENCE',{x:120,y:787,size:9,font:regular,color:rgb(.82,.92,.85)});
-  let y=734;
-  page.drawText('ACCEPTANCE LETTER',{x,y,size:18,font:bold,color:rgb(.06,.25,.16)});y-=33;
-  page.drawText(`Reference: ${ascii(applicant.reference)}`,{x,y,size:10,font:bold,color:rgb(.1,.2,.16)});y-=19;
-  page.drawText(`Date: ${substitutions.date}`,{x,y,size:10,font:regular,color:rgb(.22,.3,.25)});y-=42;
-  for(const line of wrap(substitute(cfg.body),11,maxW,regular)){
-   if(y<115)throw new HttpError(400,'Acceptance-letter text is too long for one page. Shorten it in Settings.');
-   if(line)page.drawText(line,{x,y,size:11,font:regular,color:rgb(.18,.25,.21)});
-   y-=18;
-  }
-  y-=32;
-  page.drawText('Yours faithfully,',{x,y,size:11,font:regular,color:rgb(.15,.23,.18)});y-=27;
-  page.drawText(ascii(cfg.signatory||'Admissions Office'),{x,y,size:11,font:bold,color:rgb(.08,.27,.18)});y-=18;
-  page.drawText(ascii(settings.organization||'KASA'),{x,y,size:10,font:regular,color:rgb(.35,.44,.39)});
-  page.drawText('This letter confirms institutional admission only; it does not guarantee a CDF bursary.',{x,y:65,size:9,font:regular,color:rgb(.45,.48,.45)});
-  page.drawText(ascii(applicant.reference),{x,y:42,size:9,font:regular,color:rgb(.48,.53,.49)});
-  const bytes=await pdf.save();
-  return new Response(Buffer.from(bytes),{status:200,headers:{'Content-Type':'application/pdf','Content-Disposition':`attachment; filename="KASA-Acceptance-${applicant.reference}.pdf"`,'Cache-Control':'private, no-store'}});
- }catch(e){return fail(e);}
 }

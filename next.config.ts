@@ -18,6 +18,14 @@ const nextConfig: NextConfig = {
   distDir: isolatedDevelopmentDir,
   reactStrictMode:true,
   poweredByHeader:false,
+  images:{
+    remotePatterns:[
+      {protocol:'https',hostname:'res.cloudinary.com',pathname:'/**'}
+    ]
+  },
+  experimental:{
+    optimizePackageImports:['lucide-react']
+  },
   outputFileTracingIncludes:{'/*':['./public/kasa-logo-white.png']},
   async headers(){return [{source:'/(.*)',headers:[
     {key:'X-Content-Type-Options',value:'nosniff'},

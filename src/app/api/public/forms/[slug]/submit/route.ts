@@ -5,7 +5,7 @@ import {cleanAnswers,applicantFingerprint} from '@/lib/schema';
 import {enrollmentScope,scopedFingerprint} from '@/lib/application-dedupe';
 import {digest,newId,rateLimit,requireAppCheck,sameOrigin} from '@/lib/security';
 import {populateDynamicOptions} from '@/lib/form-options';
-import type {FormSchema} from '@/lib/types';
+import type {FormSchema, SubmissionStatus} from '@/lib/types';
 import type {Attachment} from '@/lib/schema';
 import {loadIntake} from '@/lib/intake-server';
 import {intakeWindow,normalizedIntake} from '@/lib/intake-policy';
@@ -47,10 +47,16 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{slug:string
   if(form.kind==='student'&&body.agentCode!==undefined && body.agentCode!==null && body.agentCode!==''){
    const referralSettings=await db.collection('settings').doc('operations').get();
    if(referralSettings.data()?.referralsEnabled===false)throw new HttpError(400,'The referral program is currently paused.');
-   if(typeof body.agentCode!=='string'||!/^[A-Z0-9-]{5,24}$/.test(body.agentCode))throw new HttpError(400,'Invalid agent referral code.');
-   const agent=await db.collection('profiles').where('agentCode','==',body.agentCode).limit(1).get();
-   if(agent.empty||agent.docs[0].data().role!=='agent'||!agent.docs[0].data().active)throw new HttpError(400,'Agent code is not active.');
-   agentId=agent.docs[0].id;
+   const code=String(body.agentCode).trim().toUpperCase();
+   if(!/^[A-Z0-9-]{5,28}$/.test(code))throw new HttpError(400,'Invalid referral code.');
+   const agent=await db.collection('profiles').where('agentCode','==',code).limit(1).get();
+   if(!agent.empty&&agent.docs[0].data().active!==false){
+    agentId=agent.docs[0].id;
+   }else{
+    const sub=await db.collection('submissions').where('reference','==',code).limit(1).get();
+    if(!sub.empty)agentId=sub.docs[0].id;
+    else throw new HttpError(400,'Referral code is not active or recognized.');
+   }
   }
   // Validate that each referenced private upload exists, is small and has the claimed MIME type.
   const attachments=Object.values(answers).filter((v):v is Attachment=>Boolean(v&&typeof v==='object'&&!Array.isArray(v)&&'path' in v));
@@ -79,13 +85,46 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{slug:string
   const id=newId();
   const reference=`KASA-${new Date().getFullYear()}-${id.slice(0,8).toUpperCase()}`;
   const now=new Date().toISOString();
+  const fundingAnswers=Object.entries(answers).filter(([k])=>/funding|fee|sponsor/i.test(k)).map(([,v])=>String(v||'').toLowerCase()).join(' ');
+  const isCdf=fundingAnswers.includes('cdf')||fundingAnswers.includes('bursary')||fundingAnswers.includes('constituency');
+  let finalStatus:SubmissionStatus='submitted';
+  let fundingMethod:'cdf'|'self_funded'|undefined=undefined;
+  let autoApproved=false;
+  let autoApprovalReason='';
+  const downloadToken=digest(id+':'+reference+':'+now);
+
   await db.runTransaction(async tx=>{
    // Read form and window again inside transaction, preventing a concurrent closure race.
    const intakeRef=db.collection('settings').doc('intake');
    const [intakeDoc,currentForm]=await Promise.all([tx.get(intakeRef),tx.get(formDoc.ref)]);
-   const currentWindow=intakeWindow(normalizedIntake(intakeDoc.data()?.policy),slug);
+   const policyObj=normalizedIntake(intakeDoc.data()?.policy);
+   if(policyObj.maxApplicants){
+    const existingCount=(await db.collection('submissions').where('formId','==',form.id).count().get()).data().count;
+    if(existingCount>=policyObj.maxApplicants)
+     throw new HttpError(403,'Enrollment capacity has been reached for this intake window. The system is no longer accepting new applications.');
+   }
+   const currentWindow=intakeWindow(policyObj,slug);
    if(!currentWindow.open)throw new HttpError(403,currentWindow.reason);
    if(!currentForm.exists||!currentForm.data()?.published||currentForm.data()?.version!==form.version)throw new HttpError(409,'Form has changed or closed. Refresh before applying.');
+
+   const autoApproveCdf=policyObj.autoApproveCdf!==false;
+   const autoApproveSelf=Boolean(policyObj.autoApproveSelfFunded);
+   if(isCdf){
+    fundingMethod='cdf';
+    if(autoApproveCdf){
+     finalStatus='accepted';
+     autoApproved=true;
+     autoApprovalReason='Automatic CDF sponsorship approval';
+    }
+   }else{
+    fundingMethod='self_funded';
+    if(autoApproveSelf){
+     finalStatus='accepted';
+     autoApproved=true;
+     autoApprovalReason='Admin policy auto-approval for personal sponsorship';
+    }
+   }
+
    // Firestore transactions require all reads before any writes.
    const duplicateRef=fingerprintId?db.collection('applicationDedupe').doc(fingerprintId):null;
    const legacyRef=legacyFingerprintId&&legacyFingerprintId!==fingerprintId
@@ -118,18 +157,24 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{slug:string
    fileRefs.forEach((ref,index)=>tx.create(ref,{submissionId:id,path:attachments[index].path}));
    tx.create(db.collection('submissions').doc(id),{
     reference,formId:form.id,formTitle:form.title,formKind:form.kind,formVersion:form.version,
-    status:'submitted',answers,agentId,applicantUid,formSnapshot:{title:form.title,slug:form.slug,sections:form.sections,version:form.version},submittedAt:now,updatedAt:now,history:[{at:now,status:'submitted',by:'applicant'}]
+    status:finalStatus,fundingMethod,autoApproved,autoApprovalReason,downloadToken,
+    answers,agentId,applicantUid,formSnapshot:{title:form.title,slug:form.slug,sections:form.sections,version:form.version},
+    submittedAt:now,updatedAt:now,
+    history:[
+     {at:now,status:'submitted',by:'applicant'},
+     ...(autoApproved?[{at:now,status:'accepted' as SubmissionStatus,by:'system_auto_approval'}]:[])
+    ]
    });
-   for(const rule of automationConfig.rules.filter(r=>r.enabled&&r.event==='submitted')){
+   for(const rule of automationConfig.rules.filter(r=>r.enabled&&r.event===(autoApproved?'accepted':'submitted'))){
     if(rule.recipient==='agent'&&!agentId)continue;
     tx.create(db.collection('notificationOutbox').doc(),{
-     kind:'application_status',submissionId:id,reference,event:'submitted',
+     kind:'application_status',submissionId:id,reference,event:autoApproved?'accepted':'submitted',
      recipient:rule.recipient,recipientUid:rule.recipient==='agent'?agentId:null,
      title:rule.name,message:formatNotification(rule.template,reference),
      state:'pending',createdAt:now
     });
    }
   });
-  return json({reference,message:'Your application has been submitted successfully.'},201);
+  return json({reference,status:finalStatus,autoApproved,fundingMethod,downloadToken,letterUrl:autoApproved?`/api/public/submissions/${id}/letter?token=${downloadToken}`:null,enrollmentFormUrl:`/api/public/submissions/${id}/enrollment-form?token=${downloadToken}`,message:autoApproved?'Congratulations! Your application has been approved. You can now download your official Acceptance Pack and completed Enrollment Form.':'Your application has been submitted successfully.'},201);
  }catch(e){return fail(e);}
 }

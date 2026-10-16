@@ -30,7 +30,7 @@ export default function Setup(){
   </>:<p className="muted">Firebase status could not be loaded. Check the authorization, configuration and server logs.</p>}
   <button className="btn btn-outline" onClick={()=>void check()} disabled={statusLoading}>Recheck database status</button>
   <h2>Seed Firestore starter data</h2>
-  <p>Firebase variables alone do not insert database records. Sign in as the verified super administrator and run this one-time, non-destructive operation. It creates KASA's 2027 draft forms, course catalogue, proposed fees, initial announcements, website contacts and a <strong>closed</strong> admissions policy. Existing documents are preserved. A super-administrator must approve the seed. All application forms remain drafts until reviewed and published.</p>
+  <p>Firebase variables alone do not insert database records. Sign in as the verified super administrator and run this one-time, non-destructive operation. It creates KASA&apos;s 2027 draft forms, course catalogue, proposed fees, initial announcements, website contacts and a <strong>closed</strong> admissions policy. Existing documents are preserved. A super-administrator must approve the seed. All application forms remain drafts until reviewed and published.</p>
   <button className="btn btn-primary" disabled={busy} onClick={()=>void seed()}>{busy?'Seeding…':'Seed missing Firestore records'}</button>
   {error&&<p className="alert-error">{error}</p>}
   {result&&<div className="notice"><CheckCircle2 size={16}/> Created {result.programmes} programmes, {result.announcements} announcements, {result.forms} form templates and {result.settings} settings records; skipped {result.skipped} existing records.</div>}

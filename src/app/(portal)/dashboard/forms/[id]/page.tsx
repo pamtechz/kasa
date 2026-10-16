@@ -4,7 +4,7 @@ import {useParams} from 'next/navigation';
 import {ArrowDown,ArrowUp,Copy,Eye,Plus,Save,Trash2} from 'lucide-react';
 import {api,PageHeader} from '@/components/Portal';
 import type {Field,FieldType,FormSchema,Section} from '@/lib/types';
-const types:FieldType[]=['text','textarea','email','tel','number','date','select','radio','checkbox','file'];
+const types:FieldType[]=['text','textarea','email','tel','number','date','select','radio','checkbox','file','image'];
 function id(){return crypto.randomUUID().slice(0,8)}
 export default function EditForm(){
  const {id:formId}=useParams<{id:string}>();const [form,setForm]=useState<FormSchema|null>(null),[err,setErr]=useState(''),[saved,setSaved]=useState(''),[busy,setBusy]=useState(false);

@@ -1,6 +1,22 @@
-import {SiteChrome,PageIntro} from '@/components/SiteChrome';
-import {CollectionView} from '@/components/PublicPages';
-export default function Page(){
- return <SiteChrome><PageIntro eyebrow="LATEST FROM KASA" title="Announcements" description="Official news, intake windows, application guidance and training notices."/>
- <main className="container site-content"><CollectionView kind="announcements"/></main></SiteChrome>;
+import {SiteChrome, PageIntro} from '@/components/SiteChrome';
+import {NewsBlogView} from '@/components/NewsBlogView';
+
+export const metadata = {
+  title: 'News & Blog | KASA — Kamaila Academics, Sports & Apprenticeship',
+  description: 'Stay updated with official KASA news, admissions announcements, CDF sponsorship guidelines, training updates and campus life in Chisamba.'
+};
+
+export default function Page() {
+  return (
+    <SiteChrome>
+      <PageIntro
+        eyebrow="OFFICIAL KASA NEWSROOM & BLOG"
+        title="News & Latest Information"
+        description="Official notices, academic frameworks, CDF sponsorship guidelines and student life at Kamaila Campus, Chisamba."
+      />
+      <main className="container site-content" style={{paddingTop: 36, paddingBottom: 64}}>
+        <NewsBlogView />
+      </main>
+    </SiteChrome>
+  );
 }

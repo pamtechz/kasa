@@ -1,4 +1,4 @@
-export type FieldType = 'text'|'textarea'|'email'|'tel'|'number'|'date'|'select'|'radio'|'checkbox'|'file';
+export type FieldType = 'text'|'textarea'|'email'|'tel'|'number'|'date'|'select'|'radio'|'checkbox'|'file'|'image';
 export type Field = {
   id:string; label:string; type:FieldType; required:boolean;
   description?:string; placeholder?:string; options?:string[];optionsSource?:'programmes'|'intakes';
@@ -15,10 +15,10 @@ export type ApplicantRecord = {id:string;reference:string;formId:string;formTitl
   formSnapshot?:Pick<FormSchema,'title'|'slug'|'sections'|'version'>;
   paymentVerification?:{reference:string;amount:number;verifiedAt:string;verifiedBy:string};
   internalNotes?:{body:string;at:string;by:string}[];
-  fundingMethod?:'cdf'|'self_funded';
+  fundingMethod?:'cdf'|'self_funded'; autoApproved?:boolean; autoApprovalReason?:string; downloadToken?:string;
   fundingStatus?:'government_approval_verified'|'enrollment_payment_verified';
   documents?:Record<string,{kind:string;label:string;path:string;fileName:string;contentType:string;size:number;uploadedAt:string;uploadedBy:string;verifiedAt:string|null;verifiedBy:string|null}>;
   commission?:{amount:number;currency:string;trigger?:'cdf_approval'|'payment';approvedAt?:string;paidAt?:string;paymentReference?:string};
 };
-export type Role = 'super_admin'|'admin'|'reviewer'|'agent';
-export type Profile = {uid:string;email:string;displayName:string;role:Role;active:boolean;agentCode?:string;district?:string;province?:string;constituency?:string;ward?:string;commissionOverride?:number};
+export type Role = 'super_admin'|'admin'|'reviewer'|'agent'|'student';
+export type Profile = {uid:string;email:string;displayName:string;role:Role;active:boolean;agentCode?:string;district?:string;province?:string;constituency?:string;ward?:string;commissionOverride?:number; referralsCount?:number; totalCommission?:number; isStudent?:boolean};

@@ -4,7 +4,7 @@ import {HttpError} from './errors';
 const fieldValidator=z.object({
  id:z.string().min(2).max(90).regex(/^[a-zA-Z0-9_-]+$/),
  label:z.string().trim().min(2).max(180),
- type:z.enum(['text','textarea','email','tel','number','date','select','radio','checkbox','file']),
+ type:z.enum(['text','textarea','email','tel','number','date','select','radio','checkbox','file','image']),
  required:z.boolean(),
  description:z.string().max(500).optional(),
  placeholder:z.string().max(180).optional(),
@@ -59,6 +59,14 @@ export function cleanAnswers(schema:FormSchema,answers:unknown){
     throw new HttpError(400,`Invalid attachment: ${f.label}.`);
    clean[f.id]={path:a.path,fileName:a.fileName.slice(0,160),contentType:a.contentType};continue;
   }
+  if(f.type==='image'){
+   if(typeof v!=='string'||!v.trim())throw new HttpError(400,`Invalid image URL: ${f.label}.`);
+   const s=v.trim();
+   if(!/^https:\/\/res\.cloudinary\.com\/[a-zA-Z0-9_-]+\/image\/upload\/.+/i.test(s))
+    throw new HttpError(400,`Uploading images must be from https://console.cloudinary.com/app strictly (URL must start with https://res.cloudinary.com/): ${f.label}.`);
+   clean[f.id]=s;continue;
+  }
+
   if(f.type==='checkbox'){
    if(!Array.isArray(v)||v.length>60||v.some(t=>typeof t!=='string'||!f.options?.includes(t))||new Set(v).size!==v.length)throw new HttpError(400,`Invalid selection: ${f.label}.`);
    clean[f.id]=v;continue;

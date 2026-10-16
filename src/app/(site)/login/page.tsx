@@ -50,5 +50,41 @@ export default function Login(){
  <Link href="https://github.com/pamtechz/kasa/blob/main/docs/LOCAL_FIREBASE_AND_HYDRATION.md" target="_blank" className="back-link">View local setup guide</Link>
  <Link href="/" className="back-link">← Return to KASA</Link>
  </div></div></main>;
- return <main className="login-shell"><div className="login-art"><Link href="/" className="brand brand-white"><BrandLogo size={62}/><span><strong>KASA</strong><small>Enrollment Network</small></span></Link><div><span className="overline">SECURE WORKSPACE</span><h1>Everything your district needs. One place.</h1><p>Manage applications, monitor enrollment outcomes and coordinate with the KASA admissions team.</p></div><span className="login-art-bottom">Students may view their own applications; staff and agents receive separate approved access.</span></div><div className="login-form"><div className="login-card"><span className="login-symbol"><LockKeyhole/></span><h2>{mode==='sign-in'?'Welcome back':'Create an account'}</h2><p>Use your KASA-associated email address.</p><form onSubmit={e=>void go(e)}>{mode==='register'&&<div className="field"><label>Full name</label><input value={name} onChange={e=>setName(e.target.value)} required/></div>}<div className="field"><label>Email address</label><input type="email" name="email" autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} required/></div><div className="field"><label>Password</label><input type="password" name="password" autoComplete={mode==='sign-in'?'current-password':'new-password'} minLength={8} value={password} onChange={e=>setPassword(e.target.value)} required/></div>{message&&<div className="notice" role="alert">{message}</div>}<button className="btn btn-primary btn-full" disabled={busy}>{busy?'Please wait…':mode==='sign-in'?'Sign in':'Create account'} <ArrowRight size={16}/></button></form><div className="auth-bottom"><button onClick={()=>{setMode(mode==='sign-in'?'register':'sign-in');setMessage('');}}>{mode==='sign-in'?'Need an account? Register':'Already registered? Sign in'}</button>{mode==='sign-in'&&<button onClick={()=>void reset()}>Forgot password?</button>}</div><Link href="/bootstrap" className="back-link">First administrator setup</Link><Link href="/my-applications" className="back-link">View my student applications</Link><Link href="/" className="back-link">← Return to KASA website</Link></div></div></main>;
+  return <main className="login-shell">
+   <div className="login-art">
+    <Link href="/" className="brand brand-white"><BrandLogo size={62}/><span><strong>KASA</strong><small>Enrollment Network</small></span></Link>
+    <div>
+     <span className="overline">UNIFIED INSTITUTIONAL PORTAL</span>
+     <h1>One portal. Every district.</h1>
+     <p>Access your student admissions and referral earnings, or sign in as an authorized district agent or staff member to manage operations.</p>
+    </div>
+    <span className="login-art-bottom">Students are routed automatically to their application workspace; verified agents and staff proceed to the management dashboard.</span>
+   </div>
+   <div className="login-form">
+    <div className="login-card">
+     <span className="login-symbol"><LockKeyhole/></span>
+     <h2>{mode==='sign-in'?'Sign in to KASA':'Create your KASA account'}</h2>
+     <p>One unified sign-in for students, district agents, and staff members.</p>
+     <div style={{display:'flex',gap:'8px',flexWrap:'wrap',marginBottom:'18px'}}>
+      <span style={{fontSize:'11px',fontWeight:700,background:'#e8f4ed',color:'#19613c',padding:'4px 10px',borderRadius:'20px'}}>Students & Trainees</span>
+      <span style={{fontSize:'11px',fontWeight:700,background:'#f4f2e6',color:'#84671a',padding:'4px 10px',borderRadius:'20px'}}>District Agents</span>
+      <span style={{fontSize:'11px',fontWeight:700,background:'#edf1f6',color:'#274d75',padding:'4px 10px',borderRadius:'20px'}}>Staff & Reviewers</span>
+     </div>
+     <form onSubmit={e=>void go(e)}>
+      {mode==='register'&&<div className="field"><label>Full name</label><input value={name} onChange={e=>setName(e.target.value)} required/></div>}
+      <div className="field"><label>Email address</label><input type="email" name="email" autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} required/></div>
+      <div className="field"><label>Password</label><input type="password" name="password" autoComplete={mode==='sign-in'?'current-password':'new-password'} minLength={8} value={password} onChange={e=>setPassword(e.target.value)} required/></div>
+      {message&&<div className="notice" role="alert">{message}</div>}
+      <button className="btn btn-primary btn-full" disabled={busy}>{busy?'Please wait…':mode==='sign-in'?'Sign in':'Create account'} <ArrowRight size={16}/></button>
+     </form>
+     <div className="auth-bottom">
+      <button onClick={()=>{setMode(mode==='sign-in'?'register':'sign-in');setMessage('');}}>{mode==='sign-in'?'Need an account? Register':'Already registered? Sign in'}</button>
+      {mode==='sign-in'&&<button onClick={()=>void reset()}>Forgot password?</button>}
+     </div>
+     <Link href="/bootstrap" className="back-link">First administrator setup</Link>
+     <Link href="/my-applications" className="back-link">View my student applications</Link>
+     <Link href="/" className="back-link">← Return to KASA website</Link>
+    </div>
+   </div>
+  </main>;
 }

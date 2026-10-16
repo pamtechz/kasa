@@ -224,3 +224,393 @@
  .student-account-row .btn{align-self:flex-start}
  .portal-error-state{min-height:60dvh}
 }
+
+/* ==========================================================================
+   Sticky Headers & Collapsible Sidebar Enhancements
+   ========================================================================== */
+.hero-shell{overflow-x:clip}
+
+/* 1. Public Site Header */
+.site-header{
+ position:sticky;
+ top:0;
+ z-index:100;
+ background:rgba(14,54,41,.96);
+ backdrop-filter:blur(12px);
+ -webkit-backdrop-filter:blur(12px);
+ border-bottom:1px solid rgba(255,255,255,.14);
+ box-shadow:0 4px 20px rgba(0,0,0,.08);
+}
+
+/* 2. Homepage Header */
+.home-header{
+ position:sticky;
+ top:0;
+ z-index:100;
+ background:rgba(16,61,42,.95);
+ backdrop-filter:blur(12px);
+ -webkit-backdrop-filter:blur(12px);
+ border-bottom:1px solid rgba(255,255,255,.12);
+}
+
+/* 3. Apply Page Header */
+.apply-header{
+ position:sticky;
+ top:0;
+ z-index:50;
+ background:rgba(245,248,246,.96);
+ backdrop-filter:blur(10px);
+ -webkit-backdrop-filter:blur(10px);
+ border-bottom:1px solid var(--border);
+}
+
+/* 4. Portal Header (Sticky) */
+.portal-top{
+ position:sticky;
+ top:0;
+ z-index:40;
+ background:rgba(255,255,255,.96);
+ backdrop-filter:blur(10px);
+ -webkit-backdrop-filter:blur(10px);
+ border-bottom:1px solid var(--border);
+}
+
+/* 5. Portal Sidebar (Sticky & Collapsible) */
+.sidebar{
+ position:sticky;
+ top:0;
+ height:100vh;
+ height:100dvh;
+ overflow-y:auto;
+ overflow-x:hidden;
+ transition:width .22s cubic-bezier(.4,0,.2,1),min-width .22s cubic-bezier(.4,0,.2,1);
+ z-index:50;
+}
+.sidebar.collapsed{
+ width:72px;
+ min-width:72px;
+}
+.sidebar.collapsed .brand span{
+ display:none;
+}
+.sidebar.collapsed .side-link{
+ justify-content:center;
+ padding:12px 0;
+}
+.sidebar.collapsed .side-link span{
+ display:none;
+}
+.sidebar.collapsed .side-bottom .side-link{
+ justify-content:center;
+}
+.sidebar.collapsed .side-label{
+ text-align:center;
+ margin:18px 0 8px;
+}
+.toggle-collapse-top{
+ display:inline-flex;
+ align-items:center;
+ justify-content:center;
+ width:32px;
+ height:32px;
+ border-radius:8px;
+ border:1px solid var(--border);
+ background:#f8faf9;
+ color:var(--green);
+ cursor:pointer;
+ transition:background .15s,transform .15s;
+}
+.toggle-collapse-top:hover{
+ background:#eaf3ed;
+ transform:scale(1.04);
+}
+.desktop-collapse-button{
+ display:inline-flex;
+ align-items:center;
+ justify-content:center;
+ width:36px;
+ height:36px;
+ border-radius:8px;
+ border:1px solid var(--border);
+ background:#f8faf9;
+ color:#38564b;
+ cursor:pointer;
+ margin-right:6px;
+ transition:background .15s,color .15s;
+}
+.desktop-collapse-button:hover{
+ background:#eaf3ed;
+ color:var(--green);
+}
+@media(max-width:800px){
+ .desktop-collapse-button{display:none}
+ .toggle-collapse-top{display:none}
+}
+
+/* 6. Cloudinary Strict Image Upload Styling */
+.cloudinary-box{
+ background:#f7fbf8;
+ border:1px dashed #7ea88f;
+ border-radius:10px;
+ padding:16px;
+ margin-top:6px;
+}
+.cloudinary-box-header{
+ display:flex;
+ justify-content:space-between;
+ align-items:center;
+ gap:8px;
+ flex-wrap:wrap;
+ margin-bottom:6px;
+}
+.cloudinary-box-header label{
+ display:flex;
+ align-items:center;
+ gap:6px;
+ font-weight:700;
+ color:var(--green);
+ font-size:13px;
+}
+.cloudinary-link-btn{
+ display:inline-flex;
+ align-items:center;
+ gap:5px;
+ font-size:11px;
+ font-weight:700;
+ color:#1d6542;
+ background:#e8f4ed;
+ padding:4px 10px;
+ border-radius:6px;
+ border:1px solid #cce5d5;
+ text-decoration:none;
+ transition:background .15s;
+}
+.cloudinary-link-btn:hover{
+ background:#d7ecdf;
+ color:#0e462c;
+}
+.cloudinary-box input[type="url"],.cloudinary-box input[type="text"]{
+ width:100%;
+ background:#fff;
+ border:1px solid #c9dcd0;
+ border-radius:8px;
+ padding:11px 13px;
+ font-size:13px;
+ margin-top:4px;
+}
+.cloudinary-box input:focus{
+ border-color:#247649;
+ outline:none;
+ box-shadow:0 0 0 3px rgba(36,118,73,.15);
+}
+.cloudinary-preview{
+ display:flex;
+ align-items:center;
+ gap:12px;
+ margin-top:10px;
+ padding:10px 14px;
+ background:#fff;
+ border:1px solid #d8e8dc;
+ border-radius:8px;
+}
+.cloudinary-preview img{
+ width:60px;
+ height:60px;
+ object-fit:cover;
+ border-radius:6px;
+ border:1px solid #b7d5c2;
+}
+
+/* ==========================================================================
+   Hero Interactive Slider (User Screenshot Match + Micro-interactions)
+   ========================================================================== */
+.hero-slider{
+ position:relative;
+ outline:none;
+ width:100%;
+}
+.hero-slider-badge{
+ display:inline-flex;
+ align-items:center;
+ gap:9px;
+ background:rgba(255,255,255,.09);
+ border:1px solid rgba(255,255,255,.18);
+ border-radius:40px;
+ padding:7px 16px;
+ font-size:11px;
+ font-weight:800;
+ letter-spacing:.14em;
+ text-transform:uppercase;
+ color:#b6e2c7;
+ margin-bottom:20px;
+ backdrop-filter:blur(6px);
+}
+.hero-slider-heading{
+ font-size:clamp(38px,4.9vw,70px);
+ line-height:1.06;
+ letter-spacing:-.055em;
+ font-weight:850;
+ color:#ffffff;
+ margin:0 0 20px 0;
+ max-width:680px;
+ min-height:2.2em;
+ display:flex;
+ flex-direction:column;
+ justify-content:center;
+}
+.hero-gold-text{
+ color:var(--gold,#e5b766);
+ font-style:normal;
+ display:inline;
+}
+.hero-slider-description{
+ font-size:clamp(15px,1.25vw,17px);
+ line-height:1.75;
+ color:#c7d9d0;
+ max-width:560px;
+ margin:0 0 26px 0;
+ min-height:56px;
+}
+.hero-slider-actions{
+ display:flex;
+ flex-wrap:wrap;
+ align-items:center;
+ gap:14px;
+ margin-bottom:22px;
+}
+.btn-hero-white{
+ background:#ffffff;
+ color:#103f2c;
+ border:1px solid #ffffff;
+ border-radius:8px;
+ min-height:46px;
+ padding:12px 22px;
+ font-weight:750;
+ font-size:14px;
+ display:inline-flex;
+ align-items:center;
+ gap:9px;
+ text-decoration:none;
+ transition:transform .18s cubic-bezier(.16,1,.3,1),box-shadow .18s,background .18s;
+ box-shadow:0 8px 24px rgba(0,0,0,.15);
+ white-space:nowrap;
+}
+.btn-hero-white:hover{
+ transform:translateY(-2px);
+ box-shadow:0 12px 30px rgba(0,0,0,.22);
+ color:#092c1e;
+ background:#f7faf8;
+}
+.btn-hero-outline{
+ background:transparent;
+ color:#ffffff;
+ border:1px solid rgba(255,255,255,.35);
+ border-radius:8px;
+ min-height:46px;
+ padding:12px 22px;
+ font-weight:750;
+ font-size:14px;
+ display:inline-flex;
+ align-items:center;
+ gap:8px;
+ text-decoration:none;
+ transition:background .18s,border-color .18s,transform .18s;
+ white-space:nowrap;
+}
+.btn-hero-outline:hover{
+ background:rgba(255,255,255,.12);
+ border-color:rgba(255,255,255,.65);
+ transform:translateY(-2px);
+ color:#ffffff;
+}
+.hero-slider-tags{
+ display:flex;
+ flex-wrap:wrap;
+ gap:8px;
+ margin-bottom:26px;
+}
+.hero-slider-tag-pill{
+ display:inline-flex;
+ align-items:center;
+ gap:7px;
+ background:rgba(255,255,255,.07);
+ border:1px solid rgba(255,255,255,.14);
+ border-radius:20px;
+ padding:6px 13px;
+ font-size:12px;
+ font-weight:600;
+ color:#d6e8dd;
+ text-decoration:none;
+ transition:background .15s,border-color .15s;
+}
+.hero-slider-tag-pill.is-link:hover{
+ background:rgba(255,255,255,.16);
+ border-color:rgba(229,183,102,.4);
+ color:#ffffff;
+}
+.tag-emoji{
+ font-size:14px;
+ line-height:1;
+}
+.tag-arrow{
+ color:var(--gold,#e5b766);
+ opacity:.85;
+}
+.hero-slider-controls{
+ display:flex;
+ align-items:center;
+ justify-content:space-between;
+ gap:16px;
+ padding-top:16px;
+ border-top:1px solid rgba(255,255,255,.12);
+ max-width:580px;
+}
+.hero-slider-dots{
+ display:flex;
+ align-items:center;
+ gap:8px;
+}
+.hero-slider-dot{
+ background:rgba(255,255,255,.24);
+ border:0;
+ padding:0;
+ width:10px;
+ height:10px;
+ border-radius:5px;
+ cursor:pointer;
+ transition:all .25s ease;
+ position:relative;
+}
+.hero-slider-dot:hover{
+ background:rgba(255,255,255,.45);
+}
+.hero-slider-dot.is-active{
+ width:32px;
+ background:var(--gold,#e5b766);
+ box-shadow:0 0 12px rgba(229,183,102,.5);
+}
+.hero-slider-dot .dot-label{
+ display:none;
+}
+.hero-slider-nav-arrows{
+ display:flex;
+ align-items:center;
+ gap:8px;
+}
+.hero-slider-arrow{
+ width:38px;
+ height:38px;
+ border-radius:50%;
+ border:1px solid rgba(255,255,255,.24);
+ background:rgba(255,255,255,.08);
+ color:#ffffff;
+ display:grid;
+ place-items:center;
+ cursor:pointer;
+ transition:background .15s,border-color .15s,transform .15s;
+}
+.hero-slider-arrow:hover{
+ background:rgba(255,255,255,.22);
+ border-color:rgba(255,255,255,.55);
+ transform:scale(1.05);
+}

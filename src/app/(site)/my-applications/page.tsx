@@ -3,19 +3,23 @@ import {useEffect,useState} from 'react';
 import {onAuthStateChanged} from 'firebase/auth';
 import Link from 'next/link';
 import {useRouter} from 'next/navigation';
-import {AlertCircle,LogIn,LogOut,RefreshCw,ShieldCheck} from 'lucide-react';
+import {AlertCircle,LogIn,LogOut,RefreshCw,ShieldCheck,Copy,Download,FileText,Share2,Users,Coins} from 'lucide-react';
 import {SiteChrome,PageIntro} from '@/components/SiteChrome';
 import {auth,authHeaders,appCheckToken,firebaseConfigured,signOutClient} from '@/lib/firebase-client';
 import {StatusBadge} from '@/components/Portal';
 
 type ApplicantItem={id:string;reference:string;formTitle:string;status:string;submittedAt:string;fundingMethod:string|null};
 type SessionState='checking'|'guest'|'ready'|'unavailable';
+type ReferralItem = {id:string;reference:string;candidateName:string;programme:string;status:string;commissionEarned:number;submittedAt:string};
+type ReferralData = {agentCode:string;referralLink:string;referralsCount:number;successfulCount:number;totalEarned:number;referrals:ReferralItem[]};
+
 export default function MyApplications(){
  const [email,setEmail]=useState(''),[items,setItems]=useState<ApplicantItem[]>([]);
  const [reference,setReference]=useState(''),[busy,setBusy]=useState(false);
  const [status,setStatus]=useState<SessionState>('checking');
  const [loadingItems,setLoadingItems]=useState(false);
  const [error,setError]=useState(''),[message,setMessage]=useState('');
+ const [referralData,setReferralData]=useState<ReferralData|null>(null);
  const router=useRouter();
 
  async function load(){

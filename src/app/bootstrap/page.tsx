@@ -99,7 +99,7 @@ export default function Bootstrap(){
     </section>
     <aside className="bootstrap-aside"><div className="bootstrap-aside-title"><BrandLogo size={62}/><div><span className="overline">INITIAL SETUP</span><h2>Getting KASA ready</h2></div></div>
      <ol className="bootstrap-steps">{(site.bootstrapSteps||defaultSite.bootstrapSteps||[]).map((step,i)=><li key={i}><span>{i+1}</span><p>{step}</p></li>)}</ol>
-     <div className="bootstrap-note"><LockKeyhole size={17}/><p>Only the verified email authorized by KASA's server-side setup policy can initialize the first administrator. This screen never reveals that email or Firebase credentials.</p></div>
+     <div className="bootstrap-note"><LockKeyhole size={17}/><p>Only the verified email authorized by KASA&apos;s server-side setup policy can initialize the first administrator. This screen never reveals that email or Firebase credentials.</p></div>
     </aside>
    </div>
    <p className="bootstrap-footnote">Using a trusted computer? You can also use the <a href="https://github.com/pamtechz/kasa/blob/main/scripts/bootstrap-admin.mjs" target="_blank" rel="noreferrer">official GitHub bootstrap script</a>. Keep Firebase private keys outside the website and repository.</p>

@@ -3,13 +3,14 @@ import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import {ArrowRight,CalendarDays,BookOpen,Info} from 'lucide-react';
 import {defaultSite,type SiteSettings} from '@/lib/site';
+import {getCachedSite,fetchSiteCached,fetchContentCached} from '@/lib/client-cache';
 import type {Programme,Announcement} from '@/lib/content';
 import {PublicApplicationLinks} from '@/components/PublicApplicationLinks';
 type Mode='about'|'how'|'contact'|'agents'|'admissions'|'privacy'|'terms';
 export function InformationPage({mode}:{mode:Mode}){
- const [site,setSite]=useState<SiteSettings>(defaultSite),[intake,setIntake]=useState<{open:boolean;reason?:string;opensAt?:string|null;closesAt?:string|null}|null>(null);
+ const [site,setSite]=useState<SiteSettings>(getCachedSite()||defaultSite),[intake,setIntake]=useState<{open:boolean;reason?:string;opensAt?:string|null;closesAt?:string|null}|null>(null);
  useEffect(()=>{
-  fetch('/api/public/site').then(r=>r.json()).then(r=>{if(r?.site)setSite(r.site)}).catch(()=>{});
+  fetchSiteCached().then(s=>{if(s)setSite(s);});
   if(mode==='admissions')fetch('/api/public/intake').then(r=>r.json()).then(setIntake).catch(()=>{});
  },[mode]);
  if(mode==='privacy'||mode==='terms')return <div className="site-article"><h2>{mode==='privacy'?'Applicant privacy notice':'Application terms'}</h2><div className="site-prose">{mode==='privacy'?site.privacyText:site.termsText}</div><p>For clarification, use the official <Link href="/contact" className="text-link">KASA contact page</Link>.</p></div>;
@@ -21,7 +22,7 @@ export function InformationPage({mode}:{mode:Mode}){
 }
 export function CollectionView({kind}:{kind:'programmes'|'announcements'}){
  const [items,setItems]=useState<(Programme|Announcement)[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState('');
- useEffect(()=>{fetch('/api/public/content?kind='+kind,{cache:'no-store'}).then(async r=>{const d=await r.json();if(!r.ok)throw Error(d.error||'Unable to load content');setItems(d.items||[])}).catch(e=>setError(e.message)).finally(()=>setLoading(false));},[kind]);
+ useEffect(()=>{fetchContentCached(kind).then(setItems).catch(e=>setError(e.message)).finally(()=>setLoading(false));},[kind]);
  if(loading)return <p className="muted">Loading {kind}…</p>;
  if(error)return <div className="notice">{error}. Please check again later.</div>;
  if(!items.length)return <div className="site-card"><Info size={20}/><p>No published {kind} yet. KASA will publish verified information here.</p></div>;
@@ -42,6 +43,6 @@ export function PublicDetail({kind,id}:{kind:'programmes'|'announcements';id:str
 }
 export function FeesView(){
  const [items,setItems]=useState<Programme[]>([]),[error,setError]=useState('');
- useEffect(()=>{fetch('/api/public/content?kind=programmes').then(async r=>{const d=await r.json();if(!r.ok)throw Error(d.error||'Fee information unavailable');setItems(d.items||[])}).catch(e=>setError(e.message));},[]);
+ useEffect(()=>{fetchContentCached('programmes').then(items=>setItems(items as Programme[])).catch(e=>setError(e.message));},[]);
  return <>{error&&<p className="alert-error">{error}</p>}<div className="panel table-scroll"><table className="data-table"><thead><tr><th>Course / programme</th><th>Duration</th><th>Tuition</th><th>Full proposed package*</th></tr></thead><tbody>{items.map(x=><tr key={x.id}><td><Link href={'/programmes/'+x.id}>{x.title}</Link></td><td>{x.duration}</td><td>{x.fee.tuition===null?'To be confirmed':'K'+x.fee.tuition.toLocaleString('en-ZM')}</td><td>{x.fee.packageTotal===null?'To be confirmed':'K'+x.fee.packageTotal.toLocaleString('en-ZM')}</td></tr>)}{!items.length&&<tr><td colSpan={4}>No published fees at present.</td></tr>}</tbody></table></div><p className="muted">*Packages may include optional food and accommodation. The quoted proposals are subject to confirmation by KASA. Check the course page for components and external qualification status.</p></>;
 }

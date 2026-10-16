@@ -1,5 +1,5 @@
 'use client';
-import {useEffect,useState} from 'react';
+import {useEffect,useState,useCallback} from 'react';
 import {Save,Plus,Trash2,Search,ExternalLink} from 'lucide-react';
 import {api,PageHeader} from '@/components/Portal';
 import type {Programme,Announcement} from '@/lib/content';
@@ -13,8 +13,8 @@ function dateInput(s:string|null){if(!s)return '';const d=new Date(s);return new
 export function ContentEditor({kind}:{kind:Type}){
  const [items,setItems]=useState<(Programme|Announcement)[]>([]),[current,setCurrent]=useState<Programme|Announcement|null>(null),[editing,setEditing]=useState(false),[filter,setFilter]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
  const isProgramme=kind==='programmes';
- async function load(){const r=await api<{items:(Programme|Announcement)[]}>('/api/admin/content?kind='+kind);setItems(r.items);}
- useEffect(()=>{void load().catch(e=>setError(e.message));},[kind]);
+ const load=useCallback(async()=>{const r=await api<{items:(Programme|Announcement)[]}>('/api/admin/content?kind='+kind);setItems(r.items);},[kind]);
+ useEffect(()=>{void load().catch(e=>setError(e.message));},[load]);
  function editField(field:string,value:unknown){setCurrent(p=>p?{...p,[field]:value}:p);}
  function feeField(field:string,value:string){
   setCurrent(p=>p&&'fee' in p?{...p,fee:{...p.fee,[field]:field==='note'?value:(value===''?null:Number(value))}}:p);
