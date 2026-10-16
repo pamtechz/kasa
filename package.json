@@ -11,7 +11,7 @@
     "bootstrap": "node scripts/bootstrap-admin.mjs",
     "seed": "node scripts/seed-forms.mjs",
     "seed:catalog": "node scripts/seed-catalog.mjs",
-    "test:source": "node --test scripts/tests/*.test.mjs"
+    "test:source": "node --experimental-strip-types --test scripts/tests/*.test.mjs"
   },
   "engines": {
     "node": ">=22 <23"
