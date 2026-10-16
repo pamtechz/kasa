@@ -34,7 +34,7 @@ test('production and development do not share Next.js manifest output',()=>{
  assert.match(config,/KASA_NEXT_LOCAL_DEV === '1'/);
  assert.match(config,/\.next-dev-/);
  assert.match(config,/\: '\.next'/);
- assert.match(runner,/availablePort\(port\)/);
+ assert.match(runner,/availablePort\(port,host\)/);
  assert.match(runner,/EADDRINUSE/);
  assert.match(runner,/KASA_NEXT_LOCAL_DEV_PORT:String\(port\)/);
 });
@@ -44,4 +44,32 @@ test('cache files remain untracked and Vercel auto deployment is disabled',()=>{
  assert.match(gitignore,/\.next/);
  const vercel=JSON.parse(source('vercel.json'));
  assert.equal(vercel.git.deploymentEnabled,false);
+});
+
+test('port availability probe and Next bind the same network interface',()=>{
+ const runner=source('scripts/dev.mjs');
+ assert.match(runner,/server\.listen\(\{port,host,exclusive:true\}/);
+ assert.match(runner,/availablePort\(port,host\)/);
+ assert.match(runner,/hasExplicitHost/);
+ assert.match(runner,/--hostname',host/);
+ assert.match(runner,/const host=requestedHost\(passthrough\)/);
+});
+
+test('cache recovery is restricted to explicit generated Next.js folders',()=>{
+ const cleaner=source('scripts/clean-next-cache.mjs');
+ assert.match(cleaner,/process\.argv\.includes\('--yes'\)/);
+ assert.match(cleaner,/pkg\.name!=='kasa-enrollment-network'/);
+ assert.match(cleaner,/name==='\.next'/);
+ assert.match(cleaner,/\.next-dev-/);
+ assert.match(cleaner,/info\.isDirectory\(\)&&!info\.isSymbolicLink\(\)/);
+ assert.match(cleaner,/const candidates=entries\.filter\(/);
+ const pkg=JSON.parse(source('package.json'));
+ assert.equal(pkg.scripts['clean:next'],'node scripts/clean-next-cache.mjs');
+});
+
+test('doctor reports tracked local changes and Git divergence without file content',()=>{
+ const doctor=source('scripts/doctor.mjs');
+ assert.match(doctor,/git',\['status','--short','--untracked-files=no'\]/);
+ assert.match(doctor,/git',\['rev-list','--left-right','--count'/);
+ assert.doesNotMatch(doctor,/git',\['diff'/);
 });

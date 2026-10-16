@@ -4,21 +4,48 @@ import {createRequire} from 'node:module';
 import {spawn} from 'node:child_process';
 import {parseDevOptions} from './dev-options.mjs';
 
-async function availablePort(port){
+function requestedHost(args){
+ let host='0.0.0.0';
+ for(let i=0;i<args.length;i++){
+  const arg=args[i];
+  if(arg==='-H'||arg==='--hostname'){
+   host=args[++i];
+  }else if(arg.startsWith('--hostname='))host=arg.slice('--hostname='.length);
+ }
+ if(!host||host.startsWith('-'))throw new Error('Specify a valid hostname, e.g. --hostname 127.0.0.1.');
+ return host;
+}
+async function checkBinding(port,host){
  return new Promise((resolve,reject)=>{
   const server=createServer();
   server.once('error',error=>{
    if(error.code==='EADDRINUSE')resolve(false);
    else reject(error);
   });
-  server.listen({port,host:'0.0.0.0',exclusive:true},()=>{
+  server.listen({port,host,exclusive:true},()=>{
    server.close(()=>resolve(true));
   });
  });
 }
+// Default localhost can resolve to IPv6. Do not start KASA on IPv4 while
+// a stale Next process still serves ::1 on the same port.
+async function availablePort(port,host){
+ if(!(await checkBinding(port,host)))return false;
+ if(host==='0.0.0.0'){
+  try{return await checkBinding(port,'::');}
+  catch(error){
+   if(error?.code==='EADDRNOTAVAIL'||error?.code==='EAFNOSUPPORT')return true;
+   throw error;
+  }
+ }
+ return true;
+}
 async function main(){
  const {port,distDir,passthrough}=parseDevOptions(process.argv.slice(2),process.env);
- if(!(await availablePort(port))){
+ const host=requestedHost(passthrough);
+ // Preflight and Next must bind the same interface. Previously KASA checked
+ // IPv4 while Next chose IPv6 (::), so the preflight could falsely succeed.
+ if(!(await availablePort(port,host))){
   console.error(`[KASA] Port ${port} is already in use. Another development server may still be running.`);
   console.error('[KASA] Stop the old server with Ctrl+C, or explicitly select a different port:');
   console.error('[KASA]   npm run dev -- --port 3001');
@@ -27,8 +54,10 @@ async function main(){
  const require=createRequire(import.meta.url);
  const nextCli=require.resolve('next/dist/bin/next');
  console.log(`[KASA] Development: http://localhost:${port}`);
+ console.log(`[KASA] Binding interface: ${host}`);
  console.log(`[KASA] Isolated Next.js cache: ${distDir} (production build remains .next)`);
- const child=spawn(process.execPath,[nextCli,'dev','--port',String(port),...passthrough],{
+ const hasExplicitHost=passthrough.some(arg=>arg==='-H'||arg==='--hostname'||arg.startsWith('--hostname='));
+ const child=spawn(process.execPath,[nextCli,'dev','--port',String(port),...(hasExplicitHost?[]:['--hostname',host]),...passthrough],{
   cwd:process.cwd(),stdio:'inherit',
   env:{...process.env,KASA_NEXT_LOCAL_DEV:'1',KASA_NEXT_LOCAL_DEV_PORT:String(port)},
   windowsHide:false

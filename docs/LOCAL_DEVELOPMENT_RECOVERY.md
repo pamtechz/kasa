@@ -119,3 +119,67 @@ EDURMS uses lockfile-validated, reproducible CI installs. KASA should also commi
 ## Vercel deployment
 
 **Do not deploy to Vercel unless the owner explicitly requests it.** The KASA project's `vercel.json` disables automatic Git deployments. Local build success does not imply a production Firebase configuration or successful Firestore seeding.
+
+## Follow-up: October 16 — missing `./3897.js`, blocked Git pull and localhost port collisions
+
+The new report confirms a successful Next.js 15.5.28 production build (51/51 pages), followed by a runtime stack from `.next/server/webpack-runtime.js` that could not load the generated `./3897.js` chunk. The output folder `.next` is disposable, and this is consistent with an incomplete or stale local compilation; it does not prove that `/api/setup/health` has broken Firebase code. Always stop existing KASA Node/Next processes before clearing output, then build/run again.
+
+### Preserve tracked local changes and obtain the updated script
+
+The failed `git pull --ff-only` specifically reported modified `.env.example` and `next-env.d.ts`. Since the pull aborted, the workstation still had the older `package.json`, explaining the missing `doctor:firebase` script.
+
+Run the following in **PowerShell**, after confirming that `git status` lists the files you intend to preserve:
+
+```powershell
+cd C:\Users\user\Pictures\kasa
+git status --short
+git branch --show-current
+git stash push -m "KASA tracked local changes before update" -- .env.example next-env.d.ts
+git switch main
+git fetch origin
+git pull --ff-only origin main
+npm run doctor
+npm run doctor:firebase
+```
+
+**Do not immediately pop the stash.** Check `git stash list` later and reconcile any intentional `.env.example` edits separately. Firebase credentials belong in the ignored `.env.local` file, *not* in the tracked `.env.example` template. The Next.js-generated `next-env.d.ts` is not a place for custom modifications. Do not upload or paste environment secrets.
+
+If Git still reports conflicts involving *other* files, do not force-reset; inspect `git status`. The stash does not destroy or overwrite your modifications.
+
+### Stop stale port owners and clean only Next.js caches
+
+Stop any KASA dev/build processes with Ctrl+C. Check the actual Windows port owners **before killing a process**:
+
+```powershell
+Get-NetTCPConnection -State Listen -LocalPort 3000,3001 -ErrorAction SilentlyContinue |
+  Select-Object LocalPort,OwningProcess
+# For the process ID seen above (example only):
+Get-CimInstance Win32_Process -Filter "ProcessId = 25828" |
+  Select-Object ProcessId,Name,CommandLine
+```
+
+Do **not** kill every Node process or the self-hosted GitHub runner. If PID 25828 is confirmed to be the stale KASA Next.js process, stop it via its console or `Stop-Process -Id 25828`; process IDs can change between sessions.
+
+After **all KASA Next.js processes are stopped**:
+
+```powershell
+npm run clean:next
+npm run clean:next -- --yes
+npm run test:source
+npm run typecheck
+npm run build
+npm run dev
+```
+
+The first cleanup invocation displays which generated folders will be removed; the second requires `--yes` and removes only `.next/` and `.next-dev-<port>/` directories from a verified KASA folder. It leaves `.env.local`, `node_modules`, Firebase records and source files unchanged.
+
+If port 3000 belongs to a needed service, run `npm run dev -- --port 3001`, where development assets use `.next-dev-3001`. The dev script now **preflights the same network interface it passes to Next.js**. Older launcher revisions preflighted IPv4 while Next.js could bind IPv6 (`::`), causing a false available-port result and `EADDRINUSE`.
+
+### If module-not-found persists
+
+1. Confirm the active Next.js process command line and ensure it was launched using the updated `npm run dev`; a **development** stack should reference `.next-dev-3000/` (or the selected development port), not `.next/server/`.
+2. Confirm that no second `next build` / `next start` process shares production `.next/`.
+3. Check file locking/antivirus if missing files recur **after a clean single-process build**, and provide the new error stack and `npm run doctor` output (not private environment values).
+4. `npm run doctor:firebase` requires a local `.env.local`; it is present in `main` after the Git update. Run `git log -1 --oneline` to confirm a current commit.
+
+**Deployment policy:** No KASA Vercel build/deployment may be triggered without the owner's explicit authorization. All commands here operate on the local Windows repository.
