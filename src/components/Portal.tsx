@@ -10,11 +10,15 @@ import {BrandLogo} from '@/components/BrandLogo';
 export async function api<T=any>(path:string,init:RequestInit={}):Promise<T>{
  const headers=await authHeaders();
  const response=await fetch(path,{...init,cache:'no-store',headers:{...headers,...(init.body instanceof FormData?{}:{'Content-Type':'application/json'}),...init.headers}});
- const body=await response.json();if(!response.ok)throw Error(body.error||'Request failed.');return body as T;
+ const body=await response.json().catch(()=>({error:`The server returned HTTP ${response.status}. Please retry.`}));
+ if(!response.ok)throw Error(typeof body.error==='string'?body.error:'The request could not be completed.');
+ return body as T;
 }
 export function Portal({children}:{children:React.ReactNode}){
  const [profile,setProfile]=useState<Profile|null>(null),[loading,setLoading]=useState(true),[sessionError,setSessionError]=useState(''),[collapsed,setCollapsed]=useState(false),[mobile,setMobile]=useState(false);
  const router=useRouter(),path=usePathname();
+ useEffect(()=>{try{setCollapsed(window.localStorage.getItem('kasa_sidebar_collapsed')==='true');}catch{}},[]);
+ function toggleSidebar(){setCollapsed(current=>{const next=!current;try{window.localStorage.setItem('kasa_sidebar_collapsed',String(next));}catch{}return next;});}
  useEffect(()=>{setMobile(false);},[path]);
  useEffect(()=>{
   if(!mobile)return;
@@ -56,7 +60,7 @@ export function Portal({children}:{children:React.ReactNode}){
  return <div className="portal-shell"><aside id="kasa-admin-navigation" className={`sidebar ${collapsed?'collapsed':''} ${mobile?'mobile-open':''}`}>
   <div className="side-header"><Link href="/dashboard" className="brand"><BrandLogo size={48}/>{(!collapsed||mobile)&&<span><strong>KASA</strong><small>Administration</small></span>}</Link><button className="icon-btn close-mobile" onClick={()=>setMobile(false)} aria-label="Close menu"><X size={20}/></button></div>
   <div className="side-label">{!collapsed||mobile?'WORKSPACE':'·'}</div><nav className="side-links" aria-label="Administration">{links.map(l=>{const I=l.icon;return <Link key={l.href} title={l.name} className={`side-link ${path===l.href||l.href!=='/dashboard'&&path.startsWith(l.href+'/')?'active':''}`} aria-current={path===l.href||l.href!=='/dashboard'&&path.startsWith(l.href+'/')?'page':undefined} href={l.href} onClick={()=>setMobile(false)}><I size={19}/>{(!collapsed||mobile)&&<span>{l.name}</span>}</Link>})}</nav>
-  <div className="side-bottom"><button className="side-link" type="button" onClick={()=>setCollapsed(s=>!s)} aria-label={collapsed?"Expand sidebar":"Collapse sidebar"}><ChevronLeft size={18} style={{transform:collapsed?'rotate(180deg)':undefined}}/>{(!collapsed||mobile)&&'Collapse sidebar'}</button><button className="side-link" onClick={()=>void logOut()}><LogOut size={18}/>{(!collapsed||mobile)&&'Sign out'}</button></div>
+  <div className="side-bottom"><button className="side-link" type="button" onClick={toggleSidebar} aria-label={collapsed?"Expand sidebar":"Collapse sidebar"}><ChevronLeft size={18} style={{transform:collapsed?'rotate(180deg)':undefined}}/>{(!collapsed||mobile)&&'Collapse sidebar'}</button><button className="side-link" onClick={()=>void logOut()}><LogOut size={18}/>{(!collapsed||mobile)&&'Sign out'}</button></div>
  </aside>{mobile&&<button className="sidebar-overlay" onClick={()=>setMobile(false)} aria-label="Close menu"/>}<div className="portal-body"><header className="portal-top"><div className="top-title"><button onClick={()=>setMobile(true)} className="icon-btn menu-button" aria-label="Open administration menu" aria-expanded={mobile} aria-controls="kasa-admin-navigation"><Menu size={20}/></button><span>Enrollment Operations</span><ChevronRight size={14}/><span className="muted">{links.find(l=>path.startsWith(l.href)&&l.href!=='/dashboard')?.name||'Overview'}</span></div><div className="avatar-area"><span className="role-pill">{profile.role.replace('_',' ')}</span><div className="mini-avatar">{(profile.displayName||profile.email)[0].toUpperCase()}</div><span className="profile-name">{profile.displayName||profile.email}</span></div></header><div className="portal-main">{children}</div></div></div>;
 }
 export function PageHeader({title,subtitle,action}:{title:string;subtitle:string;action?:React.ReactNode}){return <div className="page-heading"><div><h1>{title}</h1><p>{subtitle}</p></div>{action}</div>}
