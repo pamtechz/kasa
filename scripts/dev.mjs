@@ -43,7 +43,8 @@ async function main(){
  console.log(`[KASA] Development: http://localhost:${port}`);
  console.log(`[KASA] Binding interface: ${host}`);
  console.log(`[KASA] Isolated Next.js cache: ${distDir} (production build remains .next)`);
- const child=spawn(process.execPath,[nextCli,'dev','--port',String(port),'--hostname',host,...passthrough],{
+ const hasExplicitHost=passthrough.some(arg=>arg==='-H'||arg==='--hostname'||arg.startsWith('--hostname='));
+ const child=spawn(process.execPath,[nextCli,'dev','--port',String(port),...(hasExplicitHost?[]:['--hostname',host]),...passthrough],{
   cwd:process.cwd(),stdio:'inherit',
   env:{...process.env,KASA_NEXT_LOCAL_DEV:'1',KASA_NEXT_LOCAL_DEV_PORT:String(port)},
   windowsHide:false
