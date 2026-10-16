@@ -54,11 +54,17 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{slug:string
   }
   // Validate that each referenced private upload exists, is small and has the claimed MIME type.
   const attachments=Object.values(answers).filter((v):v is Attachment=>Boolean(v&&typeof v==='object'&&!Array.isArray(v)&&'path' in v));
+  if(new Set(attachments.map(a=>a.path)).size!==attachments.length)
+   throw new HttpError(400,'Each document must be uploaded separately. Please select a unique file for each question.');
   for(const a of attachments){
    const [exists]=await storage.bucket().file(a.path).exists();
    if(!exists)throw new HttpError(400,'An attachment could not be verified. Please upload it again.');
    const [meta]=await storage.bucket().file(a.path).getMetadata();
    if(Number(meta.size)>4*1024*1024||meta.contentType!==a.contentType)throw new HttpError(400,'Attachment validation failed.');
+   const uploadedAt=Date.parse(String(meta.timeCreated||''));
+   const uploadAge=Date.now()-uploadedAt;
+   if(!Number.isFinite(uploadedAt)||uploadAge< -5*60*1000||uploadAge>7*24*60*60*1000)
+    throw new HttpError(400,'One of the uploaded documents has expired. Please upload a fresh copy.');
   }
   const autoDoc=await db.collection('settings').doc('automations').get();
   const autoParsed=automationSchema.safeParse(autoDoc.data()?.config);
