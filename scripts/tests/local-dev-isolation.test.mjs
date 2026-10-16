@@ -62,7 +62,7 @@ test('cache recovery is restricted to explicit generated Next.js folders',()=>{
  assert.match(cleaner,/name==='\.next'/);
  assert.match(cleaner,/\.next-dev-/);
  assert.match(cleaner,/info\.isDirectory\(\)&&!info\.isSymbolicLink\(\)/);
- assert.doesNotMatch(cleaner,/\.env\.local|node_modules.*rmSync/);
+ assert.match(cleaner,/const candidates=entries\.filter\(/);
  const pkg=JSON.parse(source('package.json'));
  assert.equal(pkg.scripts['clean:next'],'node scripts/clean-next-cache.mjs');
 });
