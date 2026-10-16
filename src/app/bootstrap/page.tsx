@@ -3,7 +3,7 @@ import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import {onAuthStateChanged} from 'firebase/auth';
 import {CheckCircle2,AlertCircle,ArrowRight,LockKeyhole,Database,Zap} from 'lucide-react';
-import {auth,appCheckToken,firebaseConfigured} from '@/lib/firebase-client';
+import {auth,appCheckToken,firebaseConfigured,missingFirebaseBrowserSettings} from '@/lib/firebase-client';
 import {BrandLogo} from '@/components/BrandLogo';
 import {defaultSite,type SiteSettings} from '@/lib/site';
 
@@ -81,7 +81,11 @@ export default function Bootstrap(){
       <div><strong>Firestore connectivity</strong><p>{connection.state==='checking'?'Checking the database…':connection.state==='connected'?'Firestore is reachable.':connection.state==='configuration_required'?'Firebase setup is incomplete in this deployment.':'Database connectivity could not be verified.'}</p></div>
      </div>
      {connection.initialized&&<div className="notice"><CheckCircle2 size={16}/> An initial administrator has already been registered. Existing administrators can use the dashboard.</div>}
-     {!firebaseConfigured&&<div className="alert-error">This deployment lacks the Firebase browser configuration. The Firebase web-app settings must be configured for this environment before anyone can sign in.</div>}
+     {!firebaseConfigured&&<div className="alert-error" role="alert"><strong>Firebase web-app configuration is missing.</strong>
+      <p>Missing browser setting(s): <code>{missingFirebaseBrowserSettings.join(', ')}</code>.</p>
+      <p>When testing on your computer, enter your Firebase web-app values in <code>.env.local</code> in the KASA project folder, then fully stop and restart <code>npm run dev</code>. Vercel environment variables are not automatically copied onto your PC.</p>
+      <p>See the <a href="https://github.com/pamtechz/kasa/blob/main/docs/LOCAL_FIREBASE_AND_HYDRATION.md" target="_blank" rel="noreferrer">local Firebase setup instructions</a>.</p>
+     </div>}
      <div className="bootstrap-actions">
       {email?<button className="btn btn-primary" disabled={!ready||busy||complete} onClick={()=>void activate()}><Zap size={16}/>{busy?'Checking…':complete?'Initialized':'Initialize administrator'}</button>:<Link href="/login?next=%2Fbootstrap" className="btn btn-primary">Sign in or register <ArrowRight size={16}/></Link>}
       <Link href="/dashboard" className="btn btn-outline">Open dashboard</Link>
