@@ -26,3 +26,27 @@ test('dashboard mobile sidebar has accessibility and keyboard close hooks',()=>{
  assert.match(portal,/event\.key==='Escape'/);
  assert.match(portal,/aria-current=/);
 });
+
+test('Auth is explicitly nullable and sign-out is guarded',()=>{
+ const client=source('src/lib/firebase-client.ts');
+ const student=source('src/app/(site)/my-applications/page.tsx');
+ const portal=source('src/components/Portal.tsx');
+ assert.match(client,/auth:Auth\|null\s*=/);
+ assert.match(client,/export async function signOutClient\(/);
+ assert.match(client,/if\(!auth\)return;/);
+ assert.doesNotMatch(student,/signOut\(auth\)/);
+ assert.doesNotMatch(portal,/signOut\(auth\)/);
+ assert.match(student,/status==='unavailable'/);
+ assert.match(student,/status==='guest'/);
+});
+test('secure login requires initialized Firebase Auth and preserves allowlisted routes',()=>{
+ const login=source('src/app/(site)/login/page.tsx');
+ assert.match(login,/requireClientAuth\(\)/);
+ assert.match(login,/requested==='\/bootstrap'/);
+ assert.match(login,/requested==='\/my-applications'/);
+ assert.doesNotMatch(login,/signInWithEmailAndPassword\(auth,/);
+});
+test('Vercel automatic Git deployment is explicitly disabled',()=>{
+ const settings=JSON.parse(source('vercel.json'));
+ assert.equal(settings.git?.deploymentEnabled,false);
+});
