@@ -107,3 +107,12 @@ Read `docs/REQUIREMENTS_REGISTER.md` and this log before coding. Update both for
 - `vercel.json` contains `git.deploymentEnabled:false` to prevent GitHub merges from triggering Vercel deployments. Future deployments still require explicit authorization. No Vercel deployment was requested.
 - Regression tests cover nullable Auth, safe sign-out, supported App Check imports, portal navigation and Vercel Git auto-deploy being disabled.
 - **Verification:** source-level assertions performed; full installed Next.js build, Firebase Auth/Firestore E2E and self-hosted CI remain unverified while the runner is queued. Do not claim these checks passed.
+
+## 16 October 2026 — Legitimate repeat enrollment and catalogue consistency
+- Replaced the lifelong per-form contact-only deduplication key with a composite key including the administrator-configured published `programmes` and `intakes` field selections. Submitting twice for the same form, contact, course and intake is rejected; a student may apply to a distinct course or later intake.
+- The legacy contact-only fingerprint is checked in the same Firestore transaction, and its earlier submission is read to distinguish an actual same-scope duplicate from a legitimate new choice. The original stored submissions are unchanged.
+- The intake policy validates unique IDs and distinct names among active intakes; public course and intake options remain Firestore-derived, not hardcoded. Missing options produce a clear applicant message rather than an unusable blank dropdown.
+- Public application links refresh on a short shared cache, a periodic interval and browser focus, so administrators' openings/closures do not leave stale CTAs indefinitely. The server still independently checks the intake policy at submission time.
+- Staged attachments cannot be reused for two fields in one submission; metadata checks reject files older than seven days or timestamps in the future. Existing size, type and one-time application claim checks remain.
+- Four focused executable Node 22 tests for course/intake fingerprint semantics passed using a local mirror of the implementation. Added repository regression tests for the route's legacy check, upload safeguards and public availability refresh; the entire Next.js dependency build and live Firestore transaction integration remain **unverified** while the self-hosted runner is queued.
+- **Vercel:** `git.deploymentEnabled:false` remains in `vercel.json`. No deployment initiated or requested. Code is eligible for GitHub merge without authorizing publication.
