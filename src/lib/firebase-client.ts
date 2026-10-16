@@ -51,5 +51,6 @@ export function requireClientAuth():Auth{
  return auth;
 }
 export async function signOutClient():Promise<void>{
- if(auth)await signOut(auth);
+ if(!auth)return;
+ await signOut(auth);
 }
