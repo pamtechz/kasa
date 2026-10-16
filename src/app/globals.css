@@ -103,3 +103,11 @@
 .bootstrap-footnote a{text-decoration:underline;color:#226b48}
 @media(max-width:780px){.bootstrap-layout{grid-template-columns:1fr}.bootstrap-main{padding-top:30px}.bootstrap-inner{width:min(100% - 28px,1120px)}}
 @media(max-width:430px){.bootstrap-actions{flex-direction:column}.bootstrap-actions .btn{width:100%}.bootstrap-toplink{font-size:11px}.bootstrap-aside-title{align-items:flex-start}}
+
+/* Non-sensitive Firestore readiness indicators for administrator setup. */
+.setup-collection-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:18px 0}
+.setup-collection-item{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:9px;border:1px solid #e3ebe5;background:#f8faf9;padding:12px;border-radius:10px;font-size:12px}
+.setup-collection-item strong{text-transform:capitalize;color:#173c2b}
+.setup-detected{font-weight:700;color:#17673d}
+.setup-missing{font-weight:700;color:#a15b32}
+@media(max-width:490px){.setup-collection-grid{grid-template-columns:1fr}}
