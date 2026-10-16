@@ -10,6 +10,12 @@ export default function Home(){
  const [site,setSite]=useState<SiteSettings>(defaultSite);
  const [navOpen,setNavOpen]=useState(false);
  useEffect(()=>{
+  if(!navOpen)return;
+  const close=(event:KeyboardEvent)=>{if(event.key==='Escape')setNavOpen(false);};
+  document.addEventListener('keydown',close);
+  return ()=>document.removeEventListener('keydown',close);
+ },[navOpen]);
+ useEffect(()=>{
   const controller=new AbortController();
   void fetch('/api/public/site',{signal:controller.signal}).then(r=>r.ok?r.json():null)
    .then(d=>{if(d?.site)setSite(d.site as SiteSettings);})
