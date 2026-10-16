@@ -15,8 +15,11 @@ export function DynamicForm({form,agentCode}:{form:FormSchema;agentCode?:string}
  const fields=form.sections[step]?.fields||[];
  useEffect(()=>{if(step>0)sectionHeading.current?.focus();},[step]);
  const visible=useMemo(()=>fields.filter(f=>!f.condition||String(answers[f.condition.fieldId]??'')===f.condition.equals),[fields,answers]);
+ const unavailableOptions=visible.filter(f=>['select','radio','checkbox'].includes(f.type)&&!f.options?.length);
+ const availableChoices=unavailableOptions.length===0;
  const update=(id:string,val:unknown)=>{setAnswers(prev=>({...prev,[id]:val}));setError('');};
  function validateCurrent(){
+  if(!availableChoices)return 'A required course or intake is not currently available. Please contact KASA admissions.';
   for(const f of visible){const v=answers[f.id];
    if(f.required && (v===undefined||v===null||v===''||(Array.isArray(v)&&!v.length)))return `Please complete: ${f.label}.`;
    if(v && f.type==='email'&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v)))return `Enter a valid email: ${f.label}.`;
@@ -56,6 +59,7 @@ export function DynamicForm({form,agentCode}:{form:FormSchema;agentCode?:string}
   <div className="form-intro"><span className="overline">KASA · ONLINE APPLICATION</span><h1>{form.title}</h1><p>{form.subtitle}</p></div>
   <div className="step-progress"><div className="step-copy"><strong>Step {step+1} of {form.sections.length}</strong><span>{form.sections[step].title}</span></div><div className="progress-track" role="progressbar" aria-label="Application progress" aria-valuemin={0} aria-valuemax={form.sections.length} aria-valuenow={step+1}><div style={{width:`${(step+1)/form.sections.length*100}%`}}/></div></div>
   <div className="form-fields"><h2 ref={sectionHeading} tabIndex={-1}>{form.sections[step].title}</h2>{form.sections[step].description&&<p className="muted">{form.sections[step].description}</p>}
+  {!availableChoices&&<div className="notice" role="alert"><strong>Choices not available yet.</strong> KASA has not published an active option for {unavailableOptions.map(f=>f.label).join(', ')}. You can return after KASA updates the catalogue or <a href="/contact">contact admissions</a>.</div>}
   {visible.map(f=><div className="field" key={f.id}><label htmlFor={f.id}>{f.label}{f.required&&<b className="required"> *</b>}</label>{f.description&&<p className="field-hint">{f.description}</p>}
    {['text','tel','email','number','date'].includes(f.type)&&<input id={f.id} type={f.type==='tel'?'tel':f.type} placeholder={f.placeholder||''} value={valString(answers[f.id])} required={f.required} onChange={e=>update(f.id,e.target.value)}/>}
    {f.type==='textarea'&&<textarea id={f.id} rows={4} value={valString(answers[f.id])} placeholder={f.placeholder||''} onChange={e=>update(f.id,e.target.value)}/>}
@@ -66,7 +70,7 @@ export function DynamicForm({form,agentCode}:{form:FormSchema;agentCode?:string}
   </div>)}
   </div>
   {error&&<div className="alert-error" role="alert">{error}</div>}
-  <div className="form-footer"><button type="button" className="btn btn-ghost" onClick={()=>{setStep(s=>Math.max(0,s-1));setError('');}} disabled={!step||busy}><ArrowLeft size={16}/> Back</button><button type="button" className="btn btn-primary" onClick={()=>void submit()} disabled={busy||uploading!==null} aria-label={step===form.sections.length-1?'Submit application':'Continue to next section'}>{busy?<LoaderCircle className="spin" size={17}/>:step===form.sections.length-1?'Submit application':'Continue'} <ArrowRight size={16}/></button></div>
+  <div className="form-footer"><button type="button" className="btn btn-ghost" onClick={()=>{setStep(s=>Math.max(0,s-1));setError('');}} disabled={!step||busy}><ArrowLeft size={16}/> Back</button><button type="button" className="btn btn-primary" onClick={()=>void submit()} disabled={busy||uploading!==null||!availableChoices} aria-label={step===form.sections.length-1?'Submit application':'Continue to next section'}>{busy?<LoaderCircle className="spin" size={17}/>:step===form.sections.length-1?'Submit application':'Continue'} <ArrowRight size={16}/></button></div>
   <div className="form-security"><ShieldCheck size={17}/> Your information is transmitted securely and accessible only to authorized KASA personnel.</div>
  </div>;
 }
