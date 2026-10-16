@@ -6,12 +6,18 @@ import {ArrowRight,ClipboardList} from 'lucide-react';
 type PublicForm={slug:string;title:string;subtitle:string;kind:'agent'|'student'|'custom';open:boolean;reason?:string};
 type Placement='nav'|'hero'|'cta'|'catalog';
 let sharedRequest:Promise<PublicForm[]>|null=null;
+let lastFetched=0;
+const CACHE_MAX_AGE=30_000;
 function loadPublishedForms(){
- if(!sharedRequest)sharedRequest=fetch('/api/public/forms',{cache:'no-store'}).then(async response=>{
+ // Share concurrent lookups without pinning stale admission state for the entire session.
+ if(!sharedRequest||Date.now()-lastFetched>CACHE_MAX_AGE){
+  sharedRequest=fetch('/api/public/forms',{cache:'no-store'}).then(async response=>{
   const data=await response.json();
   if(!response.ok)throw Error(data.error||'Applications are currently unavailable.');
   return (Array.isArray(data.forms)?data.forms:[]) as PublicForm[];
- }).catch(error=>{sharedRequest=null;throw error;});
+ }).then(forms=>{lastFetched=Date.now();return forms;})
+  .catch(error=>{sharedRequest=null;lastFetched=0;throw error;});
+ }
  return sharedRequest;
 }
 export function PublicApplicationLinks({placement}:{placement:Placement}){
@@ -19,9 +25,16 @@ export function PublicApplicationLinks({placement}:{placement:Placement}){
  const [status,setStatus]=useState<'loading'|'open'|'unavailable'>('loading');
  useEffect(()=>{
   let active=true;
-  void loadPublishedForms().then(value=>{if(active){setForms(value.filter(f=>f.open));setStatus('open');}})
-    .catch(()=>{if(active)setStatus('unavailable');});
-  return ()=>{active=false;};
+  const refresh=()=>{
+   void loadPublishedForms().then(value=>{
+    if(active){setForms(value.filter(f=>f.open));setStatus('open');}
+   }).catch(()=>{if(active){setStatus('unavailable');setForms([]);}});
+  };
+  refresh();
+  // After an administrator changes intake status, keep public CTAs in sync.
+  const timer=window.setInterval(refresh,60_000);
+  window.addEventListener('focus',refresh);
+  return ()=>{active=false;window.clearInterval(timer);window.removeEventListener('focus',refresh);};
  },[]);
  const agent=forms.find(f=>f.kind==='agent');
  const student=forms.find(f=>f.kind==='student');
