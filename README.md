@@ -40,7 +40,7 @@ npm run dev
 
 ### Windows / local Next.js cache recovery
 
-Next.js development uses `.next-dev-<port>/` while production builds continue using `.next/`. The launcher rejects an occupied port rather than silently switching ports and colliding with generated manifests. If local Git fast-forward fails, do not reset or force-update your branch: follow [LOCAL_DEVELOPMENT_RECOVERY.md](docs/LOCAL_DEVELOPMENT_RECOVERY.md) for safe PowerShell commands, process checks and cache cleanup. This document also explains the local npm audit warnings and how to assess them without forced dependency upgrades.
+Next.js development uses `.next-dev-<port>/` while production builds continue using `.next/`. Use `npm run doctor` to inspect your local Node version, active Git branch and generated directories without modifying anything. The launcher rejects an occupied port rather than silently switching ports and colliding with generated manifests. If local Git fast-forward fails, do not reset or force-update your branch: follow [LOCAL_DEVELOPMENT_RECOVERY.md](docs/LOCAL_DEVELOPMENT_RECOVERY.md) for safe PowerShell commands, process checks and cache cleanup. This document also explains the local npm audit warnings and how to assess them without forced dependency upgrades.
 
 ### Environment configuration
 
