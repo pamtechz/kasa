@@ -32,7 +32,7 @@ cp .env.example .env.local
 # Populate .env.local with your own Firebase configuration.
 npm run dev
 # Optional when port 3000 belongs to a legitimate other service:
-# npm run dev -- --port 3001
+# npm run dev:3001
 ```
 
 `npm run build` and `npm run typecheck` require dependencies from the npm registry. This package was authored in an isolated environment where registry access was unavailable, so full Next.js build and end-to-end cloud tests remain pending.

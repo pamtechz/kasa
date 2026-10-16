@@ -17,10 +17,14 @@ test('explicit ports receive a different cache',()=>{
  assert.deepEqual(o,{port:3001,distDir:'.next-dev-3001',passthrough:['--hostname','127.0.0.1']});
  assert.equal(parseDevOptions(['-p','4210'],{}).distDir,'.next-dev-4210');
  assert.equal(parseDevOptions(['--port=5500'],{}).distDir,'.next-dev-5500');
+ // Observed on Windows: npm run dev -- --port 3001 -> node scripts/dev.mjs 3001
+ assert.deepEqual(parseDevOptions(['3001'],{}),{port:3001,distDir:'.next-dev-3001',passthrough:[]});
+ assert.equal(parseDevOptions(['--port','3001'],{}).port,3001);
+ assert.equal(parseDevOptions([], {KASA_DEV_PORT:'3030'}).port,3030);
 });
 
 test('rejects unsafe or ambiguous port inputs',()=>{
- for(const args of [['--port','0'],['--port','65536'],['--port','abc'],['--port','../../tmp'],['--port','3000','--port','3001'],['--port']]){
+ for(const args of [['--port','0'],['--port','65536'],['--port','abc'],['--port','../../tmp'],['--port','3000','--port','3001'],['--port'],['22'],['70000']]){
   assert.throws(()=>parseDevOptions(args,{}));
  }
 });
@@ -65,6 +69,8 @@ test('cache recovery is restricted to explicit generated Next.js folders',()=>{
  assert.match(cleaner,/const candidates=entries\.filter\(/);
  const pkg=JSON.parse(source('package.json'));
  assert.equal(pkg.scripts['clean:next'],'node scripts/clean-next-cache.mjs');
+ assert.equal(pkg.scripts['clean:next:confirm'],'node scripts/clean-next-cache.mjs --yes');
+ assert.equal(pkg.scripts['dev:3001'],'node scripts/dev.mjs 3001');
 });
 
 test('doctor reports tracked local changes and Git divergence without file content',()=>{

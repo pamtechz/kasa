@@ -147,3 +147,13 @@ Read `docs/REQUIREMENTS_REGISTER.md` and this log before coding. Update both for
 - Added focused source regression tests for matching hostname probe and listener, cache cleanup allowlist and Git diagnostics. Local Next.js full build and self-hosted runner CI remain unverified after these changes.
 - Windows recovery instructions in `docs/LOCAL_DEVELOPMENT_RECOVERY.md`: stash the two tracked edits, update main, stop verified KASA ports, clean only generated caches, build and dev on a selected explicit port.
 - No Vercel preview/staging/production deployment initiated or authorized. `vercel.json` continues to prohibit automatic Git deployments.
+
+## 16 October 2026 — Windows npm argument forwarding (KASA-028)
+- The attached output confirmed the owner's earlier checkout successfully completed **27/27 tests**, TypeScript checking, and Next.js 15.5.28 production build generating **51/51 pages**. This is strong evidence the previous manifest compilation is healthy but not proof of the new CLI fix.
+- `npm run dev -- --port 3001` was shown invoking `node scripts/dev.mjs 3001` on Windows, demonstrating that `--port` was removed. KASA's parser previously treated `3001` as unrecognized passthrough and retried occupied port 3000; now the unambiguous leading numeric argument selects the matching port and cache.
+- `npm run clean:next -- --yes` was shown invoking the script with **no argument**, so it printed directories without removing generated caches. Added reliable `npm run clean:next:confirm` with `--yes` embedded in the package script and a clearer dry-run instruction. Added `npm run dev:3001` as a stable equivalent that also avoids npm argument forwarding.
+- Added behavior tests for positional / flagged / equals-style ports and an actual temporary-directory cleanup run verifying that dry-run doesn't delete, confirmation removes generated output, and unrelated files survive.
+- Preserve existing dev/production artifact separation and IPv4/IPv6 collision detection. Documented updated commands in the README and local recovery guide.
+- **No Vercel deployment** requested, initiated, or authorized. KASA remains `git.deploymentEnabled:false`.
+
+- Follow-up verification: the two new Node.js executable tests passed against a local mirror of the committed parser and cache-cleanup source. These tests cover positional port recognition and dry-run/explicit-confirmation deletion safety. The full Next.js build of this branch and Windows-only npm invocation remain to be run on the owner's workstation.
