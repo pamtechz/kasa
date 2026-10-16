@@ -9,7 +9,7 @@ export const dynamic='force-dynamic';
 export async function GET(){
  if(!isFirebaseConfigured()){
   return NextResponse.json({state:'configuration_required',database:'unknown'},
-   {headers:{'Cache-Control':'no-store'}});
+   {headers:{'Cache-Control':'public, max-age=0, s-maxage=30'}});
  }
  try{
   // A genuine Firestore read: environment-variable checks alone do not prove connectivity.
