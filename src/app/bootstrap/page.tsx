@@ -43,11 +43,16 @@ export default function Bootstrap(){
    setVerified(user.emailVerified);
    if(!user.emailVerified)throw Error('Verify your Firebase Authentication email before continuing.');
    const jwt=await user.getIdToken(true);
-   const appCheck=await appCheckToken();
-   if(!appCheck)throw Error('Firebase App Check is not available. Ask KASA to verify App Check configuration.');
+   // The server requires App Check on production writes, not on localhost.
+   // A development-only reCAPTCHA error must not block local setup.
+   const appCheck=process.env.NODE_ENV==='production'
+    ?await appCheckToken()
+    :await appCheckToken().catch(()=>'');
+   if(process.env.NODE_ENV==='production'&&!appCheck)
+    throw Error('Firebase App Check is not available. Ask KASA to verify its production configuration.');
    const r=await fetch('/api/bootstrap',{
     method:'POST',cache:'no-store',
-    headers:{authorization:'Bearer '+jwt,'X-Firebase-AppCheck':appCheck}
+    headers:{authorization:'Bearer '+jwt,...(appCheck?{'X-Firebase-AppCheck':appCheck}:{})}
    });
    const payload=await r.json();
    if(!r.ok)throw Error(payload.error||'Administrator setup could not be completed.');
