@@ -48,3 +48,11 @@ test('public application links refresh instead of retaining stale forms forever'
  assert.match(links,/CACHE_MAX_AGE/);
  assert.match(links,/setInterval\(refresh/);
 });
+
+test('email identity punctuation is retained while the legacy index remains searchable',()=>{
+ const schema=readFileSync(new URL('../../src/lib/schema.ts',import.meta.url),'utf8');
+ const submit=readFileSync(new URL('../../src/app/api/public/forms/[slug]/submit/route.ts',import.meta.url),'utf8');
+ assert.match(schema,/identifier\.type==='email'\?value/);
+ assert.match(submit,/legacyContact=fingerprint\?fingerprint\.replace/);
+ assert.match(submit,/legacyFingerprintId=legacyContact/);
+});
