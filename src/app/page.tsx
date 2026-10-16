@@ -4,10 +4,11 @@ import Link from 'next/link';
 import {PublicApplicationLinks} from '@/components/PublicApplicationLinks';
 import {BrandLogo} from '@/components/BrandLogo';
 import {defaultSite,type SiteSettings} from '@/lib/site';
-import {CheckCircle2,ClipboardList,MapPin,ShieldCheck,Sprout,Users} from 'lucide-react';
+import {CheckCircle2,ClipboardList,MapPin,ShieldCheck,Sprout,Users,Menu,X} from 'lucide-react';
 
 export default function Home(){
  const [site,setSite]=useState<SiteSettings>(defaultSite);
+ const [navOpen,setNavOpen]=useState(false);
  useEffect(()=>{
   const controller=new AbortController();
   void fetch('/api/public/site',{signal:controller.signal}).then(r=>r.ok?r.json():null)
@@ -18,7 +19,10 @@ export default function Home(){
  return <main>
   <div className="hero-shell">
    <nav className="top-nav container"><Link href="/" className="brand"><BrandLogo size={62}/><span><strong>{site.organization}</strong><small>{site.subtitle}</small></span></Link>
-    <div className="nav-links"><Link href="/about">About</Link><Link href="/programmes">Programmes</Link><Link href="/fees">Fees</Link><Link href="/announcements">Announcements</Link><Link href="/admissions">Admissions</Link><Link href="/contact">Contact</Link><Link href="/my-applications">My applications</Link><Link href="/login">Staff login</Link><PublicApplicationLinks placement="nav"/></div></nav>
+    <button type="button" className="icon-btn home-nav-toggle" aria-expanded={navOpen} aria-controls="kasa-home-navigation" aria-label={navOpen?"Close navigation":"Open navigation"} onClick={()=>setNavOpen(v=>!v)}>{navOpen?<X size={24}/>:<Menu size={24}/>}</button>
+    <div id="kasa-home-navigation" className={`nav-links home-nav-links ${navOpen?"home-nav-open":""}`}>
+     <Link onClick={()=>setNavOpen(false)} href="/about">About</Link><Link onClick={()=>setNavOpen(false)} href="/programmes">Programmes</Link><Link onClick={()=>setNavOpen(false)} href="/fees">Fees</Link><Link onClick={()=>setNavOpen(false)} href="/announcements">Announcements</Link><Link onClick={()=>setNavOpen(false)} href="/admissions">Admissions</Link><Link onClick={()=>setNavOpen(false)} href="/agents">Agents</Link><Link onClick={()=>setNavOpen(false)} href="/contact">Contact</Link><Link onClick={()=>setNavOpen(false)} href="/my-applications">My applications</Link><Link onClick={()=>setNavOpen(false)} href="/login">Staff login</Link><PublicApplicationLinks placement="nav"/>
+    </div></nav>
    <div className="container hero-grid"><div className="hero-copy">
     <div className="eyebrow"><span className="pulse-dot"/>{site.badge}</div>
     <h1>{site.heroTitle} <em>{site.heroEmphasis}</em></h1><p>{site.heroDescription}</p>
