@@ -27,8 +27,7 @@ export async function requireAppCheck(req:Request){
  if(process.env.NODE_ENV!=='production') return;
  const token=req.headers.get('x-firebase-appcheck');
  if(!token) throw new HttpError(403,'Application verification is required.');
- try {const verified=await appCheck.verifyToken(token,{consume:true});
-  if(verified.alreadyConsumed) throw new Error('Token already used');}
+ try {await appCheck.verifyToken(token);}
  catch {throw new HttpError(403,'Application verification failed.');}
 }
 export function digest(raw:string){
