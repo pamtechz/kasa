@@ -13,7 +13,8 @@
     "seed:catalog": "node scripts/seed-catalog.mjs",
     "test:source": "node --experimental-strip-types --test scripts/tests/*.test.mjs",
     "audit:production": "npm audit --omit=dev --audit-level=high",
-    "doctor": "node scripts/doctor.mjs"
+    "doctor": "node scripts/doctor.mjs",
+    "doctor:firebase": "node --env-file=.env.local scripts/firebase-env-doctor.mjs"
   },
   "engines": {
     "node": ">=22 <23"
