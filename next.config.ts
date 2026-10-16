@@ -1,5 +1,16 @@
 import type { NextConfig } from 'next';
+// Each development port receives its own generated output. The production
+// build continues to use .next, preventing npm run build from deleting files
+// belonging to an active local development server.
+const activeDevPort = process.env.KASA_NEXT_LOCAL_DEV === '1'
+  ? process.env.KASA_NEXT_LOCAL_DEV_PORT
+  : undefined;
+const isolatedDevelopmentDir = activeDevPort && /^\\d{4,5}$/.test(activeDevPort)
+  ? `.next-dev-${activeDevPort}`
+  : '.next';
+
 const nextConfig: NextConfig = {
+  distDir: isolatedDevelopmentDir,
   reactStrictMode:true,
   poweredByHeader:false,
   outputFileTracingIncludes:{'/*':['./public/kasa-logo-white.png']},
