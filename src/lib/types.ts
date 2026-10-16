@@ -21,4 +21,11 @@ export type ApplicantRecord = {id:string;reference:string;formId:string;formTitl
   commission?:{amount:number;currency:string;trigger?:'cdf_approval'|'payment';approvedAt?:string;paidAt?:string;paymentReference?:string};
 };
 export type Role = 'super_admin'|'admin'|'reviewer'|'agent'|'student';
-export type Profile = {uid:string;email:string;displayName:string;role:Role;active:boolean;agentCode?:string;district?:string;province?:string;constituency?:string;ward?:string;commissionOverride?:number; referralsCount?:number; totalCommission?:number; isStudent?:boolean};
+export type Profile = {
+  uid:string; email:string; displayName:string; role:Role; active:boolean;
+  agentCode?:string; district?:string; province?:string; constituency?:string; ward?:string;
+  commissionOverride?:number; referralsCount?:number; totalCommission?:number; isStudent?:boolean;
+  phone?:string; address?:string; photoUrl?:string; bio?:string;
+  notifications?:{emailAlerts?:boolean;newsUpdates?:boolean;smsAlerts?:boolean};
+  createdAt?:string; updatedAt?:string;
+};

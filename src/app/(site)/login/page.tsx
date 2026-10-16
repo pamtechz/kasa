@@ -6,6 +6,7 @@ import {useRouter} from 'next/navigation';
 import {firebaseConfigured,requireClientAuth,missingFirebaseBrowserSettings} from '@/lib/firebase-client';
 import {ArrowRight,LockKeyhole} from 'lucide-react';
 import {BrandLogo} from '@/components/BrandLogo';
+import {PasswordInput} from '@/components/PasswordInput';
 function readableAuthError(error:unknown):string{
  const code=error&&typeof error==='object'&&'code' in error?String((error as {code?:unknown}).code||''):'';
  if(['auth/invalid-credential','auth/wrong-password','auth/user-not-found','auth/invalid-email'].includes(code))return 'Incorrect email or password. Check your details and try again.';
@@ -73,7 +74,7 @@ export default function Login(){
      <form onSubmit={e=>void go(e)}>
       {mode==='register'&&<div className="field"><label>Full name</label><input value={name} onChange={e=>setName(e.target.value)} required/></div>}
       <div className="field"><label>Email address</label><input type="email" name="email" autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} required/></div>
-      <div className="field"><label>Password</label><input type="password" name="password" autoComplete={mode==='sign-in'?'current-password':'new-password'} minLength={8} value={password} onChange={e=>setPassword(e.target.value)} required/></div>
+      <PasswordInput label="Password" name="password" autoComplete={mode==='sign-in'?'current-password':'new-password'} minLength={8} value={password} onChange={e=>setPassword(e.target.value)} required/>
       {message&&<div className="notice" role="alert">{message}</div>}
       <button className="btn btn-primary btn-full" disabled={busy}>{busy?'Please wait…':mode==='sign-in'?'Sign in':'Create account'} <ArrowRight size={16}/></button>
      </form>

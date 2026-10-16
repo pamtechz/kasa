@@ -82,83 +82,128 @@ export async function generateAcceptancePackPdf(
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const italic = await pdf.embedFont(StandardFonts.HelveticaOblique);
 
-  let logoImage: any = null;
+  let embeddedTemplate: any = null;
   try {
-    const logoBytes = await readFile(join(process.cwd(), 'public', 'kasa-logo-white.png'));
-    logoImage = await pdf.embedPng(logoBytes);
+    const templateBytes = await readFile(join(process.cwd(), 'public', 'kasa-headed-paper-template.pdf'));
+    const templateDoc = await PDFDocument.load(templateBytes);
+    const [tPage] = await pdf.embedPdf(templateDoc, [0]);
+    embeddedTemplate = tPage;
   } catch {}
 
-  const green = hexToRgb(cfg.institution.primaryColorHex, rgb(0.06, 0.25, 0.17));
-  const gold = hexToRgb(cfg.institution.goldColorHex, rgb(0.88, 0.71, 0.38));
+  let logoImage: any = null;
+  try {
+    const logoBytes = await readFile(join(process.cwd(), 'public', 'kasa-headed-logo.jpg'));
+    logoImage = await pdf.embedJpg(logoBytes);
+  } catch {
+    try {
+      const logoBytes = await readFile(join(process.cwd(), 'public', 'kasa-logo-white.png'));
+      logoImage = await pdf.embedPng(logoBytes);
+    } catch {}
+  }
+
+  const green = hexToRgb(cfg.institution.primaryColorHex, rgb(0.055, 0.361, 0.212));
+  const gold = hexToRgb(cfg.institution.goldColorHex, rgb(0.773, 0.608, 0.153));
   const darkInk = rgb(0.1, 0.16, 0.13);
   const mutedText = rgb(0.38, 0.46, 0.42);
   const lightBg = rgb(0.96, 0.98, 0.96);
   const borderCol = rgb(0.82, 0.88, 0.84);
   const tableHeaderBg = green;
 
-  // Header banner on every page
-  function drawHeader(page: any) {
-    page.drawRectangle({x: 0, y: 760, width: 595, height: 82, color: green});
-    page.drawRectangle({x: 0, y: 757, width: 595, height: 3, color: gold});
-
-    if (logoImage) {
-      page.drawImage(logoImage, {x: 35, y: 772, width: 58, height: 60});
+  // Exact Official Headed Paper Banner on every page
+  function drawHeadedPaper(page: any, pageNum: number) {
+    if (embeddedTemplate) {
+      page.drawPage(embeddedTemplate, {x: 0, y: 0, width: 595, height: 842});
+      page.drawText(`Page ${pageNum} of 5`, {
+        x: 520, y: 84, size: 7.5, font: italic, color: mutedText
+      });
+      return;
     }
 
-    page.drawText(ascii(cfg.institution.name), {
-      x: 105, y: 818, size: 13.5, font: bold, color: rgb(1, 1, 1)
+    // High fidelity fallback matching the exact attached official paper:
+    // 1. Top Right Diagonal Polygons (Green & Gold)
+    page.drawSvgPath('M 328 0 L 595 0 L 595 74 Z', {
+      x: 0, y: 842, color: green
     });
-    page.drawText(ascii(cfg.institution.motto), {
-      x: 105, y: 804, size: 9.5, font: bold, color: gold
+    page.drawSvgPath('M 460 0 L 595 0 L 595 42 Z', {
+      x: 0, y: 842, color: gold
     });
-    page.drawText(ascii(cfg.institution.lusakaAddress), {
-      x: 105, y: 791, size: 8, font: regular, color: rgb(0.88, 0.94, 0.9)
+
+    // 2. KASA Crest Logo on white header background
+    if (logoImage) {
+      page.drawImage(logoImage, {x: 40, y: 746, width: 68, height: 70});
+    }
+
+    // 3. Institution Title & Contacts (Beside logo on white background)
+    page.drawText(ascii(cfg.institution.name || 'KAMAILA ACADEMICS, SPORTS & APPRENTICESHIP'), {
+      x: 118, y: 804, size: 12, font: bold, color: rgb(0.055, 0.29, 0.18)
     });
-    page.drawText(ascii(cfg.institution.campusAddress), {
-      x: 105, y: 780, size: 8, font: regular, color: rgb(0.88, 0.94, 0.9)
+    page.drawText(ascii(cfg.institution.motto || '(KASA) -- HEAD | HEART | HAND'), {
+      x: 118, y: 791, size: 8.8, font: bold, color: gold
     });
-    page.drawText(`Contact: ${ascii(cfg.institution.phone)} | Email: ${ascii(cfg.institution.email)}`, {
-      x: 105, y: 768, size: 8, font: bold, color: rgb(0.92, 0.97, 0.94)
+    page.drawText(ascii(cfg.institution.lusakaAddress || 'House No. 40, Civic Centre, Area 22, Lusaka, Zambia'), {
+      x: 118, y: 778, size: 7.8, font: regular, color: rgb(0.29, 0.33, 0.40)
+    });
+    page.drawText(ascii(cfg.institution.campusAddress || 'Kamaila Farming Block, 22 Miles, After Protea Hotel, Junken Rd, Chisamba'), {
+      x: 118, y: 767, size: 7.8, font: regular, color: rgb(0.29, 0.33, 0.40)
+    });
+    page.drawText(`Contact: ${ascii(cfg.institution.phone || '+260 574 203 660')} | Email: ${ascii(cfg.institution.email || 'kasa@zamfirm.com')}`, {
+      x: 118, y: 756, size: 7.8, font: regular, color: rgb(0.20, 0.25, 0.33)
+    });
+
+    // 4. Central Subtle Watermark
+    if (logoImage) {
+      page.drawImage(logoImage, {
+        x: (595 - 330) / 2,
+        y: (842 - 330) / 2,
+        width: 330,
+        height: 330,
+        opacity: 0.05
+      });
+    }
+
+    // 5. Two-Tier Footer
+    // Upper gold band (3 Pillars with bullet points)
+    page.drawRectangle({x: 25, y: 34, width: 545, height: 42, color: gold});
+    page.drawText('* General Agriculture: Practical production & management across crops, horticulture, poultry, livestock, aquaculture, pasture & feed production', {
+      x: 35, y: 64, size: 6.8, font: bold, color: rgb(1, 1, 1)
+    });
+    page.drawText('* Sports Development: Professional training for football and athletics trainers.', {
+      x: 35, y: 53, size: 6.8, font: bold, color: rgb(1, 1, 1)
+    });
+    page.drawText('* Cooperative Development: Cooperative formation, enterprise development & organizational skills management.', {
+      x: 35, y: 42, size: 6.8, font: bold, color: rgb(1, 1, 1)
+    });
+
+    // Lower green band (Institution name, email, phone)
+    page.drawRectangle({x: 25, y: 0, width: 545, height: 32, color: green});
+    page.drawText(ascii(cfg.institution.name || 'KAMAILA ACADEMICS, SPORTS & APPRENTICESHIP'), {
+      x: 38, y: 11, size: 8, font: bold, color: rgb(1, 1, 1)
+    });
+    page.drawText(ascii(cfg.institution.email || 'kasa@zamfirm.com'), {
+      x: 260, y: 11, size: 8, font: regular, color: rgb(1, 1, 1)
+    });
+    page.drawText(ascii(cfg.institution.phone || '+260 574 203 660'), {
+      x: 450, y: 11, size: 8, font: bold, color: rgb(1, 1, 1)
+    });
+
+    page.drawText(`Page ${pageNum} of 5`, {
+      x: 520, y: 84, size: 7.5, font: italic, color: mutedText
     });
   }
 
-  // Footer banner on every page
-  function drawFooter(page: any, pageNum: number) {
-    // Top gold bar with 3 pillars
-    page.drawRectangle({x: 0, y: 32, width: 595, height: 38, color: gold});
-    page.drawText('* General Agriculture: Practical production & management across crops, horticulture, poultry, livestock, aquaculture', {
-      x: 35, y: 58, size: 6.8, font: bold, color: rgb(0.12, 0.22, 0.16)
-    });
-    page.drawText('* Sports Development: Professional training for football and athletics trainers.', {
-      x: 35, y: 48, size: 6.8, font: bold, color: rgb(0.12, 0.22, 0.16)
-    });
-    page.drawText('* Cooperative Development: Cooperative formation, enterprise development & organizational skills management.', {
-      x: 35, y: 38, size: 6.8, font: bold, color: rgb(0.12, 0.22, 0.16)
-    });
+  function drawHeader(page: any, pageNum = 1) {
+    drawHeadedPaper(page, pageNum);
+  }
 
-    // Dark green bottom bar
-    page.drawRectangle({x: 0, y: 0, width: 595, height: 32, color: green});
-    page.drawText(ascii(cfg.institution.name), {
-      x: 35, y: 12, size: 8, font: bold, color: rgb(1, 1, 1)
-    });
-    page.drawText(ascii(cfg.institution.email), {
-      x: 340, y: 12, size: 8, font: regular, color: rgb(0.85, 0.93, 0.88)
-    });
-    page.drawText(ascii(cfg.institution.phone), {
-      x: 480, y: 12, size: 8, font: bold, color: gold
-    });
-
-    // Page indicator
-    page.drawText(`KASA Acceptance Pack | Page ${pageNum} of 5`, {
-      x: 410, y: 74, size: 7.8, font: italic, color: mutedText
-    });
+  function drawFooter(page: any, _pageNum: number) {
+    // Header and footer are drawn together in exact harmony
   }
 
   // ==========================================
   // PAGE 1: LETTER OF ACCEPTANCE
   // ==========================================
   const page1 = pdf.addPage([595, 842]);
-  drawHeader(page1);
+  drawHeader(page1, 1);
 
   let y = 734;
   page1.drawText(`Our reference: ${ascii(data.reference)}`, {x: 40, y, size: 9.5, font: bold, color: darkInk});
@@ -251,7 +296,7 @@ export async function generateAcceptancePackPdf(
   // PAGE 2: COURSES AND FEES
   // ==========================================
   const page2 = pdf.addPage([595, 842]);
-  drawHeader(page2);
+  drawHeader(page2, 2);
 
   y = 734;
   page2.drawText('COURSES AND FEES', {x: 40, y, size: 14, font: bold, color: green});
@@ -334,7 +379,7 @@ export async function generateAcceptancePackPdf(
   // PAGE 3: PERSONAL AND SCHOOL REQUIREMENTS
   // ==========================================
   const page3 = pdf.addPage([595, 842]);
-  drawHeader(page3);
+  drawHeader(page3, 3);
 
   y = 734;
   page3.drawText('PERSONAL AND SCHOOL REQUIREMENTS', {x: 40, y, size: 14, font: bold, color: green});
@@ -385,7 +430,7 @@ export async function generateAcceptancePackPdf(
   // PAGE 4: COURSE REQUIREMENTS
   // ==========================================
   const page4 = pdf.addPage([595, 842]);
-  drawHeader(page4);
+  drawHeader(page4, 4);
 
   y = 734;
   page4.drawText('COURSE REQUIREMENTS', {x: 40, y, size: 14, font: bold, color: green});
@@ -455,7 +500,7 @@ export async function generateAcceptancePackPdf(
   // PAGE 5: ADMISSION ACCEPTANCE FORM
   // ==========================================
   const page5 = pdf.addPage([595, 842]);
-  drawHeader(page5);
+  drawHeader(page5, 5);
 
   y = 734;
   page5.drawText('ADMISSION ACCEPTANCE FORM', {x: 40, y, size: 14, font: bold, color: green});

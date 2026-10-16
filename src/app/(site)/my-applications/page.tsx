@@ -3,7 +3,7 @@ import {useEffect,useState} from 'react';
 import {onAuthStateChanged} from 'firebase/auth';
 import Link from 'next/link';
 import {useRouter} from 'next/navigation';
-import {AlertCircle,LogIn,LogOut,RefreshCw,ShieldCheck,Copy,Download,FileText,Share2,Users,Coins} from 'lucide-react';
+import {AlertCircle,LogIn,LogOut,RefreshCw,ShieldCheck,Copy,Download,FileText,Share2,Users,Coins,User} from 'lucide-react';
 import {SiteChrome,PageIntro} from '@/components/SiteChrome';
 import {auth,authHeaders,appCheckToken,firebaseConfigured,signOutClient} from '@/lib/firebase-client';
 import {StatusBadge} from '@/components/Portal';
@@ -96,7 +96,7 @@ export default function MyApplications(){
   {status==='ready'&&<>
    <section className="panel pad-panel">
     <div className="student-account-row"><div><h2>Your account</h2><p>Verified email: <strong>{email}</strong></p></div>
-    <button type="button" className="btn btn-outline" disabled={busy} onClick={()=>void logout()}><LogOut size={17}/>Sign out</button></div>
+    <div style={{display:'flex',gap:'10px',alignItems:'center',flexWrap:'wrap'}}><Link href="/account" className="btn btn-secondary"><User size={16}/> Manage profile & password</Link><button type="button" className="btn btn-outline" disabled={busy} onClick={()=>void logout()}><LogOut size={17}/>Sign out</button></div></div>
    </section>
    <section className="panel pad-panel">
     <h2>Link an existing application</h2>
