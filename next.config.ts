@@ -5,7 +5,12 @@ import type { NextConfig } from 'next';
 const activeDevPort = process.env.KASA_NEXT_LOCAL_DEV === '1'
   ? process.env.KASA_NEXT_LOCAL_DEV_PORT
   : undefined;
-const isolatedDevelopmentDir = activeDevPort && /^\\d{4,5}$/.test(activeDevPort)
+const validatedDevPort = Number(activeDevPort);
+const isolatedDevelopmentDir = activeDevPort
+  && Number.isInteger(validatedDevPort)
+  && validatedDevPort >= 1024
+  && validatedDevPort <= 65535
+  && String(validatedDevPort) === activeDevPort
   ? `.next-dev-${activeDevPort}`
   : '.next';
 
