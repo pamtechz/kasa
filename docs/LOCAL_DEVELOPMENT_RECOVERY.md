@@ -10,7 +10,7 @@ KASA now uses the following separated directories:
 | Command | Generated Next.js files |
 |---|---|
 | `npm run dev` (default port 3000) | `.next-dev-3000/` |
-| `npm run dev -- --port 3001` | `.next-dev-3001/` |
+| `npm run dev:3001` | `.next-dev-3001/` |
 | `npm run build` / `npm start` | `.next/` |
 
 The development launcher **refuses an occupied port** instead of silently picking a new one. This prevents two unaware servers from sharing a manifest directory. The ports are development settings, not business logic or intake controls.
@@ -95,7 +95,7 @@ npm run dev
 Open **http://localhost:3000**. If a legitimate separate service owns port 3000, either stop it or explicitly choose another development port:
 
 ```powershell
-npm run dev -- --port 3001
+npm run dev:3001
 ```
 
 You may run `npm run build` independently from the newly launched `npm run dev`; they no longer share the same `.next` output directory. If a *legacy* Next.js process started before updating KASA is still running, stop it first because it may continue using the old shared directory.
@@ -164,7 +164,7 @@ After **all KASA Next.js processes are stopped**:
 
 ```powershell
 npm run clean:next
-npm run clean:next -- --yes
+npm run clean:next:confirm
 npm run test:source
 npm run typecheck
 npm run build
@@ -173,7 +173,7 @@ npm run dev
 
 The first cleanup invocation displays which generated folders will be removed; the second requires `--yes` and removes only `.next/` and `.next-dev-<port>/` directories from a verified KASA folder. It leaves `.env.local`, `node_modules`, Firebase records and source files unchanged.
 
-If port 3000 belongs to a needed service, run `npm run dev -- --port 3001`, where development assets use `.next-dev-3001`. The dev script now **preflights the same network interface it passes to Next.js**. Older launcher revisions preflighted IPv4 while Next.js could bind IPv6 (`::`), causing a false available-port result and `EADDRINUSE`.
+If port 3000 belongs to a needed service, run `npm run dev:3001`, where development assets use `.next-dev-3001`. The dev script now **preflights the same network interface it passes to Next.js**. Older launcher revisions preflighted IPv4 while Next.js could bind IPv6 (`::`), causing a false available-port result and `EADDRINUSE`.
 
 ### If module-not-found persists
 
@@ -183,3 +183,24 @@ If port 3000 belongs to a needed service, run `npm run dev -- --port 3001`, wher
 4. `npm run doctor:firebase` requires a local `.env.local`; it is present in `main` after the Git update. Run `git log -1 --oneline` to confirm a current commit.
 
 **Deployment policy:** No KASA Vercel build/deployment may be triggered without the owner's explicit authorization. All commands here operate on the local Windows repository.
+
+## 16 October 2026 — Windows npm forwarded a bare port and swallowed --yes
+
+The user’s log shows `npm run dev -- --port 3001` invoking `node scripts/dev.mjs 3001`: npm forwarded only the numeric value, so older KASA parsed the default port 3000 again. It also shows `npm run clean:next -- --yes` invoking the cleaner **without** `--yes`, so the generated files were only listed and never removed.
+
+KASA now accepts both forms:
+
+```powershell
+npm run dev:3001
+# or: npm run dev -- 3001
+# also handled: npm run dev -- --port 3001
+```
+
+For a cleanup that works even when npm drops user-supplied flags, **stop all KASA Next processes first**, then run:
+
+```powershell
+npm run clean:next
+npm run clean:next:confirm
+```
+
+The first command previews the exact generated directories; the second uses a confirmation argument embedded in the npm script itself. It never removes `.env.local`, `node_modules`, Git data or Firebase records. Avoid force-killing unrelated Node processes or the self-hosted runner. A new behaviour test executes the cleanup in a temporary directory and checks that unrelated content is preserved.
