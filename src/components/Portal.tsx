@@ -1,10 +1,10 @@
 'use client';
 import {useEffect,useState} from 'react';
-import {onAuthStateChanged,signOut} from 'firebase/auth';
+import {onAuthStateChanged} from 'firebase/auth';
 import {useRouter,usePathname} from 'next/navigation';
 import Link from 'next/link';
 import {BarChart3,ChevronLeft,ChevronRight,ClipboardList,FilePlus2,LayoutDashboard,LogOut,Menu,Settings,Users,X,Bell,BookOpen,Newspaper,CalendarDays,Database} from 'lucide-react';
-import {auth,authHeaders,firebaseConfigured} from '@/lib/firebase-client';
+import {auth,authHeaders,firebaseConfigured,signOutClient} from '@/lib/firebase-client';
 import type {Profile} from '@/lib/types';
 import {BrandLogo} from '@/components/BrandLogo';
 export async function api<T=any>(path:string,init:RequestInit={}):Promise<T>{
@@ -13,7 +13,7 @@ export async function api<T=any>(path:string,init:RequestInit={}):Promise<T>{
  const body=await response.json();if(!response.ok)throw Error(body.error||'Request failed.');return body as T;
 }
 export function Portal({children}:{children:React.ReactNode}){
- const [profile,setProfile]=useState<Profile|null>(null),[loading,setLoading]=useState(true),[collapsed,setCollapsed]=useState(false),[mobile,setMobile]=useState(false);
+ const [profile,setProfile]=useState<Profile|null>(null),[loading,setLoading]=useState(true),[sessionError,setSessionError]=useState(''),[collapsed,setCollapsed]=useState(false),[mobile,setMobile]=useState(false);
  const router=useRouter(),path=usePathname();
  useEffect(()=>{setMobile(false);},[path]);
  useEffect(()=>{
@@ -24,20 +24,39 @@ export function Portal({children}:{children:React.ReactNode}){
   document.body.style.overflow='hidden';
   return ()=>{document.removeEventListener('keydown',closeOnEscape);document.body.style.overflow=previous;};
  },[mobile]);
- useEffect(()=>{if(!firebaseConfigured){setLoading(false);return;}
-  return onAuthStateChanged(auth,async user=>{
-  if(!user){router.replace('/login');return;}
-  try{const r=await api<{profile:Profile}>('/api/me');setProfile(r.profile);}catch{router.replace('/login');}finally{setLoading(false);}
- });},[router]);
+ useEffect(()=>{
+  if(!firebaseConfigured||!auth){
+   setSessionError('The Firebase sign-in service is not configured for this deployment.');
+   setLoading(false);return;
+  }
+  let active=true;
+  const unsubscribe=onAuthStateChanged(auth,async user=>{
+   if(!active)return;
+   if(!user){setProfile(null);setLoading(false);router.replace('/login?reason=session-ended');return;}
+   try{
+    const result=await api<{profile:Profile}>('/api/me');
+    if(active){setProfile(result.profile);setSessionError('');}
+   }catch(e){
+    if(active){setProfile(null);setSessionError(e instanceof Error?e.message:'Unable to validate staff access.');}
+   }finally{if(active)setLoading(false);}
+  },()=>{
+   if(active){setProfile(null);setSessionError('Unable to validate your Firebase session.');setLoading(false);}
+  });
+  return ()=>{active=false;unsubscribe();};
+ },[router]);
+ async function logOut(){
+  try{await signOutClient();setProfile(null);router.replace('/login?reason=session-ended');}
+  catch(e){setSessionError(e instanceof Error?e.message:'Unable to sign out. Please retry.');}
+ }
  const links=[{name:'Overview',href:'/dashboard',icon:LayoutDashboard},{name:'Notifications',href:'/dashboard/notifications',icon:Bell},
   ...(profile?.role==='agent'?[{name:'My referrals',href:'/dashboard/referrals',icon:Users}]:[{name:'Applications',href:'/dashboard/applications',icon:ClipboardList}]),
   ...(!['super_admin','admin'].includes(profile?.role||'')?[]:[{name:'Website',href:'/dashboard/website',icon:Settings},{name:'Programmes',href:'/dashboard/programmes',icon:BookOpen},{name:'Announcements',href:'/dashboard/announcements',icon:Newspaper},{name:'Intake windows',href:'/dashboard/intake',icon:CalendarDays},{name:'Form builder',href:'/dashboard/forms',icon:FilePlus2},{name:'District agents',href:'/dashboard/agents',icon:Users},{name:'Commissions',href:'/dashboard/commissions',icon:BarChart3},{name:'Automations',href:'/dashboard/automations',icon:Bell},{name:'Settings',href:'/dashboard/settings',icon:Settings}]),...(profile?.role==='super_admin'?[{name:'Staff roles',href:'/dashboard/staff',icon:Users},{name:'Data setup',href:'/dashboard/setup',icon:Database}]:[])];
- if(!firebaseConfigured)return <main className="page-loader">KASA enrollment is being configured. Firebase credentials are not yet available for this deployment.</main>;
- if(loading||!profile)return <main className="page-loader">Loading secure workspace…</main>;
+ if(loading)return <main className="page-loader" role="status">Loading your secure workspace…</main>;
+ if(sessionError||!profile)return <main className="portal-error-state" role="alert"><h1>Workspace access needs attention</h1><p>{sessionError||'Sign in with an authorized KASA staff or agent account to continue.'}</p><Link className="btn btn-primary" href="/login">Go to sign in</Link></main>;
  return <div className="portal-shell"><aside id="kasa-admin-navigation" className={`sidebar ${collapsed?'collapsed':''} ${mobile?'mobile-open':''}`}>
   <div className="side-header"><Link href="/dashboard" className="brand"><BrandLogo size={48}/>{(!collapsed||mobile)&&<span><strong>KASA</strong><small>Administration</small></span>}</Link><button className="icon-btn close-mobile" onClick={()=>setMobile(false)} aria-label="Close menu"><X size={20}/></button></div>
   <div className="side-label">{!collapsed||mobile?'WORKSPACE':'·'}</div><nav className="side-links" aria-label="Administration">{links.map(l=>{const I=l.icon;return <Link key={l.href} title={l.name} className={`side-link ${path===l.href||l.href!=='/dashboard'&&path.startsWith(l.href+'/')?'active':''}`} aria-current={path===l.href||l.href!=='/dashboard'&&path.startsWith(l.href+'/')?'page':undefined} href={l.href} onClick={()=>setMobile(false)}><I size={19}/>{(!collapsed||mobile)&&<span>{l.name}</span>}</Link>})}</nav>
-  <div className="side-bottom"><button className="side-link" type="button" onClick={()=>setCollapsed(s=>!s)} aria-label={collapsed?"Expand sidebar":"Collapse sidebar"}><ChevronLeft size={18} style={{transform:collapsed?'rotate(180deg)':undefined}}/>{(!collapsed||mobile)&&'Collapse sidebar'}</button><button className="side-link" onClick={()=>void signOut(auth).then(()=>router.replace('/login'))}><LogOut size={18}/>{(!collapsed||mobile)&&'Sign out'}</button></div>
+  <div className="side-bottom"><button className="side-link" type="button" onClick={()=>setCollapsed(s=>!s)} aria-label={collapsed?"Expand sidebar":"Collapse sidebar"}><ChevronLeft size={18} style={{transform:collapsed?'rotate(180deg)':undefined}}/>{(!collapsed||mobile)&&'Collapse sidebar'}</button><button className="side-link" onClick={()=>void logOut()}><LogOut size={18}/>{(!collapsed||mobile)&&'Sign out'}</button></div>
  </aside>{mobile&&<button className="sidebar-overlay" onClick={()=>setMobile(false)} aria-label="Close menu"/>}<div className="portal-body"><header className="portal-top"><div className="top-title"><button onClick={()=>setMobile(true)} className="icon-btn menu-button" aria-label="Open administration menu" aria-expanded={mobile} aria-controls="kasa-admin-navigation"><Menu size={20}/></button><span>Enrollment Operations</span><ChevronRight size={14}/><span className="muted">{links.find(l=>path.startsWith(l.href)&&l.href!=='/dashboard')?.name||'Overview'}</span></div><div className="avatar-area"><span className="role-pill">{profile.role.replace('_',' ')}</span><div className="mini-avatar">{(profile.displayName||profile.email)[0].toUpperCase()}</div><span className="profile-name">{profile.displayName||profile.email}</span></div></header><div className="portal-main">{children}</div></div></div>;
 }
 export function PageHeader({title,subtitle,action}:{title:string;subtitle:string;action?:React.ReactNode}){return <div className="page-heading"><div><h1>{title}</h1><p>{subtitle}</p></div>{action}</div>}
