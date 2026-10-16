@@ -22,6 +22,19 @@ The bootstrap page heading, introduction and checklist are editable from the aut
 
 The admin page `/dashboard/setup` displays these indicators and provides **Seed missing Firestore records**. The seed endpoint can only be called by a signed-in super administrator and never overwrites existing documents.
 
+### Trusted command-line bootstrap alternative
+The updated `scripts/bootstrap-admin.mjs` uses the same `settings/bootstrap` singleton marker as the website. It is atomic, idempotent for the same administrator, and refuses to overwrite an existing administrator binding. It does not create a Firebase Authentication user; registration and email verification come first.
+
+On a trusted machine with Node 22 and local Firebase Admin credentials:
+```powershell
+git pull --ff-only origin main
+npm install
+node --env-file=.env.local scripts/bootstrap-admin.mjs
+node --env-file=.env.local scripts/seed-forms.mjs
+node --env-file=.env.local scripts/seed-catalog.mjs
+```
+These commands are only for an operator who has installed and configured the **local** private environment. Until this change is merged, obtain the updated CLI file from the feature branch. The last two seed commands create missing draft forms and course/announcement records; they do not publish application forms, activate intakes or overwrite existing documents.
+
 ### Initial seeding procedure
 1. Configure Firebase credentials and domain(s) in Firebase Console and Vercel.
 2. Register the nominated admin's email via `/login?next=/bootstrap`, verify the email and sign in.
