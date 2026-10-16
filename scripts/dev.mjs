@@ -15,7 +15,7 @@ function requestedHost(args){
  if(!host||host.startsWith('-'))throw new Error('Specify a valid hostname, e.g. --hostname 127.0.0.1.');
  return host;
 }
-async function availablePort(port,host){
+async function checkBinding(port,host){
  return new Promise((resolve,reject)=>{
   const server=createServer();
   server.once('error',error=>{
@@ -26,6 +26,19 @@ async function availablePort(port,host){
    server.close(()=>resolve(true));
   });
  });
+}
+// Default localhost can resolve to IPv6. Do not start KASA on IPv4 while
+// a stale Next process still serves ::1 on the same port.
+async function availablePort(port,host){
+ if(!(await checkBinding(port,host)))return false;
+ if(host==='0.0.0.0'){
+  try{return await checkBinding(port,'::');}
+  catch(error){
+   if(error?.code==='EADDRNOTAVAIL'||error?.code==='EAFNOSUPPORT')return true;
+   throw error;
+  }
+ }
+ return true;
 }
 async function main(){
  const {port,distDir,passthrough}=parseDevOptions(process.argv.slice(2),process.env);
