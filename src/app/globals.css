@@ -59,3 +59,47 @@
 @media(max-width:1150px){.site-links{gap:10px}.site-links>a{font-size:11px}.site-identity{min-width:155px}.site-identity small{max-width:180px}}
 @media(max-width:890px){.mobile-site-toggle{display:inline-flex;color:white}.site-navigation{flex-wrap:wrap}.site-links{display:none;flex-basis:100%;padding:4px 0 20px;flex-direction:column;align-items:stretch}.site-links.opened{display:flex}.site-links>a{font-size:15px;padding:9px 0}.site-links .site-login{justify-content:center}.nav-links{gap:10px;flex-wrap:wrap;justify-content:flex-end}.nav-links a,.nav-links .nav-primary{font-size:11px}.top-nav{height:auto;min-height:85px;padding-top:10px;padding-bottom:10px}}
 @media(max-width:650px){.container{width:min(100% - 28px,1200px)}.site-page-hero{padding:45px 0}.site-cards{grid-template-columns:1fr}.site-content{padding-top:32px;padding-bottom:55px}.site-footer-inner{flex-direction:column;gap:28px}.site-footer-nav{grid-template-columns:repeat(2,1fr)}.nav-links{gap:6px}.nav-links a{padding:7px 6px}.hero-shell .top-nav{flex-wrap:wrap}.site-article{padding:19px}}
+
+/* First administrator setup: responsive, accessible and independent of legacy .page-heading */
+.bootstrap-root{min-height:100vh;background:#f4f7f5;color:#18352a}
+.bootstrap-inner{width:min(1120px,calc(100% - 40px));margin-inline:auto}
+.bootstrap-topbar{background:#103d2d;border-bottom:3px solid #d8ad61}
+.bootstrap-topbar .bootstrap-inner{display:flex;justify-content:space-between;align-items:center;gap:20px;padding-block:13px}
+.bootstrap-identity{display:inline-flex;align-items:center;gap:12px;color:#fff}
+.bootstrap-identity strong{display:block;font-size:22px;font-weight:800;letter-spacing:.04em;color:#fff}
+.bootstrap-identity small{display:block;color:#c9ded1;font-size:11px}
+.bootstrap-toplink{color:#f6e2b6;display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:700}
+.bootstrap-main{padding-top:52px;padding-bottom:72px}
+.bootstrap-heading{max-width:780px;margin-bottom:30px}
+.bootstrap-heading .overline{color:#3d785d;font-size:12px}
+.bootstrap-heading h1{font-size:clamp(30px,4vw,48px);line-height:1.15;letter-spacing:-.04em;margin:12px 0 12px;font-weight:800;color:#143729}
+.bootstrap-heading p{font-size:16px;line-height:1.75;color:#557164}
+.bootstrap-layout{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(320px,.85fr);gap:22px;align-items:start}
+.bootstrap-panel,.bootstrap-aside{background:#fff;border:1px solid #e0e9e3;border-radius:18px;box-shadow:0 14px 40px rgba(8,42,25,.05);padding:clamp(22px,3vw,36px)}
+.bootstrap-panel-head{display:flex;align-items:flex-start;gap:15px;margin-bottom:24px;border-bottom:1px solid #e6eeea;padding-bottom:22px}
+.bootstrap-panel-head>svg{background:#e7f2e9;box-sizing:content-box;padding:11px;border-radius:12px;color:#1d6b45}
+.bootstrap-panel-head h2{font-size:22px;margin:0 0 6px}
+.bootstrap-panel-head p{font-size:13px;color:#587264;line-height:1.6;margin:0}
+.bootstrap-check{display:flex;align-items:flex-start;gap:13px;padding:13px 0}
+.bootstrap-check strong{font-size:14px}
+.bootstrap-check p{font-size:13px;color:#64766b;line-height:1.6;margin:4px 0 0;overflow-wrap:anywhere}
+.bootstrap-check-icon{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:11px;background:#f5eee5;color:#9e6930;flex-shrink:0}
+.bootstrap-check-icon.is-good{background:#e6f3e9;color:#157646}
+.bootstrap-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:24px}
+.bootstrap-actions .btn{display:inline-flex;align-items:center;justify-content:center;gap:9px}
+.bootstrap-actions button:disabled{cursor:not-allowed}
+.bootstrap-aside{background:#123d2e;color:#fff;border-color:#123d2e}
+.bootstrap-aside-title{display:flex;align-items:center;gap:15px;margin-bottom:25px}
+.bootstrap-aside h2{font-size:21px;color:#fff;line-height:1.2;margin:5px 0}
+.bootstrap-aside .overline{color:#dfb66f;font-size:11px}
+.bootstrap-steps{list-style:none;padding:0;margin:0;display:grid;gap:20px}
+.bootstrap-steps li{display:flex;align-items:flex-start;gap:13px}
+.bootstrap-steps li>span{width:28px;height:28px;display:grid;place-items:center;border-radius:50%;background:#d8af64;color:#153729;font-weight:800;font-size:12px;flex-shrink:0}
+.bootstrap-steps li p{font-size:13px;color:#dcece1;line-height:1.7;margin:2px 0 0}
+.bootstrap-note{margin-top:28px;padding:15px;border-radius:12px;background:rgba(255,255,255,.09);display:flex;align-items:flex-start;gap:10px}
+.bootstrap-note p{font-size:12px;color:#dfebe2;line-height:1.65;margin:0}
+.bootstrap-note svg{flex-shrink:0;color:#e6be77}
+.bootstrap-footnote{margin-top:24px;color:#677b70;font-size:12px;line-height:1.7}
+.bootstrap-footnote a{text-decoration:underline;color:#226b48}
+@media(max-width:780px){.bootstrap-layout{grid-template-columns:1fr}.bootstrap-main{padding-top:30px}.bootstrap-inner{width:min(100% - 28px,1120px)}}
+@media(max-width:430px){.bootstrap-actions{flex-direction:column}.bootstrap-actions .btn{width:100%}.bootstrap-toplink{font-size:11px}.bootstrap-aside-title{align-items:flex-start}}
