@@ -18,7 +18,8 @@ if(pkg.name!=='kasa-enrollment-network'){
  if(!process.argv.includes('--yes')){
   console.log('[KASA] Generated Next.js folders:',candidates.length?candidates.join(', '):'(none)');
   console.log('[KASA] Stop ALL KASA Next.js dev/build/start processes before cleaning.');
-  console.log('[KASA] To remove only these generated folders: npm run clean:next -- --yes');
+  console.log('[KASA] To remove only these generated folders: npm run clean:next:confirm');
+  console.log('[KASA] Some Windows npm environments discard --yes from forwarded flags.');
  }else{
   console.log('[KASA] Cleaning only generated .next and .next-dev-<port> folders.');
   for(const name of candidates){
