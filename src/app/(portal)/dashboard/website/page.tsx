@@ -7,6 +7,7 @@ import {defaultSite,type SiteSettings} from '@/lib/site';
 type Key=keyof SiteSettings;
 type Editable={key:Key;label:string;multiline?:boolean};
 const groups:{title:string;fields:Editable[]}[]=[
+ {title:'First administrator setup',fields:[{key:'bootstrapTitle',label:'Setup page heading'},{key:'bootstrapDescription',label:'Setup page introduction',multiline:true}]},
  {title:'Organization and branding',fields:[{key:'organization',label:'Short organization name'},{key:'subtitle',label:'Full organization name'},{key:'footer',label:'Footer information'}]},
  {title:'Homepage hero',fields:[{key:'badge',label:'Announcement'},{key:'heroTitle',label:'Headline'},{key:'heroEmphasis',label:'Highlighted headline text'},{key:'heroDescription',label:'Introduction',multiline:true},{key:'heroCardTitle',label:'Illustration headline'},{key:'heroCardDescription',label:'Illustration caption'}]},
  {title:'How it works',fields:[{key:'howEyebrow',label:'Section label'},{key:'howTitle',label:'Section heading'},{key:'howDescription',label:'Section description',multiline:true}]},
@@ -30,7 +31,10 @@ export default function Website(){
  }
  return <><PageHeader title="Website content" subtitle="Manage the homepage, About us, How it works, announcements, contact and recruitment copy without editing code." action={<Link className="btn btn-outline" target="_blank" href="/"><ExternalLink size={16}/> Public preview</Link>}/>
  <div className="settings-grid"><div className="panel pad-panel">
-  {groups.map(group=><section key={group.title}><h2>{group.title}</h2>{group.fields.map(f=><div className="field" key={f.key}><label>{f.label}</label>{f.multiline?<textarea rows={4} value={String(site[f.key])} onChange={e=>update(f.key,e.target.value)}/>:<input value={String(site[f.key])} onChange={e=>update(f.key,e.target.value)}/>}</div>)}</section>)}
+  {groups.map(group=><section key={group.title}><h2>{group.title}</h2>{group.fields.map(f=><div className="field" key={f.key}><label>{f.label}</label>{f.multiline?<textarea rows={4} value={String(site[f.key]??'')} onChange={e=>update(f.key,e.target.value)}/>:<input value={String(site[f.key])} onChange={e=>update(f.key,e.target.value)}/>}</div>)}</section>)}
+  <section><h2>First administrator checklist</h2><p className="muted">These instructions are published on the bootstrap page. Security restrictions and the authorized email cannot be overridden from this editor.</p>
+  {(site.bootstrapSteps||defaultSite.bootstrapSteps||[]).map((step,i)=><div className="admin-edit-item" key={i}><div className="field"><label>Step {i+1}</label><textarea rows={2} value={step} onChange={e=>setSite(prev=>({...prev,bootstrapSteps:(prev.bootstrapSteps||defaultSite.bootstrapSteps||[]).map((x,j)=>j===i?e.target.value:x)}))}/></div><button className="text-link" onClick={()=>setSite(prev=>({...prev,bootstrapSteps:(prev.bootstrapSteps||defaultSite.bootstrapSteps||[]).filter((_,j)=>j!==i)}))}><Trash2 size={15}/> Remove</button></div>)}
+  <button className="btn btn-outline" disabled={(site.bootstrapSteps||[]).length>=8} onClick={()=>setSite(prev=>({...prev,bootstrapSteps:[...(prev.bootstrapSteps||[]),'Describe the next administrator setup task.']}))}><Plus size={16}/> Add instruction</button></section>
   {(['metrics','steps','aboutValues'] as const).map(key=><section key={key}><h2>{({metrics:'Homepage highlights',steps:'How it works steps',aboutValues:'About KASA values'})[key]}</h2>
    {site[key].map((item,index)=><div className="admin-edit-item" key={index}><div className="form-grid">{key==='metrics'?<>
     <div className="field"><label>Value</label><input value={'value' in item?item.value:''} onChange={e=>editItem(key,index,'value',e.target.value)}/></div>
