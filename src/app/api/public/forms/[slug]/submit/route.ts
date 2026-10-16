@@ -73,7 +73,9 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{slug:string
   const fingerprint=applicantFingerprint(dedupeFields,answers);
   const scope=enrollmentScope(dedupeFields,answers);
   const fingerprintId=fingerprint?digest(scopedFingerprint(form.id,fingerprint,dedupeFields,answers)):null;
-  const legacyFingerprintId=fingerprint?digest(form.id+':'+fingerprint):null;
+  // Pre-migration fingerprinting stripped hyphens even from email addresses.
+  const legacyContact=fingerprint?fingerprint.replace(/[\s()-]/g,''):null;
+  const legacyFingerprintId=legacyContact?digest(form.id+':'+legacyContact):null;
   const id=newId();
   const reference=`KASA-${new Date().getFullYear()}-${id.slice(0,8).toUpperCase()}`;
   const now=new Date().toISOString();
