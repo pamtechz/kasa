@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-import {readdirSync,rmSync,statSync,existsSync} from 'node:fs';
+import {readdirSync,rmSync,lstatSync,readFileSync} from 'node:fs';
 import {resolve,basename} from 'node:path';
 
 const root=process.cwd();
-const pkg=JSON.parse((await import('node:fs')).readFileSync(resolve(root,'package.json'),'utf8'));
+const pkg=JSON.parse(readFileSync(resolve(root,'package.json'),'utf8'));
 if(pkg.name!=='kasa-enrollment-network'){
  console.error('[KASA] Refusing to clean: current folder is not the KASA app.');
  process.exitCode=1;
@@ -12,7 +12,8 @@ if(pkg.name!=='kasa-enrollment-network'){
  const candidates=entries.filter(name=>name==='.next'||/^\.next-dev-[0-9]{4,5}$/.test(name))
   .filter(name=>{
    const target=resolve(root,name);
-   return basename(target)===name&&statSync(target).isDirectory();
+   const info=lstatSync(target);
+   return basename(target)===name&&info.isDirectory()&&!info.isSymbolicLink();
   });
  if(!process.argv.includes('--yes')){
   console.log('[KASA] Generated Next.js folders:',candidates.length?candidates.join(', '):'(none)');
