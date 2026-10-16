@@ -207,3 +207,20 @@
 @media(prefers-reduced-motion:reduce){
  *,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}
 }
+
+/* Accessible session and account states, aligned with EDURMS interaction patterns */
+.student-account-row{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.student-account-row h2{margin:0 0 8px}
+.student-account-row p{margin:0;color:var(--muted);line-height:1.6}
+.student-account-row strong{overflow-wrap:anywhere}
+.portal-error-state{min-height:65dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:36px 22px;text-align:center;color:var(--ink);background:var(--bg)}
+.portal-error-state h1{font-size:clamp(24px,5vw,36px);line-height:1.2;margin:0}
+.portal-error-state p{color:var(--muted);max-width:520px;line-height:1.7;margin:0}
+.portal-error-state .btn{margin-top:8px}
+.site-content .panel+.panel{margin-top:20px}
+.site-content .student-account-row .btn{flex-shrink:0}
+@media(max-width:540px){
+ .student-account-row{align-items:stretch;flex-direction:column}
+ .student-account-row .btn{align-self:flex-start}
+ .portal-error-state{min-height:60dvh}
+}
