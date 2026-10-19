@@ -17,6 +17,45 @@ export const courseRequirementRowSchema = z.object({
   requirements: z.string().trim().min(2).max(300)
 });
 
+export const enrollmentFormFieldOffsetSchema = z.object({
+  x: z.number().default(0),
+  y: z.number().default(0),
+  fontSize: z.number().min(6).max(24).default(9)
+});
+
+export const enrollmentFormOffsetsSchema = z.object({
+  applicationDate: enrollmentFormFieldOffsetSchema.default({x: 165, y: 736, fontSize: 9}),
+  intakeAndYear: enrollmentFormFieldOffsetSchema.default({x: 410, y: 736, fontSize: 9}),
+  programmeTitle: enrollmentFormFieldOffsetSchema.default({x: 175, y: 698, fontSize: 9}),
+  fullNames: enrollmentFormFieldOffsetSchema.default({x: 105, y: 550, fontSize: 9}),
+  dob: enrollmentFormFieldOffsetSchema.default({x: 175, y: 536, fontSize: 9}),
+  gender: enrollmentFormFieldOffsetSchema.default({x: 330, y: 536, fontSize: 9}),
+  nationality: enrollmentFormFieldOffsetSchema.default({x: 105, y: 522, fontSize: 9}),
+  nrcNumber: enrollmentFormFieldOffsetSchema.default({x: 380, y: 522, fontSize: 9}),
+  mobileNumber: enrollmentFormFieldOffsetSchema.default({x: 125, y: 508, fontSize: 9}),
+  whatsappNumber: enrollmentFormFieldOffsetSchema.default({x: 350, y: 508, fontSize: 9}),
+  email: enrollmentFormFieldOffsetSchema.default({x: 175, y: 494, fontSize: 9}),
+  residentialAddress: enrollmentFormFieldOffsetSchema.default({x: 195, y: 480, fontSize: 9}),
+  district: enrollmentFormFieldOffsetSchema.default({x: 85, y: 466, fontSize: 9}),
+  province: enrollmentFormFieldOffsetSchema.default({x: 300, y: 466, fontSize: 9}),
+  highestGrade: enrollmentFormFieldOffsetSchema.default({x: 230, y: 395, fontSize: 9}),
+  schoolInstitution: enrollmentFormFieldOffsetSchema.default({x: 190, y: 381, fontSize: 9}),
+  qualificationYear: enrollmentFormFieldOffsetSchema.default({x: 480, y: 381, fontSize: 9}),
+  occupation: enrollmentFormFieldOffsetSchema.default({x: 160, y: 760, fontSize: 9}),
+  guardianName: enrollmentFormFieldOffsetSchema.default({x: 105, y: 685, fontSize: 9}),
+  guardianRelationship: enrollmentFormFieldOffsetSchema.default({x: 165, y: 672, fontSize: 9}),
+  guardianMobile: enrollmentFormFieldOffsetSchema.default({x: 420, y: 672, fontSize: 9}),
+  emergencyName: enrollmentFormFieldOffsetSchema.default({x: 105, y: 615, fontSize: 9}),
+  emergencyMobile: enrollmentFormFieldOffsetSchema.default({x: 125, y: 602, fontSize: 9}),
+  sponsorName: enrollmentFormFieldOffsetSchema.default({x: 165, y: 446, fontSize: 9}),
+  declarationName: enrollmentFormFieldOffsetSchema.default({x: 175, y: 690, fontSize: 9}),
+  declarationDate: enrollmentFormFieldOffsetSchema.default({x: 440, y: 690, fontSize: 9}),
+  officeReference: enrollmentFormFieldOffsetSchema.default({x: 440, y: 510, fontSize: 9}),
+  officeEnrollmentNum: enrollmentFormFieldOffsetSchema.default({x: 155, y: 478, fontSize: 9}),
+  officeConfirmedProg: enrollmentFormFieldOffsetSchema.default({x: 380, y: 478, fontSize: 9}),
+  officeIntakeDate: enrollmentFormFieldOffsetSchema.default({x: 155, y: 462, fontSize: 9})
+}).default({});
+
 export const acceptanceLetterConfigSchema = z.object({
   institution: z.object({
     name: z.string().trim().min(2).max(120).default('KAMAILA ACADEMICS, SPORTS & APPRENTICESHIP'),
@@ -139,7 +178,15 @@ export const acceptanceLetterConfigSchema = z.object({
     fileName: z.string().trim().default(''),
     uploadedAt: z.string().nullable().default(null),
     fileSize: z.number().nullable().default(null)
-  }).default({type: 'upload', url: '', fileName: '', uploadedAt: null, fileSize: null})
+  }).default({type: 'upload', url: '', fileName: '', uploadedAt: null, fileSize: null}),
+  enrollmentForm: z.object({
+    downloadType: z.enum(['upload', 'link']).default('link'),
+    url: z.string().trim().default(''),
+    fileName: z.string().trim().default('Official_KASA_Enrollment_Form.pdf'),
+    uploadedAt: z.string().nullable().default(null),
+    fileSize: z.number().nullable().default(null)
+  }).default({downloadType: 'link', url: '', fileName: 'Official_KASA_Enrollment_Form.pdf', uploadedAt: null, fileSize: null}),
+  enrollmentFormOffsets: enrollmentFormOffsetsSchema.default({})
 });
 
 

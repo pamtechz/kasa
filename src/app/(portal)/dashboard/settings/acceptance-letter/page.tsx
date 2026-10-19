@@ -4,7 +4,7 @@ import {useEffect, useState} from 'react';
 import {
   Save, Eye, RotateCcw, Plus, Trash2, CheckCircle2,
   Building, Mail, DollarSign, ListChecks, GraduationCap, ShieldCheck,
-  UploadCloud, Link as LinkIcon, FileText, ExternalLink, Check, FileCheck
+  UploadCloud, Link as LinkIcon, FileText, ExternalLink, Check, FileCheck, Sliders, FileDown
 } from 'lucide-react';
 import {api, PageHeader} from '@/components/Portal';
 import {authHeaders} from '@/lib/firebase-client';
@@ -13,7 +13,7 @@ import {
   defaultAcceptanceLetterConfig
 } from '@/lib/acceptance-letter-config';
 
-type Tab = 'source' | 'branding' | 'letter' | 'fees' | 'requirements' | 'courseReqs';
+type Tab = 'source' | 'branding' | 'letter' | 'fees' | 'requirements' | 'courseReqs' | 'formAlignment';
 
 export default function AcceptanceLetterDesigner() {
   const [config, setConfig] = useState<AcceptanceLetterConfig>(defaultAcceptanceLetterConfig);
@@ -104,6 +104,34 @@ export default function AcceptanceLetterDesigner() {
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw Error(body.error || 'Unable to generate preview PDF.');
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener,noreferrer');
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Preview generation failed.');
+    } finally {
+      setPreviewing(false);
+    }
+  }
+
+  async function previewEnrollmentFormAlignment() {
+    setPreviewing(true);
+    setError('');
+    try {
+      const headers = await authHeaders();
+      const res = await fetch('/api/admin/settings/acceptance-letter/preview-enrollment-form', {
+        method: 'POST',
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({config})
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw Error(body.error || 'Unable to generate preview Enrollment Form PDF.');
       }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -210,7 +238,8 @@ export default function AcceptanceLetterDesigner() {
           {id: 'letter', label: '3. Letter Content', icon: Mail},
           {id: 'fees', label: '4. Courses & Fees (p.2)', icon: DollarSign},
           {id: 'requirements', label: '5. Checklists (p.3)', icon: ListChecks},
-          {id: 'courseReqs', label: '6. Course PPE & Kit (p.4)', icon: GraduationCap}
+          {id: 'courseReqs', label: '6. Course PPE & Kit (p.4)', icon: GraduationCap},
+          {id: 'formAlignment', label: '7. Enrollment Form Alignment (X/Y Offsets)', icon: Sliders}
         ].map(tab => {
           const I = tab.icon;
           const active = activeTab === tab.id;
@@ -536,6 +565,54 @@ export default function AcceptanceLetterDesigner() {
               </div>
             </div>
           )}
+
+          {/* Section: Official Blank Enrollment Form Download Link */}
+          <div style={{
+            marginTop: 32,
+            paddingTop: 24,
+            borderTop: '1px solid var(--border)'
+          }}>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:6}}>
+              <FileText size={22} style={{color:'var(--green)'}}/>
+              <h3 style={{margin:0,fontSize:17}}>Official Blank Enrollment Form PDF (Google Drive / Cloudinary / Asset Link)</h3>
+            </div>
+            <p className="muted" style={{fontSize:13,lineHeight:1.6,marginBottom:18}}>
+              Configure the download link for the blank official KASA Enrollment Form. Applicants, students, and district agents can download this exact document directly via Google Drive, Cloudinary, or built-in template asset.
+            </p>
+
+            <div style={{display:'grid',gap:16,background:'#f8faf9',border:'1px solid #dbe5e0',borderRadius:12,padding:22}}>
+              <div className="field">
+                <label>Download Link / Asset URL (Google Drive or Cloudinary)</label>
+                <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+                  <input
+                    type="url"
+                    placeholder="https://drive.google.com/file/d/... or https://res.cloudinary.com/..."
+                    value={config.enrollmentForm?.url || ''}
+                    onChange={e => setConfig({
+                      ...config,
+                      enrollmentForm: {
+                        ...config.enrollmentForm,
+                        url: e.target.value.trim()
+                      }
+                    })}
+                    style={{flex:1,minWidth:280}}
+                  />
+                  <a
+                    href="/api/public/download-enrollment-form"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-outline"
+                    style={{display:'inline-flex',alignItems:'center',gap:6,whiteSpace:'nowrap'}}
+                  >
+                    <ExternalLink size={15}/> Test Public Download Link ↗
+                  </a>
+                </div>
+                <small className="muted" style={{fontSize:12,marginTop:6,display:'block'}}>
+                  Paste a public Google Drive sharing link or Cloudinary file URL. Leave blank to use the official built-in template document automatically.
+                </small>
+              </div>
+            </div>
+          </div>
         </section>
       )}
 
@@ -1134,6 +1211,121 @@ export default function AcceptanceLetterDesigner() {
                 courseRequirements: {...config.courseRequirements, sharedToolsNote: e.target.value}
               })}
             />
+          </div>
+        </section>
+      )}
+
+      {/* TAB 7: ENROLLMENT FORM FIELD ALIGNMENT (X/Y OFFSETS) */}
+      {activeTab === 'formAlignment' && (
+        <section className="panel pad-panel">
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:12,marginBottom:16}}>
+            <div>
+              <h2>Enrollment Form Field Alignment (X / Y Coordinates)</h2>
+              <p className="muted" style={{fontSize:13,margin:0}}>
+                Adjust the online text overlay position coordinates (X, Y, Font Size) so fields line up 100% perfectly with your pre-printed form boxes.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="btn btn-outline"
+              disabled={previewing}
+              onClick={() => void previewEnrollmentFormAlignment()}
+              style={{display:'inline-flex',alignItems:'center',gap:6}}
+            >
+              <Eye size={16}/> {previewing ? 'Generating…' : 'Preview Enrollment Form Alignment PDF ↗'}
+            </button>
+          </div>
+
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(280px, 1fr))',gap:16,marginTop:20}}>
+            {[
+              {id: 'applicationDate', label: 'Application Date'},
+              {id: 'intakeAndYear', label: 'Intake & Academic Year'},
+              {id: 'programmeTitle', label: 'Programme Title'},
+              {id: 'fullNames', label: 'Applicant Full Names'},
+              {id: 'dob', label: 'Date of Birth'},
+              {id: 'gender', label: 'Gender'},
+              {id: 'nationality', label: 'Nationality'},
+              {id: 'nrcNumber', label: 'NRC / Passport Number'},
+              {id: 'mobileNumber', label: 'Mobile Phone Number'},
+              {id: 'whatsappNumber', label: 'WhatsApp Number'},
+              {id: 'email', label: 'Email Address'},
+              {id: 'residentialAddress', label: 'Residential Address'},
+              {id: 'district', label: 'District'},
+              {id: 'province', label: 'Province'},
+              {id: 'highestGrade', label: 'Highest Grade Completed'},
+              {id: 'schoolInstitution', label: 'School / Institution'},
+              {id: 'qualificationYear', label: 'Year Completed'},
+              {id: 'occupation', label: 'Occupation'},
+              {id: 'guardianName', label: 'Guardian Full Name'},
+              {id: 'guardianRelationship', label: 'Guardian Relationship'},
+              {id: 'guardianMobile', label: 'Guardian Mobile'},
+              {id: 'emergencyName', label: 'Emergency Contact Name'},
+              {id: 'emergencyMobile', label: 'Emergency Mobile'},
+              {id: 'sponsorName', label: 'Sponsor / CDF Name'},
+              {id: 'declarationName', label: 'Declaration Name'},
+              {id: 'declarationDate', label: 'Declaration Date'},
+              {id: 'officeReference', label: 'Office Reference ID'},
+              {id: 'officeEnrollmentNum', label: 'Office Enrollment Number'},
+              {id: 'officeConfirmedProg', label: 'Office Confirmed Programme'},
+              {id: 'officeIntakeDate', label: 'Office Intake Start Date'}
+            ].map(field => {
+              const offsets = config.enrollmentFormOffsets || {};
+              const current = (offsets as Record<string, {x: number; y: number; fontSize?: number}>)[field.id] || {x: 100, y: 500, fontSize: 9};
+
+              const updateOffset = (key: 'x' | 'y' | 'fontSize', val: number) => {
+                const nextOffsets = {
+                  ...(config.enrollmentFormOffsets || {}),
+                  [field.id]: {
+                    ...current,
+                    [key]: val
+                  }
+                };
+                setConfig({
+                  ...config,
+                  enrollmentFormOffsets: nextOffsets
+                });
+              };
+
+              return (
+                <div key={field.id} style={{background:'#f8faf9',border:'1px solid #dbe5e0',borderRadius:10,padding:14}}>
+                  <strong style={{fontSize:13,display:'block',marginBottom:8,color:'var(--green)'}}>{field.label}</strong>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
+                   <div>
+                    <label style={{fontSize:10,fontWeight:700,color:'var(--muted)',display:'block',marginBottom:2}}>X (pt)</label>
+                    <input
+                     type="number"
+                     step="1"
+                     value={current.x}
+                     onChange={e=>updateOffset('x', Number(e.target.value))}
+                     style={{width:'100%',fontSize:12,padding:'6px 8px'}}
+                    />
+                   </div>
+                   <div>
+                    <label style={{fontSize:10,fontWeight:700,color:'var(--muted)',display:'block',marginBottom:2}}>Y (pt)</label>
+                    <input
+                     type="number"
+                     step="1"
+                     value={current.y}
+                     onChange={e=>updateOffset('y', Number(e.target.value))}
+                     style={{width:'100%',fontSize:12,padding:'6px 8px'}}
+                    />
+                   </div>
+                   <div>
+                    <label style={{fontSize:10,fontWeight:700,color:'var(--muted)',display:'block',marginBottom:2}}>Size (pt)</label>
+                    <input
+                     type="number"
+                     step="1"
+                     min="6"
+                     max="24"
+                     value={current.fontSize || 9}
+                     onChange={e=>updateOffset('fontSize', Number(e.target.value))}
+                     style={{width:'100%',fontSize:12,padding:'6px 8px'}}
+                    />
+                   </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </section>
       )}

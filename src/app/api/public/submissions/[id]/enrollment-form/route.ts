@@ -14,13 +14,15 @@ export async function GET(req: Request, {params}: {params: Promise<{id: string}>
     if (!snap.exists) throw new HttpError(404, 'Application not found.');
     const data = snap.data()!;
 
-    // Security check: require either matching download token or valid auth
     if (token && data.downloadToken && token === data.downloadToken) {
       // Authorized via submission token
     } else {
       const authHeader = req.headers.get('authorization') || '';
       if (!authHeader) throw new HttpError(403, 'A valid authorization token is required to view this document.');
     }
+
+    const letterSettingsDoc = await db.collection('settings').doc('acceptanceLetter').get();
+    const offsets = letterSettingsDoc.data()?.enrollmentFormOffsets || {};
 
     const answers = data.answers || {};
 
@@ -82,7 +84,7 @@ export async function GET(req: Request, {params}: {params: Promise<{id: string}>
       agreedFees: 'Approved 2027 Tariff'
     };
 
-    const bytes = await generateEnrollmentFormPdf(formData);
+    const bytes = await generateEnrollmentFormPdf(formData, offsets);
     return new Response(new Uint8Array(bytes), {
       status: 200,
       headers: {

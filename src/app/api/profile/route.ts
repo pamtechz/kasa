@@ -120,6 +120,10 @@ export async function PATCH(req: NextRequest) {
       updates.bio = sanitizeText(body.bio, 500);
     }
 
+    if ('mustChangePassword' in body) {
+      updates.mustChangePassword = Boolean(body.mustChangePassword);
+    }
+
     if ('photoUrl' in body) {
       const photo = sanitizeText(body.photoUrl, 500);
       if (photo && !isCloudinaryUrl(photo)) {

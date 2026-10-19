@@ -19,7 +19,7 @@ export async function GET(req:Request){
           if(doc.exists){
             const data = doc.data() as Profile;
             if(!data.active) throw new HttpError(403, 'Account is deactivated.');
-            return json({profile: {...data, uid: token.uid, role: data.role || 'student'}});
+            return json({profile: {...data, uid: token.uid, role: data.role || 'student', mustChangePassword: Boolean(data.mustChangePassword)}});
           }
           return json({
             profile: {
@@ -27,7 +27,8 @@ export async function GET(req:Request){
               email: token.email || '',
               displayName: token.name || (token.email ? token.email.split('@')[0] : 'Student'),
               role: 'student',
-              active: true
+              active: true,
+              mustChangePassword: false
             }
           });
         }

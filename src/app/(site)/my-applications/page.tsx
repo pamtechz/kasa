@@ -9,6 +9,7 @@ import {
   X, Save, CheckCircle2, ExternalLink, Sparkles, Phone, MessageSquare
 } from 'lucide-react';
 import {SiteChrome, PageIntro} from '@/components/SiteChrome';
+import {ConfirmModal} from '@/components/ConfirmModal';
 import {auth, authHeaders, appCheckToken, firebaseConfigured, signOutClient} from '@/lib/firebase-client';
 import {StatusBadge} from '@/components/Portal';
 
@@ -83,6 +84,7 @@ export default function MyApplications() {
 
   // Student direct referral modal state
   const [registerModalOpen, setRegisterModalOpen] = useState(false);
+  const [withdrawalTarget, setWithdrawalTarget] = useState<{id: string; ref: string; type: 'app' | 'ref'} | null>(null);
   const [candName, setCandName] = useState('');
   const [candPhone, setCandPhone] = useState('');
   const [candEmail, setCandEmail] = useState('');
@@ -203,20 +205,22 @@ export default function MyApplications() {
     }
   }
 
-  async function withdraw(id: string, ref: string) {
-    if (!window.confirm(`Are you sure you want to withdraw application ${ref}? This will cancel your submission.`)) return;
+  async function confirmWithdrawal() {
+    if (!withdrawalTarget) return;
     setBusy(true);
     setError('');
     setMessage('');
     try {
       const headers = await authHeaders();
-      const res = await fetch(`/api/student/applications?id=${id}`, {method: 'DELETE', headers});
+      const endpoint = withdrawalTarget.type === 'app' ? `/api/student/applications?id=${withdrawalTarget.id}` : `/api/student/referrals?id=${withdrawalTarget.id}`;
+      const res = await fetch(endpoint, {method: 'DELETE', headers});
       const data = await res.json();
-      if (!res.ok) throw Error(data.error || 'Failed to withdraw application.');
-      setMessage(`Application ${ref} has been withdrawn.`);
+      if (!res.ok) throw Error(data.error || 'Failed to withdraw record.');
+      setMessage(`${withdrawalTarget.type === 'app' ? 'Application' : 'Referral'} ${withdrawalTarget.ref} has been withdrawn.`);
+      setWithdrawalTarget(null);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to withdraw application.');
+      setError(err instanceof Error ? err.message : 'Unable to withdraw record.');
     } finally {
       setBusy(false);
     }
@@ -315,23 +319,12 @@ export default function MyApplications() {
     }
   }
 
-  async function withdrawDirectReferral(ref: ReferralItem) {
-    if (!window.confirm(`Are you sure you want to withdraw referral ${ref.reference} (${ref.candidateName})?`)) return;
-    setBusy(true);
-    setError('');
-    setMessage('');
-    try {
-      const headers = await authHeaders();
-      const res = await fetch(`/api/student/referrals?id=${ref.id}`, {method: 'DELETE', headers});
-      const data = await res.json();
-      if (!res.ok) throw Error(data.error || 'Failed to withdraw referral.');
-      setMessage(`Referral ${ref.reference} has been withdrawn.`);
-      await load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to withdraw referral.');
-    } finally {
-      setBusy(false);
-    }
+  function withdraw(id: string, ref: string) {
+    setWithdrawalTarget({id, ref, type: 'app'});
+  }
+
+  function withdrawDirectReferral(ref: ReferralItem) {
+    setWithdrawalTarget({id: ref.id, ref: ref.reference, type: 'ref'});
   }
 
   return (
@@ -967,6 +960,18 @@ export default function MyApplications() {
             </div>
           </div>
         )}
+
+        <ConfirmModal
+          isOpen={Boolean(withdrawalTarget)}
+          title={`Withdraw ${withdrawalTarget?.type === 'app' ? 'Application' : 'Referral'}`}
+          message={`Are you sure you want to withdraw ${withdrawalTarget?.type === 'app' ? 'application' : 'referral'} ${withdrawalTarget?.ref}? This action cannot be reversed.`}
+          kind="danger"
+          confirmLabel="Withdraw Record"
+          cancelLabel="Cancel"
+          busy={busy}
+          onConfirm={() => void confirmWithdrawal()}
+          onCancel={() => setWithdrawalTarget(null)}
+        />
       </main>
     </SiteChrome>
   );

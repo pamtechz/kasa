@@ -16,10 +16,45 @@ async function verifiedUser(req:Request){
 export async function GET(req:Request){
  try{
   const user=await verifiedUser(req);
-  const result=await db.collection('submissions').where('applicantUid','==',user.uid).limit(100).get();
-  return json({email:user.email,applications:result.docs.map(d=>{
-   const x=d.data();return {id:d.id,reference:x.reference,formTitle:x.formTitle,submittedAt:x.submittedAt,status:x.status,fundingMethod:x.fundingMethod||null};
-  }).sort((a,b)=>String(b.submittedAt).localeCompare(String(a.submittedAt)))});
+  const userEmail=user.email?.toLowerCase() || '';
+
+  const uidQuery=await db.collection('submissions').where('applicantUid','==',user.uid).limit(100).get();
+  const map=new Map<string, Record<string, unknown>>();
+
+  uidQuery.docs.forEach(doc => {
+   map.set(doc.id, { id: doc.id, ...doc.data() });
+  });
+
+  if (userEmail) {
+   const recentApps = await db.collection('submissions').limit(200).get();
+   recentApps.docs.forEach(doc => {
+    if (!map.has(doc.id)) {
+     const x = doc.data();
+     const emailField = x.formSnapshot?.sections?.flatMap((s:{fields:{id:string;type:string}[]})=>s.fields).find((f:{type:string})=>f.type==='email');
+     const answerEmail = emailField ? String(x.answers?.[emailField.id] || '').trim().toLowerCase() : '';
+     if (answerEmail === userEmail || String(x.answers?.email || '').trim().toLowerCase() === userEmail) {
+      map.set(doc.id, { id: doc.id, ...x });
+      if (!x.applicantUid) {
+       doc.ref.update({ applicantUid: user.uid, accountLinkedAt: new Date().toISOString() }).catch(() => {});
+      }
+     }
+    }
+   });
+  }
+
+  const applications = Array.from(map.values()).map(x => ({
+   id: x.id,
+   reference: x.reference,
+   formTitle: x.formTitle,
+   submittedAt: x.submittedAt,
+   status: x.status,
+   fundingMethod: x.fundingMethod || null,
+   downloadToken: x.downloadToken || null,
+   letterUrl: ['accepted','letter_issued','cdf_submitted','cdf_approved','payment_verified','commission_paid'].includes(String(x.status)) && x.downloadToken ? `/api/public/submissions/${x.id}/letter?token=${x.downloadToken}` : null,
+   enrollmentFormUrl: x.downloadToken ? `/api/public/submissions/${x.id}/enrollment-form?token=${x.downloadToken}` : null
+  })).sort((a,b) => String(b.submittedAt).localeCompare(String(a.submittedAt)));
+
+  return json({ email: user.email, applications });
  }catch(e){return fail(e);}
 }
 
@@ -101,4 +136,3 @@ export async function DELETE(req:Request){
   return json({ok:true});
  }catch(e){return fail(e);}
 }
-

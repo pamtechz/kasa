@@ -1,0 +1,91 @@
+import {NextRequest,NextResponse} from 'next/server';
+import {db} from '@/lib/firebase-admin';
+import {fail,HttpError} from '@/lib/errors';
+import {operator,sameOrigin} from '@/lib/security';
+
+export const runtime='nodejs';
+
+function csvEscape(text: unknown): string {
+  if (text === null || text === undefined) return '""';
+  const str = String(text).replace(/"/g, '""');
+  return `"${str}"`;
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    sameOrigin(req);
+    await operator(req, ['super_admin', 'admin', 'reviewer']);
+    const body = await req.json().catch(() => ({}));
+    const ids = Array.isArray(body?.ids) ? (body.ids as string[]) : [];
+
+    let snapshot;
+    if (ids.length > 0) {
+      const chunks = [];
+      for (let i = 0; i < ids.length; i += 30) {
+        chunks.push(ids.slice(i, i + 30));
+      }
+      const docs = [];
+      for (const chunk of chunks) {
+        const snap = await db.collection('submissions').where('__name__', 'in', chunk).get();
+        docs.push(...snap.docs);
+      }
+      docs.sort((a, b) => String(b.data().submittedAt || '').localeCompare(String(a.data().submittedAt || '')));
+      snapshot = { docs };
+    } else {
+      snapshot = await db.collection('submissions').orderBy('submittedAt', 'desc').limit(500).get();
+    }
+
+    const headers = [
+      'Reference',
+      'Form Title',
+      'Status',
+      'Funding Method',
+      'Applicant Email',
+      'Applicant Name',
+      'Phone Number',
+      'District',
+      'Agent ID',
+      'Submitted At'
+    ];
+
+    const rows = snapshot.docs.map(doc => {
+      const x = doc.data();
+      const answers = x.answers || {};
+      const emailField = x.formSnapshot?.sections?.flatMap((s: any) => s.fields).find((f: any) => f.type === 'email');
+      const email = emailField ? String(answers[emailField.id] || '').trim() : String(answers.email || '');
+      const nameField = x.formSnapshot?.sections?.flatMap((s: any) => s.fields).find((f: any) => /name/i.test(f.label) || /name/i.test(f.id));
+      const name = nameField ? String(answers[nameField.id] || '').trim() : String(answers.fullNames || answers['full-name'] || '');
+      const phone = String(answers.phone || answers.mobileNumber || '');
+      const district = String(answers.district || answers.ward || '');
+
+      return [
+        csvEscape(x.reference),
+        csvEscape(x.formTitle),
+        csvEscape(x.status),
+        csvEscape(x.fundingMethod || 'self_funded'),
+        csvEscape(email),
+        csvEscape(name),
+        csvEscape(phone),
+        csvEscape(district),
+        csvEscape(x.agentId || 'Direct'),
+        csvEscape(x.submittedAt)
+      ].join(',');
+    });
+
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const filename = ids.length > 0
+      ? `KASA-Selected-Applications-${new Date().toISOString().slice(0, 10)}.csv`
+      : `KASA-All-Applications-${new Date().toISOString().slice(0, 10)}.csv`;
+
+    return new Response(csvContent, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Cache-Control': 'no-store'
+      }
+    });
+  } catch (e) {
+    return fail(e);
+  }
+}

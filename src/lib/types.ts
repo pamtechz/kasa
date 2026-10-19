@@ -26,6 +26,7 @@ export type Profile = {
   agentCode?:string; district?:string; province?:string; constituency?:string; ward?:string;
   commissionOverride?:number; referralsCount?:number; totalCommission?:number; isStudent?:boolean;
   phone?:string; address?:string; photoUrl?:string; bio?:string;
+  mustChangePassword?:boolean;
   notifications?:{emailAlerts?:boolean;newsUpdates?:boolean;smsAlerts?:boolean};
   createdAt?:string; updatedAt?:string;
 };

@@ -11,6 +11,15 @@ import {loadIntake} from '@/lib/intake-server';
 import {intakeWindow,normalizedIntake} from '@/lib/intake-policy';
 import {automationSchema,defaultAutomations,formatNotification} from '@/lib/automations';
 export const runtime='nodejs';
+function generateRandomTempPassword(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  let rand = '';
+  for (let i = 0; i < 8; i++) {
+    rand += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `Kasa#${rand}`;
+}
+
 export async function POST(req:NextRequest,{params}:{params:Promise<{slug:string}>}){
  try{
   sameOrigin(req);
@@ -41,6 +50,56 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{slug:string
    const answerEmail=field?String(answers[field.id]||'').trim().toLowerCase():'';
    if(answerEmail!==claims.email.toLowerCase())throw new HttpError(403,'The application email must match your verified account email.');
    applicantUid=claims.uid;
+  }
+
+  let accountCreated = false;
+  let tempPassword = '';
+  let mustChangePassword = false;
+  let alreadyHasAccount = false;
+  const emailField = form.sections.flatMap(s => s.fields).find(x => x.type === 'email');
+  const studentEmail = emailField ? String(answers[emailField.id] || '').trim().toLowerCase() : '';
+  const nameField = form.sections.flatMap(s => s.fields).find(x => /name/i.test(x.label) || /name/i.test(x.id));
+  const studentName = nameField ? String(answers[nameField.id] || '').trim() : '';
+
+  if (!applicantUid && studentEmail && form.kind === 'student') {
+    try {
+      const existingUser = await adminAuth.getUserByEmail(studentEmail);
+      alreadyHasAccount = true;
+      applicantUid = existingUser.uid;
+      const existingProfile = await db.collection('profiles').doc(existingUser.uid).get();
+      mustChangePassword = Boolean(existingProfile.data()?.mustChangePassword);
+    } catch (err: unknown) {
+      const code = err && typeof err === 'object' && 'code' in err ? String((err as {code?: unknown}).code || '') : '';
+      if (code === 'auth/user-not-found' || !applicantUid) {
+        tempPassword = generateRandomTempPassword();
+        try {
+          const newAuthUser = await adminAuth.createUser({
+            email: studentEmail,
+            password: tempPassword,
+            displayName: studentName || studentEmail.split('@')[0],
+            emailVerified: true
+          });
+          applicantUid = newAuthUser.uid;
+          accountCreated = true;
+          mustChangePassword = true;
+
+          const nowIso = new Date().toISOString();
+          await db.collection('profiles').doc(newAuthUser.uid).set({
+            uid: newAuthUser.uid,
+            email: studentEmail,
+            displayName: studentName || studentEmail.split('@')[0],
+            role: 'student',
+            active: true,
+            isStudent: true,
+            mustChangePassword: true,
+            createdAt: nowIso,
+            updatedAt: nowIso
+          });
+        } catch {
+          // If creation fails due to mock or credentials, continue submission safely
+        }
+      }
+    }
   }
 
   let agentId:string|null=null;
@@ -111,11 +170,11 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{slug:string
    const autoApproveSelf=Boolean(policyObj.autoApproveSelfFunded);
    if(isCdf){
     fundingMethod='cdf';
-    if(autoApproveCdf){
-     finalStatus='accepted';
-     autoApproved=true;
-     autoApprovalReason='Automatic CDF sponsorship approval';
-    }
+    // For CDF sponsorship applicants, immediately issue conditional acceptance letter
+    // so they can present it to local government/council CDF committees for sponsorship approval.
+    finalStatus='letter_issued';
+    autoApproved=true;
+    autoApprovalReason='Conditional Acceptance Letter issued for CDF Council Sponsorship Application';
    }else{
     fundingMethod='self_funded';
     if(autoApproveSelf){
@@ -175,6 +234,24 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{slug:string
     });
    }
   });
-  return json({reference,status:finalStatus,autoApproved,fundingMethod,downloadToken,letterUrl:autoApproved?`/api/public/submissions/${id}/letter?token=${downloadToken}`:null,enrollmentFormUrl:`/api/public/submissions/${id}/enrollment-form?token=${downloadToken}`,message:autoApproved?'Congratulations! Your application has been approved. You can now download your official Acceptance Pack and completed Enrollment Form.':'Your application has been submitted successfully.'},201);
+  return json({
+   reference,
+   status:finalStatus,
+   autoApproved,
+   fundingMethod,
+   downloadToken,
+   accountCreated,
+   tempPassword,
+   studentEmail,
+   mustChangePassword,
+   alreadyHasAccount,
+   letterUrl:autoApproved?`/api/public/submissions/${id}/letter?token=${downloadToken}`:null,
+   enrollmentFormUrl:`/api/public/submissions/${id}/enrollment-form?token=${downloadToken}`,
+   message:accountCreated
+    ?'Your student account has been created with a temporary password. Please log in with your temporary password and set a new password to complete verification.'
+    :autoApproved
+    ?'Congratulations! Your application has been approved. You can now download your official Acceptance Pack and completed Enrollment Form.'
+    :'Your application has been submitted successfully.'
+  },201);
  }catch(e){return fail(e);}
 }
