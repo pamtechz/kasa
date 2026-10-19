@@ -37,9 +37,86 @@ export const formValidator=z.object({
   }
  }
 });
-export function parseForm(data:unknown){
- const result=formValidator.safeParse(data);
- if(!result.success)throw new HttpError(400,result.error.issues.map(i=>i.message).slice(0,4).join(' '));
+export function sanitizeFormPayload(data: unknown): Record<string, unknown> {
+ if (!data || typeof data !== 'object') return {};
+ const obj = { ...(data as Record<string, unknown>) };
+
+ if (typeof obj.title !== 'string') obj.title = String(obj.title || 'Untitled Form').trim();
+ if (typeof obj.subtitle !== 'string') obj.subtitle = String(obj.subtitle || '').trim();
+ if (typeof obj.slug !== 'string' || !obj.slug.trim()) {
+  obj.slug = String(obj.title).toLowerCase().normalize('NFKD').replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-');
+ } else {
+  obj.slug = String(obj.slug).toLowerCase().trim().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'form-slug';
+ }
+ if (!['agent', 'student', 'custom'].includes(String(obj.kind))) obj.kind = 'custom';
+ obj.published = Boolean(obj.published);
+
+ if (Array.isArray(obj.sections)) {
+  obj.sections = obj.sections.map((s: unknown, sIdx: number) => {
+   if (!s || typeof s !== 'object') return s;
+   const sec = { ...(s as Record<string, unknown>) };
+   sec.id = String(sec.id || `section-${sIdx + 1}`).trim().replace(/[^a-zA-Z0-9_-]+/g, '-') || `section-${sIdx + 1}`;
+   sec.title = String(sec.title || `Section ${sIdx + 1}`).trim();
+   if (sec.description === null || sec.description === undefined) delete sec.description;
+   else sec.description = String(sec.description);
+
+   if (Array.isArray(sec.fields)) {
+    sec.fields = sec.fields.map((f: unknown, fIdx: number) => {
+     if (!f || typeof f !== 'object') return f;
+     const field = { ...(f as Record<string, unknown>) };
+     field.id = String(field.id || `field-${sIdx + 1}-${fIdx + 1}`).trim().replace(/[^a-zA-Z0-9_-]+/g, '-') || `field-${sIdx + 1}-${fIdx + 1}`;
+     field.label = String(field.label || `Question ${fIdx + 1}`).trim();
+     field.required = Boolean(field.required);
+
+     const validTypes = ['text', 'textarea', 'email', 'tel', 'number', 'date', 'select', 'radio', 'checkbox', 'file', 'image'];
+     if (!validTypes.includes(String(field.type))) field.type = 'text';
+
+     if (field.description === null || field.description === undefined) delete field.description;
+     else field.description = String(field.description);
+
+     if (field.placeholder === null || field.placeholder === undefined) delete field.placeholder;
+     else field.placeholder = String(field.placeholder);
+
+     if (Array.isArray(field.options)) {
+      field.options = field.options.map((opt: unknown) => String(opt ?? '').trim()).filter(Boolean);
+     } else if (field.options === null || field.options === undefined) {
+      delete field.options;
+     }
+
+     if (field.optionsSource && !['programmes', 'intakes'].includes(String(field.optionsSource))) {
+      delete field.optionsSource;
+     }
+
+     if (field.condition && typeof field.condition === 'object') {
+      const cond = field.condition as Record<string, unknown>;
+      const fieldId = String(cond.fieldId || '').trim();
+      const equals = String(cond.equals ?? '').trim();
+      if (fieldId) {
+       field.condition = { fieldId, equals };
+      } else {
+       delete field.condition;
+      }
+     } else {
+      delete field.condition;
+     }
+
+     return field;
+    });
+   }
+   return sec;
+  });
+ }
+
+ return obj;
+}
+
+export function parseForm(data: unknown) {
+ const sanitized = sanitizeFormPayload(data);
+ const result = formValidator.safeParse(sanitized);
+ if (!result.success) {
+  console.error('Form validation error details:', result.error.issues);
+  throw new HttpError(400, result.error.issues.map(i => `${i.message}`).slice(0, 4).join('; '));
+ }
  return result.data;
 }
 export type Attachment={path:string;fileName:string;contentType:string};
