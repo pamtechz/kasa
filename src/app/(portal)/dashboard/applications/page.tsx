@@ -2,7 +2,7 @@
 import {useEffect,useMemo,useState} from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import {ArrowRight,Download,ExternalLink,Filter,Plus,Search,Trash2,X,Pencil,CheckSquare,Square,FileDown} from 'lucide-react';
+import {ArrowLeft,ArrowRight,Download,ExternalLink,Filter,Plus,Search,Trash2,X,Pencil,CheckSquare,Square,FileDown} from 'lucide-react';
 import {api, cachedApi, PageHeader, StatusBadge} from '@/components/Portal';
 import {ConfirmModal} from '@/components/ConfirmModal';
 import type {ApplicantRecord,SubmissionStatus} from '@/lib/types';
@@ -128,6 +128,15 @@ export default function Applications(){
   cachedApi<{policy:IntakePolicy}>('/api/admin/intake',p=>setIntake(p.policy)).then(x=>setIntake(x.policy)).catch(()=>{});
  },[]);
 
+ useEffect(() => {
+  if (!creatingApp) return;
+  const handleKeyDown = (e: KeyboardEvent) => {
+   if (e.key === 'Escape') setCreatingApp(false);
+  };
+  window.addEventListener('keydown', handleKeyDown);
+  return () => window.removeEventListener('keydown', handleKeyDown);
+ }, [creatingApp]);
+
  const filtered=useMemo(()=>items.filter(x=>(status==='all'||x.status===status)&&[x.reference,x.formTitle,...Object.values(x.answers).filter(v=>typeof v==='string')].join(' ').toLowerCase().includes(q.toLowerCase())),[items,q,status]);
 
  const allSelected = filtered.length > 0 && filtered.every(x => selectedIds.has(x.id));
@@ -252,11 +261,22 @@ export default function Applications(){
    <div className="modal-page" role="dialog" aria-modal="true" aria-label="Register New Application">
     <div className="modal-page-header">
      <div className="modal-page-header-left">
-      <span className="modal-page-badge">MANUAL ENTRY</span>
-      <h2>Register New Application</h2>
+      <button
+       type="button"
+       className="icon-btn"
+       onClick={()=>setCreatingApp(false)}
+       title="Back to applications list (Esc)"
+       aria-label="Back to applications list"
+      >
+       <ArrowLeft size={19}/>
+      </button>
+      <div>
+       <span className="modal-page-badge">MANUAL ENTRY & OFFLINE REGISTRATION</span>
+       <h2>Register New Application</h2>
+      </div>
      </div>
      <div className="modal-page-header-right">
-      <button className="icon-btn modal-page-close-btn" type="button" onClick={()=>setCreatingApp(false)} aria-label="Close modal"><X size={20}/></button>
+      <button className="icon-btn modal-page-close-btn" type="button" onClick={()=>setCreatingApp(false)} aria-label="Close modal page"><X size={20}/></button>
      </div>
     </div>
     <form onSubmit={e=>void createApplication(e)} style={{display:'flex',flexDirection:'column',flex:1}}>
@@ -283,8 +303,15 @@ export default function Applications(){
       </div>
      </div>
      <div className="modal-page-footer">
-      <button className="btn btn-outline" type="button" onClick={()=>setCreatingApp(false)}>Cancel</button>
-      <button className="btn btn-primary" type="submit" disabled={busy||!newName.trim()||!newProgramme.trim()}><Plus size={16}/>{busy?'Registering…':'Create application'}</button>
+      <div className="modal-page-footer-left">
+       <span className="muted" style={{fontSize:13}}>
+        Press <strong>Esc</strong> or click <strong>Cancel</strong> to discard manual entry
+       </span>
+      </div>
+      <div className="modal-page-footer-actions">
+       <button className="btn btn-outline" type="button" onClick={()=>setCreatingApp(false)}>Cancel</button>
+       <button className="btn btn-primary" type="submit" disabled={busy||!newName.trim()||!newProgramme.trim()}><Plus size={16}/>{busy?'Registering…':'Create application'}</button>
+      </div>
      </div>
     </form>
    </div>
