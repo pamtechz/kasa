@@ -5,6 +5,7 @@ import {
   Filter, X, ArrowLeft, Save, ExternalLink, RefreshCw, Eye, EyeOff, Edit
 } from 'lucide-react';
 import {api, PageHeader} from '@/components/Portal';
+import {ConfirmModal} from '@/components/ConfirmModal';
 
 type Notice = {
   id: string;
@@ -27,6 +28,8 @@ export default function Notifications() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
+  const [deletingNotice, setDeletingNotice] = useState<Notice | null>(null);
+  const [confirmingClearRead, setConfirmingClearRead] = useState(false);
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<'all' | 'unread' | 'read' | 'urgent'>('all');
   const [recipientFilter, setRecipientFilter] = useState<string>('all');
@@ -148,13 +151,14 @@ export default function Notifications() {
     }
   }
 
-  async function deleteNotice(n: Notice) {
-    if (!window.confirm(`Delete notice "${n.title}"?`)) return;
+  async function confirmDeleteNotice() {
+    if (!deletingNotice) return;
     setBusy(true);
     try {
-      await api(`/api/notifications?id=${n.id}`, {method: 'DELETE'});
-      setItems(prev => prev.filter(item => item.id !== n.id));
+      await api(`/api/notifications?id=${deletingNotice.id}`, {method: 'DELETE'});
+      setItems(prev => prev.filter(item => item.id !== deletingNotice.id));
       setNotice('Notification deleted.');
+      setDeletingNotice(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete notification.');
     } finally {
@@ -162,12 +166,12 @@ export default function Notifications() {
     }
   }
 
-  async function clearReadNotices() {
-    if (!window.confirm('Clear all notifications marked as read?')) return;
+  async function executeClearReadNotices() {
     setBusy(true);
     try {
       await api('/api/notifications?action=clear_read', {method: 'DELETE'});
       setNotice('Cleared all read notifications.');
+      setConfirmingClearRead(false);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to clear notifications.');
@@ -211,7 +215,7 @@ export default function Notifications() {
               <RefreshCw size={15} /> Refresh
             </button>
             {stats.total > 0 && (
-              <button className="btn btn-outline" onClick={() => void clearReadNotices()} disabled={busy}>
+              <button className="btn btn-outline" onClick={() => setConfirmingClearRead(true)} disabled={busy}>
                 <Trash2 size={15} /> Clear read
               </button>
             )}
@@ -412,7 +416,7 @@ export default function Notifications() {
                       className="icon-btn"
                       style={{color: '#ef4444'}}
                       title="Delete notification"
-                      onClick={() => void deleteNotice(n)}
+                      onClick={() => setDeletingNotice(n)}
                       aria-label="Delete notification"
                     >
                       <Trash2 size={16} />
@@ -546,6 +550,30 @@ export default function Notifications() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={Boolean(deletingNotice)}
+        title="Delete Notification"
+        message={`Are you sure you want to delete notice "${deletingNotice?.title}"?`}
+        kind="danger"
+        confirmLabel="Delete Notice"
+        cancelLabel="Cancel"
+        busy={busy}
+        onConfirm={() => void confirmDeleteNotice()}
+        onCancel={() => setDeletingNotice(null)}
+      />
+
+      <ConfirmModal
+        isOpen={confirmingClearRead}
+        title="Clear Read Notifications"
+        message="Are you sure you want to clear all notifications marked as read?"
+        kind="danger"
+        confirmLabel="Clear Read Notices"
+        cancelLabel="Cancel"
+        busy={busy}
+        onConfirm={() => void executeClearReadNotices()}
+        onCancel={() => setConfirmingClearRead(false)}
+      />
     </>
   );
 }

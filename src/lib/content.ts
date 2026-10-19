@@ -16,8 +16,13 @@ export const programmeSchema=base.extend({
  fee:z.object({
   tuition:money,practical:money,administration:money,foodOptional:money,accommodationOptional:money,packageTotal:money,
   currency:z.literal('ZMW'),note:z.string().trim().max(400)
- }).strict()
-}).strict();
+ }).passthrough(),
+ customFields:z.record(z.unknown()).optional(),
+ seedSource:z.string().optional(),
+ updatedAt:z.string().optional(),
+ updatedBy:z.string().optional(),
+ createdAt:z.string().optional()
+}).passthrough();
 export const announcementSchema=base.extend({
  body:z.string().trim().min(10).max(20000),
  category:z.enum(['admissions','academic','cdf','agents','general']),
@@ -26,8 +31,13 @@ export const announcementSchema=base.extend({
  expiresAt:z.string().datetime({offset:true}).nullable(),
  author:z.string().trim().max(120).optional(),
  imageUrl:z.string().url().max(600).optional(),
- tags:z.array(z.string().trim().max(50)).max(10).optional()
-}).strict();
+ tags:z.array(z.string().trim().max(50)).max(10).optional(),
+ customFields:z.record(z.unknown()).optional(),
+ seedSource:z.string().optional(),
+ updatedAt:z.string().optional(),
+ updatedBy:z.string().optional(),
+ createdAt:z.string().optional()
+}).passthrough();
 export type Programme=z.infer<typeof programmeSchema>;
 export type Announcement=z.infer<typeof announcementSchema>;
 export const contentCategories=['programmes','announcements'] as const;

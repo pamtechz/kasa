@@ -6,6 +6,7 @@ import {
   Search, Edit, Trash2, ArrowLeft, Save, X, Phone, User, CheckCircle2, AlertCircle
 } from 'lucide-react';
 import {api, PageHeader, StatusBadge} from '@/components/Portal';
+import {ConfirmModal} from '@/components/ConfirmModal';
 
 type Referral = {
   id: string;
@@ -50,6 +51,7 @@ export default function MyReferrals() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
+  const [deletingRef, setDeletingRef] = useState<Referral | null>(null);
   const [q, setQ] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'paid'>('all');
 
@@ -166,12 +168,13 @@ export default function MyReferrals() {
     }
   }
 
-  async function deleteReferral(ref: Referral) {
-    if (!window.confirm(`Withdraw candidate referral ${ref.reference} (${ref.candidateName || 'Candidate'})? This will cancel the application.`)) return;
+  async function confirmDeleteReferral() {
+    if (!deletingRef) return;
     setBusy(true);
     try {
-      await api(`/api/agent/referrals?id=${ref.id}`, {method: 'DELETE'});
-      setNotice(`Referral ${ref.reference} has been withdrawn.`);
+      await api(`/api/agent/referrals?id=${deletingRef.id}`, {method: 'DELETE'});
+      setNotice(`Referral ${deletingRef.reference} has been withdrawn.`);
+      setDeletingRef(null);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to withdraw referral.');
@@ -382,7 +385,7 @@ export default function MyReferrals() {
                               className="icon-btn"
                               style={{color: '#ef4444'}}
                               title="Withdraw referral"
-                              onClick={() => void deleteReferral(r)}
+                              onClick={() => setDeletingRef(r)}
                               aria-label="Withdraw referral"
                             >
                               <Trash2 size={15} />
@@ -562,6 +565,18 @@ export default function MyReferrals() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={Boolean(deletingRef)}
+        title="Withdraw Candidate Referral"
+        message={`Are you sure you want to withdraw referral ${deletingRef?.reference} (${deletingRef?.candidateName || 'Candidate'})? This will cancel the referral application.`}
+        kind="danger"
+        confirmLabel="Withdraw Referral"
+        cancelLabel="Cancel"
+        busy={busy}
+        onConfirm={() => void confirmDeleteReferral()}
+        onCancel={() => setDeletingRef(null)}
+      />
     </>
   );
 }

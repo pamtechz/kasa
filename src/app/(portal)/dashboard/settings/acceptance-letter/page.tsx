@@ -23,6 +23,7 @@ export default function AcceptanceLetterDesigner() {
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [confirmingReset, setConfirmingReset] = useState(false);
 
   useEffect(() => {
     api<{config: AcceptanceLetterConfig}>('/api/admin/settings/acceptance-letter')

@@ -44,7 +44,8 @@ export async function PUT(req:Request){
   sameOrigin(req);const who=await operator(req,['super_admin','admin']);
   const body=await req.json(),collection=contentCollection(body?.kind);
   if(!collection)throw new HttpError(400,'Invalid content type.');
-  const parsed=(collection==='programmes'?programmeSchema:announcementSchema).safeParse(body?.item);
+  const schema=collection==='programmes'?programmeSchema:announcementSchema;
+  const parsed=schema.safeParse(body?.item);
   if(!parsed.success)throw new HttpError(400,parsed.error.issues.map(x=>x.message).slice(0,4).join('; '));
   const ref=db.collection(collection).doc(parsed.data.id);
   if(!(await ref.get()).exists)throw new HttpError(404,'Record does not exist.');

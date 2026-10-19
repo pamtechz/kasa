@@ -2,6 +2,7 @@
 import {useEffect, useState} from 'react';
 import {CheckCircle2, Copy, Plus, Share2, Users, X, Edit, Save, ArrowLeft, Trash2} from 'lucide-react';
 import {api, cachedApi, PageHeader} from '@/components/Portal';
+import {ConfirmModal} from '@/components/ConfirmModal';
 import type {ApplicantRecord} from '@/lib/types';
 
 type Agent = {
@@ -28,6 +29,7 @@ export default function Agents() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
+  const [deletingAgent, setDeletingAgent] = useState<Agent | null>(null);
   const [loading, setLoading] = useState(true);
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
   const [editDistrict, setEditDistrict] = useState('');
@@ -100,13 +102,14 @@ export default function Agents() {
     }
   }
 
-  async function deleteAgent(a: Agent) {
-    if (!window.confirm(`Are you sure you want to remove agent "${a.displayName}" (${a.agentCode})? This action cannot be undone.`)) return;
+  async function confirmDeleteAgent() {
+    if (!deletingAgent) return;
     setBusy(true); setError(''); setNotice('');
     try {
-      await api(`/api/admin/agents/${a.uid}`, { method: 'DELETE' });
-      setNotice(`Agent ${a.displayName} has been removed.`);
-      if (editingAgent?.uid === a.uid) setEditingAgent(null);
+      await api(`/api/admin/agents/${deletingAgent.uid}`, { method: 'DELETE' });
+      setNotice(`Agent ${deletingAgent.displayName} has been removed.`);
+      if (editingAgent?.uid === deletingAgent.uid) setEditingAgent(null);
+      setDeletingAgent(null);
       await load(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unable to remove agent.');
@@ -265,7 +268,7 @@ export default function Agents() {
                       <button className="text-link" onClick={() => openEditModal(a)}>
                         <Edit size={14} /> Edit district
                       </button>
-                      <button className="text-link" style={{color:'#ef4444'}} onClick={() => void deleteAgent(a)} title="Remove agent">
+                      <button className="text-link" style={{color:'#ef4444'}} onClick={() => setDeletingAgent(a)} title="Remove agent">
                         <Trash2 size={14} /> Remove
                       </button>
                     </td>
@@ -365,7 +368,7 @@ export default function Agents() {
                 className="btn btn-outline"
                 style={{color:'#ef4444',borderColor:'rgba(239,68,68,0.3)',marginRight:'auto'}}
                 disabled={busy}
-                onClick={() => void deleteAgent(editingAgent)}
+                onClick={() => setDeletingAgent(editingAgent)}
               >
                 <Trash2 size={16} /> Remove agent
               </button>
@@ -388,6 +391,18 @@ export default function Agents() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={Boolean(deletingAgent)}
+        title="Remove District Agent"
+        message={`Are you sure you want to remove agent "${deletingAgent?.displayName}" (${deletingAgent?.agentCode})? This action cannot be undone.`}
+        kind="danger"
+        confirmLabel="Remove Agent"
+        cancelLabel="Cancel"
+        busy={busy}
+        onConfirm={() => void confirmDeleteAgent()}
+        onCancel={() => setDeletingAgent(null)}
+      />
     </>
   );
 }

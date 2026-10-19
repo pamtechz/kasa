@@ -6,6 +6,7 @@ import {
   GraduationCap, Calendar, Tag, ShieldCheck, Eye, Layers
 } from 'lucide-react';
 import {api, cachedApi, PageHeader} from '@/components/Portal';
+import {ConfirmModal} from '@/components/ConfirmModal';
 import type {Programme, Announcement} from '@/lib/content';
 
 type Type = 'programmes' | 'announcements';
@@ -105,18 +106,21 @@ export function ContentEditor({kind}: {kind: Type}) {
   }
 
   function feeField(field: string, value: string) {
-    setCurrent(p =>
-      p && 'fee' in p
-        ? {
-            ...p,
-            fee: {
-              ...p.fee,
-              [field]: field === 'note' ? value : value === '' ? null : Number(value)
-            }
-          }
-        : p
-    );
+    setCurrent(p => {
+      if (!p || !('fee' in p)) return p;
+      const progItem = p as Programme;
+      return {
+        ...progItem,
+        fee: {
+          ...progItem.fee,
+          [field]: field === 'note' ? value : value === '' ? null : Number(value)
+        }
+      };
+    });
   }
+
+  const [deletingItem, setDeletingItem] = useState<Programme | Announcement | null>(null);
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false);
 
   function openCreate() {
     setCurrent(isProgramme ? structuredClone(emptyProgramme) : structuredClone(emptyAnnouncement));
@@ -154,14 +158,15 @@ export function ContentEditor({kind}: {kind: Type}) {
     }
   }
 
-  async function remove(item: Programme | Announcement) {
-    if (!window.confirm('Delete "' + item.title + '"? This removes the entry permanently.')) return;
+  async function confirmRemove() {
+    if (!deletingItem) return;
     try {
       await api('/api/admin/content', {
         method: 'DELETE',
-        body: JSON.stringify({kind, id: item.id})
+        body: JSON.stringify({kind, id: deletingItem.id})
       });
-      if (current?.id === item.id) setCurrent(null);
+      if (current?.id === deletingItem.id) setCurrent(null);
+      setDeletingItem(null);
       await load(true);
       setMessage('Record deleted.');
     } catch (e) {
@@ -234,7 +239,7 @@ export function ContentEditor({kind}: {kind: Type}) {
                     </td>
                     <td>
                       <span className="capitalize">{x.category.replaceAll('-', ' ')}</span>
-                      {'pinned' in x && x.pinned && <span className="tag tag-green">Pinned</span>}
+                      {'pinned' in x && (x as Announcement).pinned ? <span className="tag tag-green">Pinned</span> : null}
                     </td>
                     <td>
                       <span className={'tag ' + (x.published ? 'tag-green' : 'tag-gray')}>
@@ -245,7 +250,7 @@ export function ContentEditor({kind}: {kind: Type}) {
                       <button className="text-link" onClick={() => openEdit(x)}>
                         Edit
                       </button>
-                      <button className="text-link" onClick={() => void remove(x)}>
+                      <button className="text-link" onClick={() => setDeletingItem(x)}>
                         <Trash2 size={14} /> Delete
                       </button>
                     </td>
@@ -264,7 +269,10 @@ export function ContentEditor({kind}: {kind: Type}) {
       </div>
 
       {/* FULL MODAL PAGE (NOT A MODAL POP UP) */}
-      {current && (
+      {current && (() => {
+        const prog = isProgramme && 'fee' in current ? (current as Programme) : null;
+        const ann = !isProgramme && 'body' in current ? (current as Announcement) : null;
+        return (
         <div
           className="modal-page-overlay"
           role="dialog"
@@ -272,9 +280,7 @@ export function ContentEditor({kind}: {kind: Type}) {
           aria-labelledby="modal-page-title"
           onClick={e => {
             if (e.target === e.currentTarget) {
-              if (confirm('Discard changes and close the editor?')) {
-                setCurrent(null);
-              }
+              setConfirmingDiscard(true);
             }
           }}
         >
@@ -365,7 +371,7 @@ export function ContentEditor({kind}: {kind: Type}) {
                     className={`modal-page-tab-btn ${modalTab === 'modules' ? 'active' : ''}`}
                     onClick={() => setModalTab('modules')}
                   >
-                    <Layers size={16} /> 2. Modules & Curriculum ({'modules' in current ? current.modules.length : 0})
+                    <Layers size={16} /> 2. Modules & Curriculum ({'modules' in current ? (current as Programme).modules.length : 0})
                   </button>
                   <button
                     type="button"
@@ -418,7 +424,7 @@ export function ContentEditor({kind}: {kind: Type}) {
 
             {/* Modal Page Body Content */}
             <div className="modal-page-body">
-              {isProgramme && 'fee' in current ? (
+              {prog ? (
                 <>
                   {/* TAB 1: BASIC INFORMATION */}
                   {modalTab === 'basic' && (
@@ -436,13 +442,13 @@ export function ContentEditor({kind}: {kind: Type}) {
                           <input
                             disabled={editing}
                             placeholder="e.g. general-agriculture-level-3"
-                            value={current.id}
+                            value={prog.id}
                             onChange={e =>
                               editField('id', e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))
                             }
                           />
                           <small className="field-hint">
-                            Permanent identifier used for the URL (/programmes/{current.id || 'id'}). Cannot be changed after creation.
+                            Permanent identifier used for the URL (/programmes/{prog.id || 'id'}). Cannot be changed after creation.
                           </small>
                         </div>
 
@@ -452,11 +458,11 @@ export function ContentEditor({kind}: {kind: Type}) {
                           </label>
                           <input
                             placeholder="e.g. General Agriculture Trade Test Level III"
-                            value={current.title}
+                            value={prog.title}
                             onChange={e => {
                               const title = e.target.value;
                               editField('title', title);
-                              if (!editing && !current.id) {
+                              if (!editing && !prog.id) {
                                 editField(
                                   'id',
                                   title
@@ -475,7 +481,7 @@ export function ContentEditor({kind}: {kind: Type}) {
                         <div className="field">
                           <label>Programme Category</label>
                           <select
-                            value={current.category}
+                            value={prog.category}
                             onChange={e => editField('category', e.target.value as Programme['category'])}
                           >
                             <option value="main">Main programme</option>
@@ -488,7 +494,7 @@ export function ContentEditor({kind}: {kind: Type}) {
                           <label>Duration</label>
                           <input
                             placeholder="e.g. 6 Months (740 hrs) or 8 Weeks"
-                            value={current.duration}
+                            value={prog.duration}
                             onChange={e => editField('duration', e.target.value)}
                           />
                         </div>
@@ -499,7 +505,7 @@ export function ContentEditor({kind}: {kind: Type}) {
                             type="number"
                             min="0"
                             placeholder="e.g. 740"
-                            value={current.durationHours ?? ''}
+                            value={prog.durationHours ?? ''}
                             onChange={e =>
                               editField('durationHours', e.target.value === '' ? null : Number(e.target.value))
                             }
@@ -512,7 +518,7 @@ export function ContentEditor({kind}: {kind: Type}) {
                         <textarea
                           rows={3}
                           placeholder="Provide a compelling overview of this course for prospective students and applicants."
-                          value={current.description}
+                          value={prog.description}
                           onChange={e => editField('description', e.target.value)}
                         />
                       </div>
@@ -521,7 +527,7 @@ export function ContentEditor({kind}: {kind: Type}) {
                         <label className="required-toggle" style={{margin: 0, fontSize: 13, fontWeight: 700}}>
                           <input
                             type="checkbox"
-                            checked={current.published}
+                            checked={prog.published}
                             onChange={e => editField('published', e.target.checked)}
                           />
                           Publish this programme on KASA public website and application forms
@@ -545,7 +551,7 @@ export function ContentEditor({kind}: {kind: Type}) {
                         <textarea
                           rows={10}
                           placeholder="e.g.&#10;Soil Science and Plant Nutrition&#10;Irrigation and Water Harvesting&#10;Crop Protection and Pest Management&#10;Farm Machinery Maintenance&#10;Agribusiness and Farm Accounting"
-                          value={current.modules.join('\n')}
+                          value={prog.modules.join('\n')}
                           onChange={e =>
                             editField(
                               'modules',
@@ -560,7 +566,7 @@ export function ContentEditor({kind}: {kind: Type}) {
                       </div>
 
                       <div style={{marginTop: 14}}>
-                        <span className="count-chip">{current.modules.length} modules configured</span>
+                        <span className="count-chip">{prog.modules.length} modules configured</span>
                       </div>
                     </div>
                   )}
@@ -578,7 +584,7 @@ export function ContentEditor({kind}: {kind: Type}) {
                         <textarea
                           rows={4}
                           placeholder="e.g. Grade 9 or Grade 12 Certificate with passes in English and Mathematics, or recognized prior learning experience in agriculture."
-                          value={current.requirements}
+                          value={prog.requirements}
                           onChange={e => editField('requirements', e.target.value)}
                         />
                       </div>
@@ -588,7 +594,7 @@ export function ContentEditor({kind}: {kind: Type}) {
                         <textarea
                           rows={4}
                           placeholder="e.g. TEVETA Trade Test Level III Certificate upon successful external assessment and practical examination."
-                          value={current.certification}
+                          value={prog.certification}
                           onChange={e => editField('certification', e.target.value)}
                         />
                       </div>
@@ -634,7 +640,7 @@ export function ContentEditor({kind}: {kind: Type}) {
                               min="0"
                               step="0.01"
                               placeholder="0.00"
-                              value={current.fee[k] ?? ''}
+                              value={prog.fee[k] ?? ''}
                               onChange={e => feeField(k, e.target.value)}
                             />
                           </div>
@@ -646,14 +652,14 @@ export function ContentEditor({kind}: {kind: Type}) {
                         <textarea
                           rows={3}
                           placeholder="e.g. Instalment payment terms: 40% registration deposit, 30% midterm, 30% before examinations. Hostel space is optional and subject to availability."
-                          value={current.fee.note}
+                          value={prog.fee.note}
                           onChange={e => feeField('note', e.target.value)}
                         />
                       </div>
                     </div>
                   )}
                 </>
-              ) : 'body' in current ? (
+              ) : ann ? (
                 <>
                   {/* ANNOUNCEMENT TAB 1: BASIC DETAILS */}
                   {modalTab === 'basic' && (
@@ -671,7 +677,7 @@ export function ContentEditor({kind}: {kind: Type}) {
                           <input
                             disabled={editing}
                             placeholder="e.g. 2027-intake-admissions-open"
-                            value={current.id}
+                            value={ann.id}
                             onChange={e =>
                               editField('id', e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))
                             }
@@ -684,11 +690,11 @@ export function ContentEditor({kind}: {kind: Type}) {
                           </label>
                           <input
                             placeholder="e.g. KASA Announces 2027 January Intake Admissions"
-                            value={current.title}
+                            value={ann.title}
                             onChange={e => {
                               const title = e.target.value;
                               editField('title', title);
-                              if (!editing && !current.id) {
+                              if (!editing && !ann.id) {
                                 editField(
                                   'id',
                                   title
@@ -707,7 +713,7 @@ export function ContentEditor({kind}: {kind: Type}) {
                         <div className="field">
                           <label>Category</label>
                           <select
-                            value={current.category}
+                            value={ann.category}
                             onChange={e => editField('category', e.target.value as Announcement['category'])}
                           >
                             {['admissions', 'academic', 'cdf', 'agents', 'general'].map(c => (
@@ -722,7 +728,7 @@ export function ContentEditor({kind}: {kind: Type}) {
                           <label className="required-toggle" style={{marginTop: 20}}>
                             <input
                               type="checkbox"
-                              checked={current.pinned}
+                              checked={ann.pinned}
                               onChange={e => editField('pinned', e.target.checked)}
                             />
                             Pin announcement to top of website
@@ -735,7 +741,7 @@ export function ContentEditor({kind}: {kind: Type}) {
                         <textarea
                           rows={3}
                           placeholder="Brief summary displayed on announcement cards and social preview cards."
-                          value={current.description}
+                          value={ann.description}
                           onChange={e => editField('description', e.target.value)}
                         />
                       </div>
@@ -744,7 +750,7 @@ export function ContentEditor({kind}: {kind: Type}) {
                         <label className="required-toggle" style={{margin: 0, fontSize: 13, fontWeight: 700}}>
                           <input
                             type="checkbox"
-                            checked={current.published}
+                            checked={ann.published}
                             onChange={e => editField('published', e.target.checked)}
                           />
                           Publish this announcement on KASA public website
@@ -766,7 +772,7 @@ export function ContentEditor({kind}: {kind: Type}) {
                         <textarea
                           rows={14}
                           placeholder="Write the full announcement text here…"
-                          value={current.body}
+                          value={ann.body}
                           onChange={e => editField('body', e.target.value)}
                           style={{lineHeight: 1.6, fontSize: 14}}
                         />
@@ -787,7 +793,7 @@ export function ContentEditor({kind}: {kind: Type}) {
                           <label>Publish From Date & Time (optional)</label>
                           <input
                             type="datetime-local"
-                            value={dateInput(current.publishedAt)}
+                            value={dateInput(ann.publishedAt)}
                             onChange={e =>
                               editField('publishedAt', e.target.value ? new Date(e.target.value).toISOString() : null)
                             }
@@ -799,7 +805,7 @@ export function ContentEditor({kind}: {kind: Type}) {
                           <label>Expire At Date & Time (optional)</label>
                           <input
                             type="datetime-local"
-                            value={dateInput(current.expiresAt)}
+                            value={dateInput(ann.expiresAt)}
                             onChange={e =>
                               editField('expiresAt', e.target.value ? new Date(e.target.value).toISOString() : null)
                             }
@@ -820,7 +826,7 @@ export function ContentEditor({kind}: {kind: Type}) {
                   <button
                     type="button"
                     className="btn btn-outline"
-                    onClick={() => void remove(current)}
+                    onClick={() => setDeletingItem(current)}
                     style={{color: '#c14931', borderColor: '#f5d2ca'}}
                   >
                     <Trash2 size={15} /> Delete record
@@ -845,7 +851,34 @@ export function ContentEditor({kind}: {kind: Type}) {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
+
+      <ConfirmModal
+        isOpen={Boolean(deletingItem)}
+        title="Delete Record"
+        message={`Are you sure you want to permanently delete "${deletingItem?.title}"?`}
+        kind="danger"
+        confirmLabel="Delete Record"
+        cancelLabel="Cancel"
+        busy={busy}
+        onConfirm={() => void confirmRemove()}
+        onCancel={() => setDeletingItem(null)}
+      />
+
+      <ConfirmModal
+        isOpen={confirmingDiscard}
+        title="Discard Changes"
+        message="Are you sure you want to discard unsaved changes and close the editor?"
+        kind="confirm"
+        confirmLabel="Discard & Close"
+        cancelLabel="Keep Editing"
+        onConfirm={() => {
+          setConfirmingDiscard(false);
+          setCurrent(null);
+        }}
+        onCancel={() => setConfirmingDiscard(false)}
+      />
     </>
   );
 }
