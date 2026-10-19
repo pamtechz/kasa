@@ -2,36 +2,39 @@ import {z} from 'zod';
 import type {Field,FormSchema} from './types';
 import {HttpError} from './errors';
 const fieldValidator=z.object({
- id:z.string().min(2).max(90).regex(/^[a-zA-Z0-9_-]+$/),
- label:z.string().trim().min(2).max(180),
+ id:z.string().min(1).max(90).regex(/^[a-zA-Z0-9_-]+$/),
+ label:z.string().trim().min(1).max(250),
  type:z.enum(['text','textarea','email','tel','number','date','select','radio','checkbox','file','image']),
  required:z.boolean(),
- description:z.string().max(500).optional(),
- placeholder:z.string().max(180).optional(),
- options:z.array(z.string().trim().min(1).max(120)).max(60).optional(),
+ description:z.string().max(1000).optional(),
+ placeholder:z.string().max(300).optional(),
+ options:z.array(z.string().trim().max(200)).max(100).optional(),
  optionsSource:z.enum(['programmes','intakes']).optional(),
- condition:z.object({fieldId:z.string(),equals:z.string().max(200)}).optional()
-}).strict();
+ condition:z.object({fieldId:z.string(),equals:z.string().max(300)}).optional()
+}).passthrough();
 export const formValidator=z.object({
- slug:z.string().min(3).max(80).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
- title:z.string().trim().min(4).max(180),
- subtitle:z.string().trim().max(500),
+ slug:z.string().min(1).max(120).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+ title:z.string().trim().min(1).max(250),
+ subtitle:z.string().trim().max(1000),
  kind:z.enum(['agent','student','custom']),
  published:z.boolean(),
  sections:z.array(z.object({
   id:z.string().regex(/^[a-zA-Z0-9_-]+$/).max(90),
-  title:z.string().trim().min(2).max(180),
-  description:z.string().max(500).optional(),
-  fields:z.array(fieldValidator).max(35)
- }).strict()).min(1).max(15)
-}).strict().superRefine((form,ctx)=>{
+  title:z.string().trim().min(1).max(250),
+  description:z.string().max(1000).optional(),
+  fields:z.array(fieldValidator).max(50)
+ }).passthrough()).min(1).max(25)
+}).passthrough().superRefine((form,ctx)=>{
  const fields=form.sections.flatMap(s=>s.fields);
  const ids=fields.map(f=>f.id);
  if(new Set(ids).size!==ids.length)ctx.addIssue({code:'custom',message:'Field IDs must be unique.'});
  for(const f of fields){
-  if(['select','radio','checkbox'].includes(f.type)&&!f.optionsSource&&(!f.options?.length||new Set(f.options).size!==f.options.length))ctx.addIssue({code:'custom',message:`Valid, unique options required for ${f.label}.`});
-  if(f.condition && (!ids.includes(f.condition.fieldId)||f.condition.fieldId===f.id||ids.indexOf(f.condition.fieldId)>ids.indexOf(f.id)))
+  if(['select','radio','checkbox'].includes(f.type)&&!f.optionsSource&&(!f.options||f.options.length===0)){
+   ctx.addIssue({code:'custom',message:`Options required for ${f.label}.`});
+  }
+  if(f.condition && (!ids.includes(f.condition.fieldId)||f.condition.fieldId===f.id||ids.indexOf(f.condition.fieldId)>ids.indexOf(f.id))){
    ctx.addIssue({code:'custom',message:`Invalid condition for ${f.label}: refer only to an earlier field.`});
+  }
  }
 });
 export function parseForm(data:unknown){
