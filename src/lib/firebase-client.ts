@@ -31,6 +31,13 @@ export const firebaseApp:FirebaseApp|null=firebaseConfigured
 // Browser-only service: SSR renders the same logged-out shell as hydration.
 export const auth:Auth|null=firebaseApp&&typeof window!=='undefined'
  ?getAuth(firebaseApp):null;
+
+export function getClientAuth():Auth|null{
+ if(typeof window==='undefined'||!firebaseConfigured)return null;
+ const app=firebaseApp||(getApps().length?getApp():initializeApp(config));
+ return getAuth(app);
+}
+
 let check:ReturnType<typeof initializeAppCheck>|undefined;
 export async function appCheckToken(){
  const siteKey=process.env.NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY;
@@ -41,16 +48,19 @@ export async function appCheckToken(){
  return (await getToken(check)).token;
 }
 export async function authHeaders(){
- if(!auth)throw Error('Firebase Authentication is unavailable. Check the local Firebase web-app settings and restart the dev server.');
- const user=auth.currentUser;
+ const a=getClientAuth()||auth;
+ if(!a)throw Error('Firebase Authentication is unavailable. Check the local Firebase web-app settings and restart the dev server.');
+ const user=a.currentUser;
  if(!user)throw Error('Please sign in first.');
  return {Authorization:`Bearer ${await user.getIdToken()}`};
 }
 export function requireClientAuth():Auth{
- if(!auth)throw Error('Firebase Authentication is unavailable. Configure NEXT_PUBLIC_FIREBASE_* in .env.local and restart npm run dev.');
- return auth;
+ const a=getClientAuth()||auth;
+ if(!a)throw Error('Firebase Authentication is unavailable. Configure NEXT_PUBLIC_FIREBASE_* in .env.local and restart npm run dev.');
+ return a;
 }
 export async function signOutClient():Promise<void>{
- if(!auth)return;
- await signOut(auth);
+ if(!auth)return; const a=getClientAuth()||auth;
+ await signOut(a);
 }
+

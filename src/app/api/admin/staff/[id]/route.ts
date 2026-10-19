@@ -21,3 +21,18 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
   return json({ok:true});
  }catch(e){return fail(e);}
 }
+
+export async function DELETE(req:Request,{params}:{params:Promise<{id:string}>}){
+ try{
+  sameOrigin(req);
+  const actor=await operator(req,['super_admin']);
+  const {id}=await params;
+  if(id===actor.uid)throw new HttpError(403,'You cannot delete your own administrator account.');
+  const doc=db.collection('profiles').doc(id);
+  const current=await doc.get();
+  if(!current.exists||!['admin','reviewer'].includes(current.data()?.role))throw new HttpError(404,'Staff account not found.');
+  await doc.update({role:'student',updatedAt:new Date().toISOString()});
+  await audit(actor.uid,'staff.removed',id,{email:current.data()?.email});
+  return json({ok:true});
+ }catch(e){return fail(e);}
+}

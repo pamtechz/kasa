@@ -6,11 +6,42 @@ import {BrandLogo} from '@/components/BrandLogo';
 import {HeroSlider} from '@/components/HeroSlider';
 import {defaultSite,type SiteSettings} from '@/lib/site';
 import {getCachedSite,fetchSiteCached} from '@/lib/client-cache';
-import {CheckCircle2,ClipboardList,MapPin,ShieldCheck,Sprout,Users,Menu,X} from 'lucide-react';
+import {CheckCircle2,ClipboardList,MapPin,ShieldCheck,Sprout,Users,Menu,X,ArrowRight} from 'lucide-react';
+import {auth,getClientAuth,firebaseConfigured} from '@/lib/firebase-client';
+import {onAuthStateChanged} from 'firebase/auth';
 
 export default function Home(){
  const [site,setSite]=useState<SiteSettings>(getCachedSite()||defaultSite);
  const [navOpen,setNavOpen]=useState(false);
+ const [userLoggedIn,setUserLoggedIn]=useState(false);
+ const [dashboardHref,setDashboardHref]=useState('/dashboard');
+
+ useEffect(()=>{
+  if(!firebaseConfigured)return;
+  const clientAuth=getClientAuth()||auth;
+  if(!clientAuth)return;
+  const unsub=onAuthStateChanged(clientAuth,async user=>{
+   if(user){
+    setUserLoggedIn(true);
+    try{
+     const token=await user.getIdToken();
+     const res=await fetch('/api/me',{headers:{Authorization:`Bearer ${token}`}});
+     const data=await res.json().catch(()=>({}));
+     const role=data?.profile?.role;
+     if(role==='agent')setDashboardHref('/dashboard/referrals');
+     else if(role==='reviewer')setDashboardHref('/dashboard/applications');
+     else if(role==='student')setDashboardHref('/my-applications');
+     else setDashboardHref('/dashboard');
+    }catch{
+     setDashboardHref('/dashboard');
+    }
+   }else{
+    setUserLoggedIn(false);
+    setDashboardHref('/login');
+   }
+  });
+  return ()=>unsub();
+ },[]);
 
  useEffect(()=>{
   if(!navOpen)return;
@@ -32,7 +63,7 @@ export default function Home(){
    <nav className="top-nav container"><Link href="/" className="brand"><BrandLogo size={62}/><span><strong>{site.organization}</strong><small>{site.subtitle}</small></span></Link>
     <button type="button" className="icon-btn home-nav-toggle" aria-expanded={navOpen} aria-controls="kasa-home-navigation" aria-label={navOpen?"Close navigation":"Open navigation"} onClick={()=>setNavOpen(v=>!v)}>{navOpen?<X size={24}/>:<Menu size={24}/>}</button>
     <div id="kasa-home-navigation" className={`nav-links home-nav-links ${navOpen?"home-nav-open":""}`}>
-     <Link onClick={()=>setNavOpen(false)} href="/about">About</Link><Link onClick={()=>setNavOpen(false)} href="/programmes">Programmes</Link><Link onClick={()=>setNavOpen(false)} href="/fees">Fees</Link><Link onClick={()=>setNavOpen(false)} href="/announcements">News & Blog</Link><Link onClick={()=>setNavOpen(false)} href="/admissions">Admissions</Link><Link onClick={()=>setNavOpen(false)} href="/agents">Agents</Link><Link onClick={()=>setNavOpen(false)} href="/contact">Contact</Link><Link onClick={()=>setNavOpen(false)} href="/my-applications">My applications</Link><Link onClick={()=>setNavOpen(false)} href="/login">Sign in</Link><PublicApplicationLinks placement="nav"/>
+     <Link onClick={()=>setNavOpen(false)} href="/about">About</Link><Link onClick={()=>setNavOpen(false)} href="/programmes">Programmes</Link><Link onClick={()=>setNavOpen(false)} href="/fees">Fees</Link><Link onClick={()=>setNavOpen(false)} href="/announcements">News & Blog</Link><Link onClick={()=>setNavOpen(false)} href="/admissions">Admissions</Link><Link onClick={()=>setNavOpen(false)} href="/agents">Agents</Link><Link onClick={()=>setNavOpen(false)} href="/contact">Contact</Link><Link onClick={()=>setNavOpen(false)} href="/my-applications">My applications</Link>{userLoggedIn?<Link onClick={()=>setNavOpen(false)} href={dashboardHref} className="site-login home-dashboard-btn" style={{fontWeight:700,background:'var(--gold)',color:'#19382c',padding:'8px 14px',borderRadius:'8px',display:'inline-flex',alignItems:'center',gap:'6px'}}>Dashboard <ArrowRight size={14}/></Link>:<Link onClick={()=>setNavOpen(false)} href="/login" className="site-login" style={{padding:'8px 14px',borderRadius:'8px',display:'inline-flex',alignItems:'center',gap:'6px'}}>Login <ArrowRight size={14}/></Link>}<PublicApplicationLinks placement="nav"/>
     </div></nav>
    <div className="container hero-grid">
     <div className="hero-copy">

@@ -16,11 +16,16 @@ export default function StaffManagement(){
   setError('');try{await api('/api/admin/staff/'+member.uid,{method:'PATCH',body:JSON.stringify(data)});await load();}
   catch(e){setError(e instanceof Error?e.message:'Update failed.');}
  }
+ async function removeStaff(member:Staff){
+  if(!window.confirm(`Are you sure you want to remove ${member.displayName} (${member.email}) from staff roles?`)) return;
+  setError('');try{await api('/api/admin/staff/'+member.uid,{method:'DELETE'});setNotice(`Removed ${member.displayName} from staff.`);await load();}
+  catch(e){setError(e instanceof Error?e.message:'Remove failed.');}
+ }
  return <><PageHeader title="Staff and reviewers" subtitle="Approve access, assign reviewers and manage operational staff without creating unverified accounts."/>
  <section className="panel pad-panel"><h2>Assign staff access</h2><p className="muted">The user must register with Firebase Authentication and verify their email. Only a super administrator can appoint or deactivate staff.</p>
  <div className="inline-form"><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="Verified staff email"/><select value={role} onChange={e=>setRole(e.target.value as 'admin'|'reviewer')}><option value="reviewer">Application reviewer</option><option value="admin">Administrator</option></select><button className="btn btn-primary" disabled={busy||!email} onClick={()=>void assign()}><Plus size={16}/>Assign role</button></div>
  {error&&<div className="alert-error">{error}</div>}{notice&&<div className="notice">{notice}</div>}</section>
  <section className="panel"><div className="panel-title"><div><h2>Authorized personnel</h2><p>Super-administrator accounts can only be provisioned using the separate controlled bootstrap procedure.</p></div><ShieldCheck/></div><div className="table-scroll"><table className="data-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead><tbody>
- {staff.map(x=><tr key={x.uid}><td><strong>{x.displayName}</strong></td><td>{x.email}</td><td>{x.role.replace('_',' ')}</td><td>{x.active?'Active':'Inactive'}</td><td>{x.role!=='super_admin'?<><button className="text-link" onClick={()=>void change(x,{active:!x.active})}>{x.active?'Deactivate':'Reactivate'}</button><button className="text-link" onClick={()=>void change(x,{role:x.role==='admin'?'reviewer':'admin'})}>Change role</button></>:'Protected'}</td></tr>)}
+ {staff.map(x=><tr key={x.uid}><td><strong>{x.displayName}</strong></td><td>{x.email}</td><td>{x.role.replace('_',' ')}</td><td>{x.active?'Active':'Inactive'}</td><td>{x.role!=='super_admin'?<div style={{display:'flex',gap:8,alignItems:'center'}}><button className="text-link" onClick={()=>void change(x,{active:!x.active})}>{x.active?'Deactivate':'Reactivate'}</button><button className="text-link" onClick={()=>void change(x,{role:x.role==='admin'?'reviewer':'admin'})}>Change role</button><button className="text-link" style={{color:'#ef4444'}} onClick={()=>void removeStaff(x)}>Remove</button></div>:'Protected'}</td></tr>)}
  {!staff.length&&<tr><td colSpan={5} className="empty-state">No staff accounts configured.</td></tr>}</tbody></table></div></section></>;
 }

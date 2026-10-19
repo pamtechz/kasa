@@ -1,6 +1,7 @@
 import {NextRequest} from 'next/server';
 import {fail} from '@/lib/errors';
 import {operator} from '@/lib/security';
+import {storage} from '@/lib/firebase-admin';
 import {generateAcceptancePackPdf, type AcceptancePackData} from '@/lib/pdf-acceptance-pack';
 import {acceptanceLetterConfigSchema} from '@/lib/acceptance-letter-config';
 
@@ -16,6 +17,40 @@ export async function POST(req: NextRequest) {
       const parsed = acceptanceLetterConfigSchema.safeParse(body?.config || body);
       if (parsed.success) customConfig = parsed.data;
     } catch {}
+
+    // If custom PDF mode is active, preview the custom file/link
+    if (customConfig?.packSource === 'custom' && customConfig?.customPdf?.url) {
+      try {
+        const {type, url} = customConfig.customPdf;
+        if (type === 'link' || url.startsWith('http://') || url.startsWith('https://')) {
+          const fetchRes = await fetch(url, {signal: AbortSignal.timeout(8000)});
+          if (fetchRes.ok) {
+            const arrBuf = await fetchRes.arrayBuffer();
+            return new Response(new Uint8Array(arrBuf), {
+              status: 200,
+              headers: {
+                'Content-Type': 'application/pdf',
+                'Content-Disposition': 'inline; filename="KASA-Custom-Acceptance-Preview.pdf"',
+                'Cache-Control': 'no-store'
+              }
+            });
+          }
+          return Response.redirect(url, 302);
+        } else {
+          const [fileBytes] = await storage.bucket().file(url).download();
+          return new Response(new Uint8Array(fileBytes), {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/pdf',
+              'Content-Disposition': 'inline; filename="KASA-Custom-Acceptance-Preview.pdf"',
+              'Cache-Control': 'no-store'
+            }
+          });
+        }
+      } catch (err) {
+        console.error('Error serving custom preview PDF:', err);
+      }
+    }
 
     const sampleData: AcceptancePackData = {
       reference: 'KASA-2027-SAMPLE',
@@ -44,7 +79,7 @@ export async function POST(req: NextRequest) {
     };
 
     const bytes = await generateAcceptancePackPdf(sampleData, customConfig || undefined);
-    return new Response(Buffer.from(bytes), {
+    return new Response(new Uint8Array(bytes), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

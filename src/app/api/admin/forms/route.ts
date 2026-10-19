@@ -3,10 +3,19 @@ import {fail,json,HttpError} from '@/lib/errors';
 import {operator,audit,newId,sameOrigin} from '@/lib/security';
 import {parseForm} from '@/lib/schema';
 export const runtime='nodejs';
+
+let formsCache: {forms: any[]; timestamp: number} | null = null;
+const FORMS_CACHE_TTL = 45_000;
+
 export async function GET(req:Request){
  try{await operator(req,['super_admin','admin','reviewer']);
+  if(formsCache && Date.now() - formsCache.timestamp < FORMS_CACHE_TTL){
+   return json({forms: formsCache.forms});
+  }
   const result=await db.collection('forms').limit(100).get();
-  return json({forms:result.docs.map(x=>({...x.data(),id:x.id}))});
+  const forms=result.docs.map(x=>({...x.data(),id:x.id}));
+  formsCache = {forms, timestamp: Date.now()};
+  return json({forms});
  }catch(e){return fail(e);}
 }
 export async function POST(req:Request){
@@ -17,6 +26,7 @@ export async function POST(req:Request){
   if(!same.empty)throw new HttpError(409,'This form URL is already used.');
   const id=newId(),now=new Date().toISOString();
   await db.collection('forms').doc(id).create({...data,version:1,createdAt:now,updatedAt:now});
+  formsCache = null;
   await audit(user.uid,'form.created',id,{slug:data.slug});
   return json({id},201);
  }catch(e){return fail(e);}

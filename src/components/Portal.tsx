@@ -7,12 +7,35 @@ import {BarChart3,ChevronLeft,ChevronRight,ClipboardList,FilePlus2,FileCheck,Lay
 import {auth,authHeaders,firebaseConfigured,signOutClient} from '@/lib/firebase-client';
 import type {Profile} from '@/lib/types';
 import {BrandLogo} from '@/components/BrandLogo';
+import {invalidateAdminCache, fetchWithSwr, getAdminCache} from '@/lib/admin-cache';
+
 export async function api<T=any>(path:string,init:RequestInit={}):Promise<T>{
  const headers=await authHeaders();
+ const method=(init.method||'GET').toUpperCase();
  const response=await fetch(path,{...init,cache:'no-store',headers:{...headers,...(init.body instanceof FormData?{}:{'Content-Type':'application/json'}),...init.headers}});
  const body=await response.json().catch(()=>({error:`The server returned HTTP ${response.status}. Please retry.`}));
  if(!response.ok)throw Error(typeof body.error==='string'?body.error:'The request could not be completed.');
+ if(method!=='GET'){
+  if(path.includes('/api/admin/content'))invalidateAdminCache('content');
+  else if(path.includes('/api/admin/submissions'))invalidateAdminCache('submissions');
+  else if(path.includes('/api/admin/forms'))invalidateAdminCache('forms');
+  else if(path.includes('/api/admin/intake'))invalidateAdminCache('intake');
+  else if(path.includes('/api/admin/agents'))invalidateAdminCache('agents');
+  else if(path.includes('/api/admin/commissions'))invalidateAdminCache('commissions');
+  else if(path.includes('/api/admin/settings'))invalidateAdminCache('settings');
+  else invalidateAdminCache(path);
+ }
  return body as T;
+}
+
+/**
+ * Fast SWR data fetcher: returns cached data immediately (0ms) while revalidating in background.
+ */
+export async function cachedApi<T=any>(path:string,onUpdate?:(fresh:T)=>void,ttl?:number):Promise<T>{
+ return fetchWithSwr<T>(path,()=>api<T>(path),onUpdate,ttl);
+}
+export function getCachedApiData<T=any>(path:string):T|null{
+ return getAdminCache<T>(path);
 }
 export function Portal({children}:{children:React.ReactNode}){
  const [profile,setProfile]=useState<Profile|null>(null),[loading,setLoading]=useState(true),[sessionError,setSessionError]=useState(''),[collapsed,setCollapsed]=useState(false),[mobile,setMobile]=useState(false);
@@ -39,7 +62,14 @@ export function Portal({children}:{children:React.ReactNode}){
    if(!user){setProfile(null);setLoading(false);router.replace('/login?reason=session-ended');return;}
    try{
     const result=await api<{profile:Profile}>('/api/me');
-    if(active){setProfile(result.profile);setSessionError('');}
+    if(active){
+     if(result.profile.role === 'student'){
+      router.replace('/my-applications');
+      return;
+     }
+     setProfile(result.profile);
+     setSessionError('');
+    }
    }catch(e){
     if(active){setProfile(null);setSessionError(e instanceof Error?e.message:'Unable to validate staff access.');}
    }finally{if(active)setLoading(false);}

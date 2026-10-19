@@ -131,7 +131,15 @@ export const acceptanceLetterConfigSchema = z.object({
     sharedToolsNote: z.string().trim().max(600).default(
       'KASA provides or arranges shared specialist tools, farm inputs, agrochemicals, animal medicines and specialist sports equipment. Task-specific PPE beyond ordinary personal workwear is provided or confirmed by KASA.'
     )
-  }).default({})
+  }).default({}),
+  packSource: z.enum(['generated', 'custom']).default('generated'),
+  customPdf: z.object({
+    type: z.enum(['upload', 'link']).default('upload'),
+    url: z.string().trim().default(''),
+    fileName: z.string().trim().default(''),
+    uploadedAt: z.string().nullable().default(null),
+    fileSize: z.number().nullable().default(null)
+  }).default({type: 'upload', url: '', fileName: '', uploadedAt: null, fileSize: null})
 });
 
 

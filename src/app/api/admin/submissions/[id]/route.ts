@@ -4,6 +4,7 @@ import {operator,audit,safeText,sameOrigin,digest} from '@/lib/security';
 import {normalizedIntake} from '@/lib/intake-policy';
 import type {SubmissionStatus} from '@/lib/types';
 import {automationSchema,defaultAutomations,formatNotification} from '@/lib/automations';
+import {invalidateSubmissionsCache} from '@/lib/server-cache';
 export const runtime='nodejs';
 const stages:Record<SubmissionStatus,SubmissionStatus[]>={
  submitted:['under_review','needs_information','rejected'],
@@ -110,7 +111,23 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
     });
    }
   });
+  invalidateSubmissionsCache();
   await audit(actor.uid,'application.status_changed',id,{status});
   return json({ok:true});
  }catch(error){return fail(error);}
+}
+
+export async function DELETE(req:Request,{params}:{params:Promise<{id:string}>}){
+ try{
+  sameOrigin(req);
+  const actor=await operator(req,['super_admin','admin']);
+  const {id}=await params;
+  const ref=db.collection('submissions').doc(id);
+  const snap=await ref.get();
+  if(!snap.exists)throw new HttpError(404,'Application not found.');
+  await ref.delete();
+  invalidateSubmissionsCache();
+  await audit(actor.uid,'application.deleted',id,{reference:snap.data()?.reference});
+  return json({ok:true});
+ }catch(e){return fail(e);}
 }

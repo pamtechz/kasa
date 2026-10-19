@@ -23,5 +23,19 @@ export async function PUT(req:Request,{params}:{params:Promise<{id:string}>}){
    tx.update(doc,{...data,version,updatedAt:new Date().toISOString()});
   });
   await audit(user.uid,'form.updated',id,{version});return json({id,version});
+  }catch(e){return fail(e);}
+}
+
+export async function DELETE(req:Request,{params}:{params:Promise<{id:string}>}){
+ try{
+  sameOrigin(req);
+  const user=await operator(req,['super_admin','admin']);
+  const {id}=await params;
+  const doc=db.collection('forms').doc(id);
+  const snap=await doc.get();
+  if(!snap.exists)throw new HttpError(404,'Form not found.');
+  await doc.delete();
+  await audit(user.uid,'form.deleted',id,{slug:snap.data()?.slug});
+  return json({ok:true});
  }catch(e){return fail(e);}
 }

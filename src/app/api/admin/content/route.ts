@@ -3,13 +3,23 @@ import {fail,json,HttpError} from '@/lib/errors';
 import {operator,sameOrigin,audit} from '@/lib/security';
 import {programmeSchema,announcementSchema,contentCollection} from '@/lib/content';
 export const runtime='nodejs';
+
+const serverContentCache: Record<string, {items: any[]; timestamp: number}> = {};
+const CONTENT_CACHE_TTL = 30_000;
+
 export async function GET(req:Request){
  try{
   await operator(req,['super_admin','admin','reviewer']);
   const kind=new URL(req.url).searchParams.get('kind')||'',collection=contentCollection(kind);
   if(!collection)throw new HttpError(400,'Select programmes or announcements.');
+  const cached = serverContentCache[collection];
+  if(cached && Date.now() - cached.timestamp < CONTENT_CACHE_TTL){
+   return json({items: cached.items});
+  }
   const result=await db.collection(collection).limit(250).get();
-  return json({items:result.docs.map(d=>({...d.data(),id:d.id}))});
+  const items = result.docs.map(d=>({...d.data(),id:d.id}));
+  serverContentCache[collection] = {items, timestamp: Date.now()};
+  return json({items});
  }catch(e){return fail(e);}
 }
 export async function POST(req:Request){
@@ -24,6 +34,7 @@ export async function POST(req:Request){
   const existing=await ref.get();
   if(existing.exists)throw new HttpError(409,'An item with this ID already exists. Use update.');
   await ref.create({...item,updatedAt:new Date().toISOString(),updatedBy:who.uid});
+  delete serverContentCache[collection];
   await audit(who.uid,collection+'.created',item.id);
   return json({ok:true,id:item.id},201);
  }catch(e){return fail(e);}
@@ -38,6 +49,7 @@ export async function PUT(req:Request){
   const ref=db.collection(collection).doc(parsed.data.id);
   if(!(await ref.get()).exists)throw new HttpError(404,'Record does not exist.');
   await ref.set({...parsed.data,updatedAt:new Date().toISOString(),updatedBy:who.uid},{merge:true});
+  delete serverContentCache[collection];
   await audit(who.uid,collection+'.updated',parsed.data.id);
   return json({ok:true});
  }catch(e){return fail(e);}
@@ -49,7 +61,9 @@ export async function DELETE(req:Request){
   if(!collection||!/^[a-z0-9-]{3,90}$/.test(id))throw new HttpError(400,'Invalid item.');
   const ref=db.collection(collection).doc(id),snap=await ref.get();
   if(!snap.exists)throw new HttpError(404,'Not found.');
-  await ref.delete();await audit(who.uid,collection+'.deleted',id);
+  await ref.delete();
+  delete serverContentCache[collection];
+  await audit(who.uid,collection+'.deleted',id);
   return json({ok:true});
  }catch(e){return fail(e);}
 }

@@ -1,4 +1,4 @@
-import {db} from '@/lib/firebase-admin';
+import {db, storage} from '@/lib/firebase-admin';
 import {fail, HttpError} from '@/lib/errors';
 import {operator} from '@/lib/security';
 import {generateAcceptancePackPdf, type AcceptancePackData} from '@/lib/pdf-acceptance-pack';
@@ -33,6 +33,40 @@ export async function GET(req: Request, {params}: {params: Promise<{id: string}>
         if (parsed.success) letterConfig = parsed.data;
       }
     } catch {}
+
+    // If custom PDF mode is active, deliver the uploaded file or link
+    if (letterConfig.packSource === 'custom' && letterConfig.customPdf?.url) {
+      try {
+        const {type, url} = letterConfig.customPdf;
+        if (type === 'link' || url.startsWith('http://') || url.startsWith('https://')) {
+          const fetchRes = await fetch(url, {signal: AbortSignal.timeout(8000)});
+          if (fetchRes.ok) {
+            const arrBuf = await fetchRes.arrayBuffer();
+            return new Response(new Uint8Array(arrBuf), {
+              status: 200,
+              headers: {
+                'Content-Type': 'application/pdf',
+                'Content-Disposition': `attachment; filename="KASA-Acceptance-${data.reference}.pdf"`,
+                'Cache-Control': 'private, no-store'
+              }
+            });
+          }
+          return Response.redirect(url, 302);
+        } else {
+          const [fileBytes] = await storage.bucket().file(url).download();
+          return new Response(new Uint8Array(fileBytes), {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/pdf',
+              'Content-Disposition': `attachment; filename="KASA-Acceptance-${data.reference}.pdf"`,
+              'Cache-Control': 'private, no-store'
+            }
+          });
+        }
+      } catch (err) {
+        console.error('Error reading custom acceptance pack, falling back to template:', err);
+      }
+    }
 
     const studentName = String(
       answers['full-name'] || answers['student-name'] || answers['fullNames'] || 'Applicant'
@@ -90,7 +124,7 @@ export async function GET(req: Request, {params}: {params: Promise<{id: string}>
     };
 
     const bytes = await generateAcceptancePackPdf(packData, letterConfig);
-    return new Response(Buffer.from(bytes), {
+    return new Response(new Uint8Array(bytes), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

@@ -70,6 +70,8 @@ export async function generateAcceptancePackPdf(
   customConfig?: Partial<AcceptanceLetterConfig>
 ): Promise<Uint8Array> {
   const cfg: AcceptanceLetterConfig = {
+    ...defaultAcceptanceLetterConfig,
+    ...customConfig,
     institution: {...defaultAcceptanceLetterConfig.institution, ...(customConfig?.institution || {})},
     letter: {...defaultAcceptanceLetterConfig.letter, ...(customConfig?.letter || {})},
     fees: {...defaultAcceptanceLetterConfig.fees, ...(customConfig?.fees || {})},

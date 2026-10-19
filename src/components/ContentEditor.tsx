@@ -1,56 +1,851 @@
 'use client';
-import {useEffect,useState,useCallback} from 'react';
-import {Save,Plus,Trash2,Search,ExternalLink} from 'lucide-react';
-import {api,PageHeader} from '@/components/Portal';
-import type {Programme,Announcement} from '@/lib/content';
-type Type='programmes'|'announcements';
-const emptyProgramme:Programme={
- id:'',title:'',description:'',published:false,category:'short-course',duration:'',durationHours:null,
- requirements:'',certification:'',modules:[],fee:{tuition:null,practical:null,administration:null,foodOptional:null,accommodationOptional:null,packageTotal:null,currency:'ZMW',note:''}
+import {useEffect, useState, useCallback} from 'react';
+import {
+  Save, Plus, Trash2, Search, ExternalLink, X, ArrowLeft,
+  CheckCircle2, AlertCircle, BookOpen, Clock, FileText, DollarSign,
+  GraduationCap, Calendar, Tag, ShieldCheck, Eye, Layers
+} from 'lucide-react';
+import {api, cachedApi, PageHeader} from '@/components/Portal';
+import type {Programme, Announcement} from '@/lib/content';
+
+type Type = 'programmes' | 'announcements';
+
+const emptyProgramme: Programme = {
+  id: '',
+  title: '',
+  description: '',
+  published: false,
+  category: 'short-course',
+  duration: '',
+  durationHours: null,
+  requirements: '',
+  certification: '',
+  modules: [],
+  fee: {
+    tuition: null,
+    practical: null,
+    administration: null,
+    foodOptional: null,
+    accommodationOptional: null,
+    packageTotal: null,
+    currency: 'ZMW',
+    note: ''
+  }
 };
-const emptyAnnouncement:Announcement={id:'',title:'',description:'',published:false,body:'',category:'general',pinned:false,publishedAt:null,expiresAt:null};
-function dateInput(s:string|null){if(!s)return '';const d=new Date(s);return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);}
-export function ContentEditor({kind}:{kind:Type}){
- const [items,setItems]=useState<(Programme|Announcement)[]>([]),[current,setCurrent]=useState<Programme|Announcement|null>(null),[editing,setEditing]=useState(false),[filter,setFilter]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
- const isProgramme=kind==='programmes';
- const load=useCallback(async()=>{const r=await api<{items:(Programme|Announcement)[]}>('/api/admin/content?kind='+kind);setItems(r.items);},[kind]);
- useEffect(()=>{void load().catch(e=>setError(e.message));},[load]);
- function editField(field:string,value:unknown){setCurrent(p=>p?{...p,[field]:value}:p);}
- function feeField(field:string,value:string){
-  setCurrent(p=>p&&'fee' in p?{...p,fee:{...p.fee,[field]:field==='note'?value:(value===''?null:Number(value))}}:p);
- }
- async function save(){
-  if(!current)return;setBusy(true);setError('');setMessage('');
-  try{
-   await api('/api/admin/content',{method:editing?'PUT':'POST',body:JSON.stringify({kind,item:current})});
-   setCurrent(null);await load();setMessage('Saved successfully.');
-  }catch(e){setError(e instanceof Error?e.message:'Save failed.');}finally{setBusy(false);}
- }
- async function remove(item:Programme|Announcement){
-  if(!window.confirm('Delete "'+item.title+'"? This removes the published entry.'))return;
-  try{await api('/api/admin/content',{method:'DELETE',body:JSON.stringify({kind,id:item.id})});await load();setMessage('Record deleted.');}
-  catch(e){setError(e instanceof Error?e.message:'Delete failed.');}
- }
- return <><PageHeader title={isProgramme?'Programmes and fees':'Announcements'} subtitle={isProgramme?'Maintain courses, entry criteria, module outlines and proposed costs in Firestore.':'Create, publish, pin, schedule and withdraw official institutional announcements.'} action={<button className="btn btn-primary" onClick={()=>{setCurrent(isProgramme?structuredClone(emptyProgramme):structuredClone(emptyAnnouncement));setEditing(false);setError('');}}><Plus size={16}/>Add new</button>}/>
- {error&&<div className="alert-error">{error}</div>}{message&&<div className="notice">{message}</div>}
- <div className="panel"><div className="table-controls"><label className="search-box"><Search size={16}/><input placeholder="Search records" value={filter} onChange={e=>setFilter(e.target.value)}/></label></div>
- <div className="table-scroll"><table className="data-table"><thead><tr><th>Title</th><th>Category</th><th>Publication</th><th>Actions</th></tr></thead><tbody>{items.filter(x=>(x.title+' '+x.description).toLowerCase().includes(filter.toLowerCase())).map(x=><tr key={x.id}><td><strong>{x.title}</strong><small className="table-sub">{x.id}</small></td><td>{x.category}</td><td>{x.published?'Published':'Draft'}</td><td><button className="text-link" onClick={()=>{setCurrent(x);setEditing(true);setError('');}}>Edit</button><button className="text-link" onClick={()=>void remove(x)}><Trash2 size={14}/>Delete</button></td></tr>)}{!items.length&&<tr><td colSpan={4} className="empty-state">No records yet. Use the KASA starter-data tool to populate your initial catalogue.</td></tr>}</tbody></table></div></div>
- {current&&<section className="panel pad-panel"><h2>{editing?'Edit '+current.title:'Create '+(isProgramme?'programme':'announcement')}</h2>
- <div className="form-grid"><div className="field"><label>Permanent URL ID</label><input disabled={editing} value={current.id} onChange={e=>editField('id',e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,'-'))}/></div><div className="field"><label>Title</label><input value={current.title} onChange={e=>editField('title',e.target.value)}/></div></div>
- <div className="field"><label>Short description</label><textarea rows={3} value={current.description} onChange={e=>editField('description',e.target.value)}/></div>
- <label className="required-toggle"><input type="checkbox" checked={current.published} onChange={e=>editField('published',e.target.checked)}/>Publish on KASA public website</label>
- {isProgramme&&'fee' in current?<><div className="form-grid">
-  <div className="field"><label>Category</label><select value={current.category} onChange={e=>editField('category',e.target.value)}><option value="main">Main programme</option><option value="agri-sport">AGRI-SPORT pathway</option><option value="short-course">Independent short course</option></select></div>
-  <div className="field"><label>Duration</label><input value={current.duration} onChange={e=>editField('duration',e.target.value)}/></div>
-  <div className="field"><label>Contact hours (optional)</label><input type="number" min="0" value={current.durationHours??''} onChange={e=>editField('durationHours',e.target.value===''?null:Number(e.target.value))}/></div>
- </div>
- <div className="field"><label>Admission requirements</label><textarea rows={3} value={current.requirements} onChange={e=>editField('requirements',e.target.value)}/></div>
- <div className="field"><label>Certification and qualification status</label><textarea rows={3} value={current.certification} onChange={e=>editField('certification',e.target.value)}/></div>
- <div className="field"><label>Modules or topics (one per line)</label><textarea rows={5} value={current.modules.join('\n')} onChange={e=>editField('modules',e.target.value.split('\n').map(x=>x.trim()).filter(Boolean))}/></div>
- <h3>Fee components in ZMW (leave blank if not confirmed)</h3><div className="form-grid">{(['tuition','practical','administration','foodOptional','accommodationOptional','packageTotal'] as const).map(k=><div className="field" key={k}><label>{({tuition:'Tuition',practical:'Practical',administration:'Administration',foodOptional:'Food (optional)',accommodationOptional:'Accommodation (optional)',packageTotal:'Full proposed package'})[k]}</label><input type="number" min="0" step="0.01" value={current.fee[k]??''} onChange={e=>feeField(k,e.target.value)}/></div>)}</div><div className="field"><label>Fee conditions</label><textarea rows={3} value={current.fee.note} onChange={e=>feeField('note',e.target.value)}/></div>
- </>:'body' in current?<><div className="form-grid"><div className="field"><label>Category</label><select value={current.category} onChange={e=>editField('category',e.target.value)}>{['admissions','academic','cdf','agents','general'].map(c=><option value={c} key={c}>{c}</option>)}</select></div><label className="required-toggle"><input type="checkbox" checked={current.pinned} onChange={e=>editField('pinned',e.target.checked)}/>Pin announcement</label></div><div className="form-grid">
- <div className="field"><label>Publish from (optional)</label><input type="datetime-local" value={dateInput(current.publishedAt)} onChange={e=>editField('publishedAt',e.target.value?new Date(e.target.value).toISOString():null)}/></div>
- <div className="field"><label>Expire at (optional)</label><input type="datetime-local" value={dateInput(current.expiresAt)} onChange={e=>editField('expiresAt',e.target.value?new Date(e.target.value).toISOString():null)}/></div></div><div className="field"><label>Full announcement</label><textarea rows={9} value={current.body} onChange={e=>editField('body',e.target.value)}/></div></>:null}
- <div className="inline-form"><button className="btn btn-primary" disabled={busy} onClick={()=>void save()}><Save size={16}/>Save changes</button><button className="btn btn-outline" onClick={()=>setCurrent(null)}>Cancel</button>{editing&&<a className="text-link" href={'/'+kind+'/'+current.id} target="_blank" rel="noreferrer"><ExternalLink size={15}/>Public page</a>}</div></section>}
- </>;
+
+const emptyAnnouncement: Announcement = {
+  id: '',
+  title: '',
+  description: '',
+  published: false,
+  body: '',
+  category: 'general',
+  pinned: false,
+  publishedAt: null,
+  expiresAt: null
+};
+
+function dateInput(s: string | null) {
+  if (!s) return '';
+  const d = new Date(s);
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+
+export function ContentEditor({kind}: {kind: Type}) {
+  const isProgramme = kind === 'programmes';
+  const [items, setItems] = useState<(Programme | Announcement)[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [current, setCurrent] = useState<Programme | Announcement | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [filter, setFilter] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [modalTab, setModalTab] = useState<string>('basic');
+
+  // Fast SWR loading
+  const load = useCallback(async (force = false) => {
+    try {
+      const url = '/api/admin/content?kind=' + kind;
+      if (force) {
+        const r = await api<{items: (Programme | Announcement)[]}>(url);
+        setItems(r.items);
+      } else {
+        const r = await cachedApi<{items: (Programme | Announcement)[]}>(
+          url,
+          (fresh) => setItems(fresh.items)
+        );
+        setItems(r.items);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unable to load records.');
+    } finally {
+      setLoading(false);
+    }
+  }, [kind]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  // Handle ESC key to close modal page
+  useEffect(() => {
+    if (!current) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setCurrent(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [current]);
+
+  function editField(field: string, value: unknown) {
+    setCurrent(p => (p ? {...p, [field]: value} : p));
+  }
+
+  function feeField(field: string, value: string) {
+    setCurrent(p =>
+      p && 'fee' in p
+        ? {
+            ...p,
+            fee: {
+              ...p.fee,
+              [field]: field === 'note' ? value : value === '' ? null : Number(value)
+            }
+          }
+        : p
+    );
+  }
+
+  function openCreate() {
+    setCurrent(isProgramme ? structuredClone(emptyProgramme) : structuredClone(emptyAnnouncement));
+    setEditing(false);
+    setError('');
+    setMessage('');
+    setModalTab('basic');
+  }
+
+  function openEdit(item: Programme | Announcement) {
+    setCurrent(structuredClone(item));
+    setEditing(true);
+    setError('');
+    setMessage('');
+    setModalTab('basic');
+  }
+
+  async function save() {
+    if (!current) return;
+    setBusy(true);
+    setError('');
+    setMessage('');
+    try {
+      await api('/api/admin/content', {
+        method: editing ? 'PUT' : 'POST',
+        body: JSON.stringify({kind, item: current})
+      });
+      setCurrent(null);
+      await load(true);
+      setMessage(isProgramme ? 'Programme record saved successfully.' : 'Announcement saved successfully.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Save failed.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove(item: Programme | Announcement) {
+    if (!window.confirm('Delete "' + item.title + '"? This removes the entry permanently.')) return;
+    try {
+      await api('/api/admin/content', {
+        method: 'DELETE',
+        body: JSON.stringify({kind, id: item.id})
+      });
+      if (current?.id === item.id) setCurrent(null);
+      await load(true);
+      setMessage('Record deleted.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Delete failed.');
+    }
+  }
+
+  const filteredItems = items.filter(x =>
+    (x.title + ' ' + x.description + ' ' + x.id).toLowerCase().includes(filter.toLowerCase())
+  );
+
+  return (
+    <>
+      <PageHeader
+        title={isProgramme ? 'Programmes and fees' : 'Announcements'}
+        subtitle={
+          isProgramme
+            ? 'Maintain courses, entry criteria, module outlines and proposed costs in Firestore.'
+            : 'Create, publish, pin, schedule and withdraw official institutional announcements.'
+        }
+        action={
+          <button className="btn btn-primary" onClick={openCreate}>
+            <Plus size={16} /> Add new
+          </button>
+        }
+      />
+
+      {error && !current && <div className="alert-error">{error}</div>}
+      {message && !current && <div className="notice">{message}</div>}
+
+      <div className="panel">
+        <div className="table-controls">
+          <label className="search-box">
+            <Search size={16} />
+            <input
+              placeholder={`Search ${isProgramme ? 'programmes' : 'announcements'}…`}
+              value={filter}
+              onChange={e => setFilter(e.target.value)}
+            />
+          </label>
+          <span className="count-chip">{filteredItems.length} records</span>
+        </div>
+
+        <div className="table-scroll">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Category</th>
+                <th>Publication</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                // Shimmer skeleton loading state for fast perception
+                Array.from({length: 4}).map((_, i) => (
+                  <tr key={'skel-' + i}>
+                    <td colSpan={4} style={{padding: '12px 24px'}}>
+                      <div className="skeleton-row" />
+                    </td>
+                  </tr>
+                ))
+              ) : filteredItems.length > 0 ? (
+                filteredItems.map(x => (
+                  <tr key={x.id}>
+                    <td>
+                      <strong>{x.title}</strong>
+                      <small className="table-sub">{x.id}</small>
+                    </td>
+                    <td>
+                      <span className="capitalize">{x.category.replaceAll('-', ' ')}</span>
+                      {'pinned' in x && x.pinned && <span className="tag tag-green">Pinned</span>}
+                    </td>
+                    <td>
+                      <span className={'tag ' + (x.published ? 'tag-green' : 'tag-gray')}>
+                        {x.published ? 'Published' : 'Draft'}
+                      </span>
+                    </td>
+                    <td>
+                      <button className="text-link" onClick={() => openEdit(x)}>
+                        Edit
+                      </button>
+                      <button className="text-link" onClick={() => void remove(x)}>
+                        <Trash2 size={14} /> Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={4} className="empty-state">
+                    No records found. Click &ldquo;Add new&rdquo; above to create one.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* FULL MODAL PAGE (NOT A MODAL POP UP) */}
+      {current && (
+        <div
+          className="modal-page-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-page-title"
+          onClick={e => {
+            if (e.target === e.currentTarget) {
+              if (confirm('Discard changes and close the editor?')) {
+                setCurrent(null);
+              }
+            }
+          }}
+        >
+          <div className="modal-page">
+            {/* Modal Page Top Header */}
+            <div className="modal-page-header">
+              <div className="modal-page-header-left">
+                <button
+                  type="button"
+                  className="icon-btn"
+                  onClick={() => setCurrent(null)}
+                  title="Back to list (Esc)"
+                  aria-label="Back to list"
+                >
+                  <ArrowLeft size={19} />
+                </button>
+                <div>
+                  <div style={{display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap'}}>
+                    <span className="overline" style={{color: '#2a7550', margin: 0}}>
+                      {isProgramme ? 'PROGRAMME EDITOR' : 'ANNOUNCEMENT EDITOR'}
+                    </span>
+                    <span className={'tag ' + (current.published ? 'tag-green' : 'tag-gray')}>
+                      {current.published ? 'Published' : 'Draft'}
+                    </span>
+                  </div>
+                  <h2 id="modal-page-title">
+                    {editing
+                      ? `Edit ${isProgramme ? 'Programme' : 'Announcement'}: ${current.title || 'Untitled'}`
+                      : `Create New ${isProgramme ? 'Programme' : 'Announcement'}`}
+                  </h2>
+                </div>
+              </div>
+
+              <div className="modal-page-header-right">
+                {editing && (
+                  <a
+                    className="btn btn-outline"
+                    href={'/' + kind + '/' + current.id}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{fontSize: 12, padding: '8px 14px', minHeight: 36}}
+                  >
+                    <ExternalLink size={14} /> Public page ↗
+                  </a>
+                )}
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={() => setCurrent(null)}
+                  style={{fontSize: 12, padding: '8px 14px', minHeight: 36}}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={busy || !current.id || !current.title}
+                  onClick={() => void save()}
+                  style={{fontSize: 12, padding: '8px 16px', minHeight: 36}}
+                >
+                  <Save size={15} /> {busy ? 'Saving…' : 'Save changes'}
+                </button>
+                <button
+                  type="button"
+                  className="icon-btn"
+                  onClick={() => setCurrent(null)}
+                  aria-label="Close"
+                  style={{marginLeft: 4}}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Page Navigation Tabs */}
+            <div className="modal-page-tabs">
+              {isProgramme ? (
+                <>
+                  <button
+                    type="button"
+                    className={`modal-page-tab-btn ${modalTab === 'basic' ? 'active' : ''}`}
+                    onClick={() => setModalTab('basic')}
+                  >
+                    <BookOpen size={16} /> 1. Overview & General Info
+                  </button>
+                  <button
+                    type="button"
+                    className={`modal-page-tab-btn ${modalTab === 'modules' ? 'active' : ''}`}
+                    onClick={() => setModalTab('modules')}
+                  >
+                    <Layers size={16} /> 2. Modules & Curriculum ({'modules' in current ? current.modules.length : 0})
+                  </button>
+                  <button
+                    type="button"
+                    className={`modal-page-tab-btn ${modalTab === 'requirements' ? 'active' : ''}`}
+                    onClick={() => setModalTab('requirements')}
+                  >
+                    <GraduationCap size={16} /> 3. Entry & Certification
+                  </button>
+                  <button
+                    type="button"
+                    className={`modal-page-tab-btn ${modalTab === 'fees' ? 'active' : ''}`}
+                    onClick={() => setModalTab('fees')}
+                  >
+                    <DollarSign size={16} /> 4. Fees Structure (ZMW)
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className={`modal-page-tab-btn ${modalTab === 'basic' ? 'active' : ''}`}
+                    onClick={() => setModalTab('basic')}
+                  >
+                    <FileText size={16} /> 1. Announcement Details
+                  </button>
+                  <button
+                    type="button"
+                    className={`modal-page-tab-btn ${modalTab === 'body' ? 'active' : ''}`}
+                    onClick={() => setModalTab('body')}
+                  >
+                    <BookOpen size={16} /> 2. Full Announcement Text
+                  </button>
+                  <button
+                    type="button"
+                    className={`modal-page-tab-btn ${modalTab === 'schedule' ? 'active' : ''}`}
+                    onClick={() => setModalTab('schedule')}
+                  >
+                    <Calendar size={16} /> 3. Schedule & Visibility
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Error / Notification banner inside Modal Page */}
+            {error && (
+              <div style={{margin: '16px 28px 0'}}>
+                <div className="alert-error">{error}</div>
+              </div>
+            )}
+
+            {/* Modal Page Body Content */}
+            <div className="modal-page-body">
+              {isProgramme && 'fee' in current ? (
+                <>
+                  {/* TAB 1: BASIC INFORMATION */}
+                  {modalTab === 'basic' && (
+                    <div className="modal-page-card">
+                      <h3>
+                        <BookOpen size={18} /> General Programme Information
+                      </h3>
+                      <p>Define the public listing details, permanent URL slug, category, and course duration.</p>
+
+                      <div className="form-grid">
+                        <div className="field">
+                          <label>
+                            Permanent URL ID <span className="required">*</span>
+                          </label>
+                          <input
+                            disabled={editing}
+                            placeholder="e.g. general-agriculture-level-3"
+                            value={current.id}
+                            onChange={e =>
+                              editField('id', e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))
+                            }
+                          />
+                          <small className="field-hint">
+                            Permanent identifier used for the URL (/programmes/{current.id || 'id'}). Cannot be changed after creation.
+                          </small>
+                        </div>
+
+                        <div className="field">
+                          <label>
+                            Programme Title <span className="required">*</span>
+                          </label>
+                          <input
+                            placeholder="e.g. General Agriculture Trade Test Level III"
+                            value={current.title}
+                            onChange={e => {
+                              const title = e.target.value;
+                              editField('title', title);
+                              if (!editing && !current.id) {
+                                editField(
+                                  'id',
+                                  title
+                                    .toLowerCase()
+                                    .trim()
+                                    .replace(/[^a-z0-9]+/g, '-')
+                                    .replace(/^-|-$/g, '')
+                                );
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="form-grid" style={{marginTop: 12}}>
+                        <div className="field">
+                          <label>Programme Category</label>
+                          <select
+                            value={current.category}
+                            onChange={e => editField('category', e.target.value as Programme['category'])}
+                          >
+                            <option value="main">Main programme</option>
+                            <option value="agri-sport">AGRI-SPORT pathway</option>
+                            <option value="short-course">Independent short course</option>
+                          </select>
+                        </div>
+
+                        <div className="field">
+                          <label>Duration</label>
+                          <input
+                            placeholder="e.g. 6 Months (740 hrs) or 8 Weeks"
+                            value={current.duration}
+                            onChange={e => editField('duration', e.target.value)}
+                          />
+                        </div>
+
+                        <div className="field">
+                          <label>Contact Hours (optional)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="e.g. 740"
+                            value={current.durationHours ?? ''}
+                            onChange={e =>
+                              editField('durationHours', e.target.value === '' ? null : Number(e.target.value))
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      <div className="field" style={{marginTop: 12}}>
+                        <label>Short Description (Summary)</label>
+                        <textarea
+                          rows={3}
+                          placeholder="Provide a compelling overview of this course for prospective students and applicants."
+                          value={current.description}
+                          onChange={e => editField('description', e.target.value)}
+                        />
+                      </div>
+
+                      <div style={{background: '#f4f9f6', padding: '16px 20px', borderRadius: 10, marginTop: 18}}>
+                        <label className="required-toggle" style={{margin: 0, fontSize: 13, fontWeight: 700}}>
+                          <input
+                            type="checkbox"
+                            checked={current.published}
+                            onChange={e => editField('published', e.target.checked)}
+                          />
+                          Publish this programme on KASA public website and application forms
+                        </label>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TAB 2: MODULES & CURRICULUM */}
+                  {modalTab === 'modules' && (
+                    <div className="modal-page-card">
+                      <h3>
+                        <Layers size={18} /> Modules & Learning Topics
+                      </h3>
+                      <p>
+                        Outline the modules, subjects, and practical competencies covered in this course. Enter one module per line.
+                      </p>
+
+                      <div className="field">
+                        <label>Modules / Syllabus Topics (one item per line)</label>
+                        <textarea
+                          rows={10}
+                          placeholder="e.g.&#10;Soil Science and Plant Nutrition&#10;Irrigation and Water Harvesting&#10;Crop Protection and Pest Management&#10;Farm Machinery Maintenance&#10;Agribusiness and Farm Accounting"
+                          value={current.modules.join('\n')}
+                          onChange={e =>
+                            editField(
+                              'modules',
+                              e.target.value
+                                .split('\n')
+                                .map(x => x.trim())
+                                .filter(Boolean)
+                            )
+                          }
+                          style={{fontFamily: 'monospace', fontSize: 13, lineHeight: 1.6}}
+                        />
+                      </div>
+
+                      <div style={{marginTop: 14}}>
+                        <span className="count-chip">{current.modules.length} modules configured</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TAB 3: REQUIREMENTS & CERTIFICATION */}
+                  {modalTab === 'requirements' && (
+                    <div className="modal-page-card">
+                      <h3>
+                        <GraduationCap size={18} /> Admission Criteria & Qualifications
+                      </h3>
+                      <p>Specify entry requirements, academic prerequisites, and official certification awarded.</p>
+
+                      <div className="field">
+                        <label>Admission Requirements</label>
+                        <textarea
+                          rows={4}
+                          placeholder="e.g. Grade 9 or Grade 12 Certificate with passes in English and Mathematics, or recognized prior learning experience in agriculture."
+                          value={current.requirements}
+                          onChange={e => editField('requirements', e.target.value)}
+                        />
+                      </div>
+
+                      <div className="field" style={{marginTop: 16}}>
+                        <label>Certification and Qualification Status</label>
+                        <textarea
+                          rows={4}
+                          placeholder="e.g. TEVETA Trade Test Level III Certificate upon successful external assessment and practical examination."
+                          value={current.certification}
+                          onChange={e => editField('certification', e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TAB 4: FEES STRUCTURE */}
+                  {modalTab === 'fees' && (
+                    <div className="modal-page-card">
+                      <h3>
+                        <DollarSign size={18} /> Proposed Course Fee Components (ZMW)
+                      </h3>
+                      <p>
+                        Break down tuition, practical, accommodation and meal components. Leave blank if not confirmed or inclusive.
+                      </p>
+
+                      <div className="form-grid">
+                        {(
+                          [
+                            'tuition',
+                            'practical',
+                            'administration',
+                            'foodOptional',
+                            'accommodationOptional',
+                            'packageTotal'
+                          ] as const
+                        ).map(k => (
+                          <div className="field" key={k}>
+                            <label>
+                              {(
+                                {
+                                  tuition: 'Tuition Fee (ZMW)',
+                                  practical: 'Practical / Lab Fee (ZMW)',
+                                  administration: 'Administration / Exam Fee (ZMW)',
+                                  foodOptional: 'Food & Meals (Optional, ZMW)',
+                                  accommodationOptional: 'Accommodation / Hostel (Optional, ZMW)',
+                                  packageTotal: 'Full Proposed Package (ZMW)'
+                                }
+                              )[k]}
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              placeholder="0.00"
+                              value={current.fee[k] ?? ''}
+                              onChange={e => feeField(k, e.target.value)}
+                            />
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="field" style={{marginTop: 16}}>
+                        <label>Fee Conditions & Payment Notes</label>
+                        <textarea
+                          rows={3}
+                          placeholder="e.g. Instalment payment terms: 40% registration deposit, 30% midterm, 30% before examinations. Hostel space is optional and subject to availability."
+                          value={current.fee.note}
+                          onChange={e => feeField('note', e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : 'body' in current ? (
+                <>
+                  {/* ANNOUNCEMENT TAB 1: BASIC DETAILS */}
+                  {modalTab === 'basic' && (
+                    <div className="modal-page-card">
+                      <h3>
+                        <FileText size={18} /> Announcement Overview
+                      </h3>
+                      <p>Configure headline, category, excerpt summary and public visibility.</p>
+
+                      <div className="form-grid">
+                        <div className="field">
+                          <label>
+                            Permanent URL ID <span className="required">*</span>
+                          </label>
+                          <input
+                            disabled={editing}
+                            placeholder="e.g. 2027-intake-admissions-open"
+                            value={current.id}
+                            onChange={e =>
+                              editField('id', e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))
+                            }
+                          />
+                        </div>
+
+                        <div className="field">
+                          <label>
+                            Announcement Headline <span className="required">*</span>
+                          </label>
+                          <input
+                            placeholder="e.g. KASA Announces 2027 January Intake Admissions"
+                            value={current.title}
+                            onChange={e => {
+                              const title = e.target.value;
+                              editField('title', title);
+                              if (!editing && !current.id) {
+                                editField(
+                                  'id',
+                                  title
+                                    .toLowerCase()
+                                    .trim()
+                                    .replace(/[^a-z0-9]+/g, '-')
+                                    .replace(/^-|-$/g, '')
+                                );
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="form-grid" style={{marginTop: 12}}>
+                        <div className="field">
+                          <label>Category</label>
+                          <select
+                            value={current.category}
+                            onChange={e => editField('category', e.target.value as Announcement['category'])}
+                          >
+                            {['admissions', 'academic', 'cdf', 'agents', 'general'].map(c => (
+                              <option value={c} key={c}>
+                                {c.toUpperCase()}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="field" style={{justifyContent: 'center'}}>
+                          <label className="required-toggle" style={{marginTop: 20}}>
+                            <input
+                              type="checkbox"
+                              checked={current.pinned}
+                              onChange={e => editField('pinned', e.target.checked)}
+                            />
+                            Pin announcement to top of website
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="field" style={{marginTop: 12}}>
+                        <label>Short Excerpt / Teaser</label>
+                        <textarea
+                          rows={3}
+                          placeholder="Brief summary displayed on announcement cards and social preview cards."
+                          value={current.description}
+                          onChange={e => editField('description', e.target.value)}
+                        />
+                      </div>
+
+                      <div style={{background: '#f4f9f6', padding: '16px 20px', borderRadius: 10, marginTop: 18}}>
+                        <label className="required-toggle" style={{margin: 0, fontSize: 13, fontWeight: 700}}>
+                          <input
+                            type="checkbox"
+                            checked={current.published}
+                            onChange={e => editField('published', e.target.checked)}
+                          />
+                          Publish this announcement on KASA public website
+                        </label>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ANNOUNCEMENT TAB 2: FULL BODY */}
+                  {modalTab === 'body' && (
+                    <div className="modal-page-card">
+                      <h3>
+                        <BookOpen size={18} /> Official Announcement Body
+                      </h3>
+                      <p>Write the complete announcement content. Plain text or markdown formatting is supported.</p>
+
+                      <div className="field">
+                        <label>Full Announcement Article</label>
+                        <textarea
+                          rows={14}
+                          placeholder="Write the full announcement text here…"
+                          value={current.body}
+                          onChange={e => editField('body', e.target.value)}
+                          style={{lineHeight: 1.6, fontSize: 14}}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ANNOUNCEMENT TAB 3: SCHEDULE */}
+                  {modalTab === 'schedule' && (
+                    <div className="modal-page-card">
+                      <h3>
+                        <Calendar size={18} /> Schedule & Expiry Controls
+                      </h3>
+                      <p>Optionally schedule an automatic publishing date and expiry cutoff time.</p>
+
+                      <div className="form-grid">
+                        <div className="field">
+                          <label>Publish From Date & Time (optional)</label>
+                          <input
+                            type="datetime-local"
+                            value={dateInput(current.publishedAt)}
+                            onChange={e =>
+                              editField('publishedAt', e.target.value ? new Date(e.target.value).toISOString() : null)
+                            }
+                          />
+                          <small className="field-hint">Leave blank to publish immediately upon saving.</small>
+                        </div>
+
+                        <div className="field">
+                          <label>Expire At Date & Time (optional)</label>
+                          <input
+                            type="datetime-local"
+                            value={dateInput(current.expiresAt)}
+                            onChange={e =>
+                              editField('expiresAt', e.target.value ? new Date(e.target.value).toISOString() : null)
+                            }
+                          />
+                          <small className="field-hint">Leave blank for no expiration date.</small>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : null}
+            </div>
+
+            {/* Modal Page Sticky Footer */}
+            <div className="modal-page-footer">
+              <div>
+                {editing && (
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    onClick={() => void remove(current)}
+                    style={{color: '#c14931', borderColor: '#f5d2ca'}}
+                  >
+                    <Trash2 size={15} /> Delete record
+                  </button>
+                )}
+              </div>
+
+              <div style={{display: 'flex', alignItems: 'center', gap: 10}}>
+                <button type="button" className="btn btn-outline" onClick={() => setCurrent(null)}>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={busy || !current.id || !current.title}
+                  onClick={() => void save()}
+                  style={{display: 'inline-flex', alignItems: 'center', gap: 6}}
+                >
+                  <Save size={16} /> {busy ? 'Saving…' : 'Save changes'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
 }

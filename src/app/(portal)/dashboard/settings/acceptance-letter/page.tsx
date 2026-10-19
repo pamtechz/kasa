@@ -3,7 +3,8 @@
 import {useEffect, useState} from 'react';
 import {
   Save, Eye, RotateCcw, Plus, Trash2, CheckCircle2,
-  Building, Mail, DollarSign, ListChecks, GraduationCap, ShieldCheck
+  Building, Mail, DollarSign, ListChecks, GraduationCap, ShieldCheck,
+  UploadCloud, Link as LinkIcon, FileText, ExternalLink, Check, FileCheck
 } from 'lucide-react';
 import {api, PageHeader} from '@/components/Portal';
 import {authHeaders} from '@/lib/firebase-client';
@@ -12,13 +13,14 @@ import {
   defaultAcceptanceLetterConfig
 } from '@/lib/acceptance-letter-config';
 
-type Tab = 'branding' | 'letter' | 'fees' | 'requirements' | 'courseReqs';
+type Tab = 'source' | 'branding' | 'letter' | 'fees' | 'requirements' | 'courseReqs';
 
 export default function AcceptanceLetterDesigner() {
   const [config, setConfig] = useState<AcceptanceLetterConfig>(defaultAcceptanceLetterConfig);
-  const [activeTab, setActiveTab] = useState<Tab>('branding');
+  const [activeTab, setActiveTab] = useState<Tab>('source');
   const [busy, setBusy] = useState(false);
   const [previewing, setPreviewing] = useState(false);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
@@ -47,7 +49,46 @@ export default function AcceptanceLetterDesigner() {
     }
   }
 
+  async function handlePdfUpload(file?: File) {
+    if (!file) return;
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      setError('Please select a valid PDF file (.pdf).');
+      return;
+    }
+    setUploadingPdf(true);
+    setError('');
+    setMessage('');
+    try {
+      const headers = await authHeaders();
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/admin/settings/acceptance-letter/upload', {
+        method: 'POST',
+        headers,
+        body: fd
+      });
+      const data = await res.json();
+      if (!res.ok) throw Error(data.error || 'Failed to upload Acceptance Pack PDF.');
+      setConfig(prev => ({
+        ...prev,
+        packSource: 'custom',
+        customPdf: data.customPdf
+      }));
+      setMessage('Official Acceptance Pack PDF uploaded and saved successfully.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Upload failed.');
+    } finally {
+      setUploadingPdf(false);
+    }
+  }
+
   async function previewPdf() {
+    if (config.packSource === 'custom' && config.customPdf?.url) {
+      if (config.customPdf.type === 'link' && (config.customPdf.url.startsWith('http://') || config.customPdf.url.startsWith('https://'))) {
+        window.open(config.customPdf.url, '_blank', 'noopener,noreferrer');
+        return;
+      }
+    }
     setPreviewing(true);
     setError('');
     try {
@@ -86,7 +127,7 @@ export default function AcceptanceLetterDesigner() {
     <>
       <PageHeader
         title="Acceptance Pack & Letter Designer"
-        subtitle="Modify the official 5-page KASA acceptance pack, fee tables, checklists, institutional branding and letter texts."
+        subtitle="Modify the official KASA acceptance pack: configure the automated 5-page PDF template or upload a custom official PDF via link or file upload."
         action={
           <div style={{display: 'flex', gap: 10, flexWrap: 'wrap'}}>
             <button
@@ -123,14 +164,53 @@ export default function AcceptanceLetterDesigner() {
       {message && <div className="notice" style={{marginBottom: 16}}><CheckCircle2 size={16}/> {message}</div>}
       {error && <div className="alert-error" style={{marginBottom: 16}}>{error}</div>}
 
+      {/* Mode Status Pill */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: 12,
+        background: config.packSource === 'custom' ? '#f0f7ff' : '#edf7f1',
+        border: `1px solid ${config.packSource === 'custom' ? '#b6d7fe' : '#b7e4c7'}`,
+        borderRadius: 10,
+        padding: '12px 18px',
+        marginBottom: 20
+      }}>
+        <div style={{display: 'flex', alignItems: 'center', gap: 10}}>
+          {config.packSource === 'custom' ? (
+            <FileText size={20} style={{color: '#0066cc'}}/>
+          ) : (
+            <FileCheck size={20} style={{color: '#1b7a43'}}/>
+          )}
+          <div>
+            <span style={{fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: config.packSource === 'custom' ? '#0055aa' : '#146334'}}>Active Acceptance Pack Source</span>
+            <div style={{fontSize: 14, fontWeight: 600, color: '#1c2826'}}>
+              {config.packSource === 'custom'
+                ? `Custom PDF Document (${config.customPdf.type === 'link' ? 'External Web Link' : 'Uploaded File: ' + (config.customPdf.fileName || 'PDF Document')})`
+                : 'Automated 5-Page KASA Dynamic PDF Generator'}
+            </div>
+          </div>
+        </div>
+        <button
+          type="button"
+          className="text-link"
+          onClick={() => setActiveTab('source')}
+          style={{fontWeight: 700}}
+        >
+          Change source format →
+        </button>
+      </div>
+
       {/* Tabs */}
       <div style={{display: 'flex', gap: 8, borderBottom: '2px solid var(--border)', marginBottom: 20, overflowX: 'auto', paddingBottom: 4}}>
         {[
-          {id: 'branding', label: '1. Branding & Header', icon: Building},
-          {id: 'letter', label: '2. Letter Content', icon: Mail},
-          {id: 'fees', label: '3. Courses & Fees (p.2)', icon: DollarSign},
-          {id: 'requirements', label: '4. Checklists (p.3)', icon: ListChecks},
-          {id: 'courseReqs', label: '5. Course PPE & Kit (p.4)', icon: GraduationCap}
+          {id: 'source', label: '1. Document Source & Upload', icon: UploadCloud},
+          {id: 'branding', label: '2. Branding & Header', icon: Building},
+          {id: 'letter', label: '3. Letter Content', icon: Mail},
+          {id: 'fees', label: '4. Courses & Fees (p.2)', icon: DollarSign},
+          {id: 'requirements', label: '5. Checklists (p.3)', icon: ListChecks},
+          {id: 'courseReqs', label: '6. Course PPE & Kit (p.4)', icon: GraduationCap}
         ].map(tab => {
           const I = tab.icon;
           const active = activeTab === tab.id;
@@ -160,7 +240,306 @@ export default function AcceptanceLetterDesigner() {
         })}
       </div>
 
-      {/* TAB 1: BRANDING & HEADER */}
+      {/* TAB 1: DOCUMENT SOURCE & UPLOAD OPTIONS */}
+      {activeTab === 'source' && (
+        <section className="panel pad-panel">
+          <h2>Acceptance Pack Delivery Options</h2>
+          <p className="muted">
+            Choose whether to generate the official Acceptance Pack dynamically using KASA&apos;s 5-page template, or provide a pre-designed official PDF document either via link or direct file upload.
+          </p>
+
+          <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20, margin: '24px 0'}}>
+            {/* Mode 1: Automated Template */}
+            <div
+              onClick={() => setConfig({...config, packSource: 'generated'})}
+              style={{
+                border: config.packSource === 'generated' ? '2px solid #103f2c' : '1px solid var(--border)',
+                background: config.packSource === 'generated' ? '#f4faf6' : '#fff',
+                borderRadius: 14,
+                padding: 22,
+                cursor: 'pointer',
+                position: 'relative',
+                transition: 'all 0.2s'
+              }}
+            >
+              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12}}>
+                <div style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 10,
+                  background: '#e7f5eb',
+                  color: '#1b7a43',
+                  display: 'grid',
+                  placeItems: 'center'
+                }}>
+                  <FileCheck size={22}/>
+                </div>
+                <input
+                  type="radio"
+                  name="packSource"
+                  checked={config.packSource === 'generated'}
+                  onChange={() => setConfig({...config, packSource: 'generated'})}
+                  style={{width: 18, height: 18, accentColor: '#103f2c'}}
+                />
+              </div>
+              <h3 style={{margin: '0 0 6px', fontSize: 16}}>Automated 5-Page Template</h3>
+              <p className="muted" style={{fontSize: 13, lineHeight: 1.6, margin: 0}}>
+                Generates a live, personalized 5-page Acceptance Pack featuring the student&apos;s name, course fee schedule, boarding options, PPE checklist, and tear-off acceptance form.
+              </p>
+              <div style={{marginTop: 14, fontSize: 12, fontWeight: 700, color: '#103f2c'}}>
+                Customized via Tabs 2 to 6 →
+              </div>
+            </div>
+
+            {/* Mode 2: Custom PDF Document */}
+            <div
+              onClick={() => setConfig({...config, packSource: 'custom'})}
+              style={{
+                border: config.packSource === 'custom' ? '2px solid #103f2c' : '1px solid var(--border)',
+                background: config.packSource === 'custom' ? '#f4faf6' : '#fff',
+                borderRadius: 14,
+                padding: 22,
+                cursor: 'pointer',
+                position: 'relative',
+                transition: 'all 0.2s'
+              }}
+            >
+              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12}}>
+                <div style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 10,
+                  background: '#e0f2fe',
+                  color: '#0284c7',
+                  display: 'grid',
+                  placeItems: 'center'
+                }}>
+                  <UploadCloud size={22}/>
+                </div>
+                <input
+                  type="radio"
+                  name="packSource"
+                  checked={config.packSource === 'custom'}
+                  onChange={() => setConfig({...config, packSource: 'custom'})}
+                  style={{width: 18, height: 18, accentColor: '#103f2c'}}
+                />
+              </div>
+              <h3 style={{margin: '0 0 6px', fontSize: 16}}>Upload Official Acceptance Pack PDF</h3>
+              <p className="muted" style={{fontSize: 13, lineHeight: 1.6, margin: 0}}>
+                Provide an official pre-designed PDF document. When accepted, applicants download this exact official institutional PDF document.
+              </p>
+              <div style={{marginTop: 14, fontSize: 12, fontWeight: 700, color: '#0284c7'}}>
+                Supports direct file upload OR external link →
+              </div>
+            </div>
+          </div>
+
+          {/* If Custom PDF mode is active */}
+          {config.packSource === 'custom' && (
+            <div style={{
+              background: '#f8faf9',
+              border: '1px solid #dbe5e0',
+              borderRadius: 12,
+              padding: 24,
+              marginTop: 18
+            }}>
+              <h3 style={{margin: '0 0 6px', fontSize: 15}}>Provide Official Acceptance Pack PDF</h3>
+              <p className="muted" style={{fontSize: 13, margin: '0 0 18px'}}>
+                Choose whether to upload a PDF file from your device, or provide a direct web link to an externally hosted PDF.
+              </p>
+
+              {/* Toggle: Upload vs Link */}
+              <div style={{display: 'inline-flex', background: '#eef3f0', padding: 4, borderRadius: 8, marginBottom: 20}}>
+                <button
+                  type="button"
+                  onClick={() => setConfig({
+                    ...config,
+                    customPdf: {...config.customPdf, type: 'upload'}
+                  })}
+                  style={{
+                    padding: '8px 18px',
+                    borderRadius: 6,
+                    border: 'none',
+                    background: config.customPdf.type === 'upload' ? '#fff' : 'transparent',
+                    color: config.customPdf.type === 'upload' ? '#103f2c' : '#556660',
+                    fontWeight: 700,
+                    fontSize: 13,
+                    cursor: 'pointer',
+                    boxShadow: config.customPdf.type === 'upload' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6
+                  }}
+                >
+                  <UploadCloud size={15}/> Option 1: Upload PDF File
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfig({
+                    ...config,
+                    customPdf: {...config.customPdf, type: 'link'}
+                  })}
+                  style={{
+                    padding: '8px 18px',
+                    borderRadius: 6,
+                    border: 'none',
+                    background: config.customPdf.type === 'link' ? '#fff' : 'transparent',
+                    color: config.customPdf.type === 'link' ? '#103f2c' : '#556660',
+                    fontWeight: 700,
+                    fontSize: 13,
+                    cursor: 'pointer',
+                    boxShadow: config.customPdf.type === 'link' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6
+                  }}
+                >
+                  <LinkIcon size={15}/> Option 2: PDF via Link / URL
+                </button>
+              </div>
+
+              {/* OPTION 1: FILE UPLOAD */}
+              {config.customPdf.type === 'upload' && (
+                <div>
+                  <div style={{
+                    border: '2px dashed #b7cdc2',
+                    borderRadius: 12,
+                    padding: '28px 20px',
+                    textAlign: 'center',
+                    background: '#fff',
+                    position: 'relative'
+                  }}>
+                    <UploadCloud size={36} style={{color: '#2a7550', margin: '0 auto 10px'}}/>
+                    <h4 style={{margin: '0 0 6px', fontSize: 15}}>
+                      {uploadingPdf ? 'Uploading Acceptance Pack PDF…' : 'Choose or drop an official Acceptance Pack PDF'}
+                    </h4>
+                    <p className="muted" style={{fontSize: 12, margin: '0 0 16px'}}>
+                      Supported format: PDF only. Maximum file size: 25 MB.
+                    </p>
+                    <label className="btn btn-outline" style={{cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8}}>
+                      <UploadCloud size={16}/> {uploadingPdf ? 'Uploading…' : 'Select PDF from computer'}
+                      <input
+                        type="file"
+                        accept=".pdf,application/pdf"
+                        disabled={uploadingPdf}
+                        onChange={e => void handlePdfUpload(e.target.files?.[0])}
+                        style={{display: 'none'}}
+                      />
+                    </label>
+                  </div>
+
+                  {config.customPdf.url && (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: 12,
+                      marginTop: 16,
+                      padding: '14px 18px',
+                      background: '#fff',
+                      borderRadius: 10,
+                      border: '1px solid #d0ded6'
+                    }}>
+                      <div style={{display: 'flex', alignItems: 'center', gap: 10}}>
+                        <FileText size={20} style={{color: '#103f2c'}}/>
+                        <div>
+                          <strong>{config.customPdf.fileName || 'Official Acceptance Pack'}</strong>
+                          <div style={{fontSize: 11, color: 'var(--muted)', marginTop: 2}}>
+                            {config.customPdf.fileSize ? `${(config.customPdf.fileSize / (1024 * 1024)).toFixed(2)} MB · ` : ''}
+                            {config.customPdf.uploadedAt ? `Uploaded on ${new Date(config.customPdf.uploadedAt).toLocaleString()}` : 'Uploaded document ready'}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{display: 'flex', gap: 8}}>
+                        <button
+                          type="button"
+                          className="btn btn-outline"
+                          onClick={() => void previewPdf()}
+                          style={{fontSize: 12, padding: '7px 12px'}}
+                        >
+                          <Eye size={14}/> View uploaded PDF
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* OPTION 2: EXTERNAL LINK / URL */}
+              {config.customPdf.type === 'link' && (
+                <div>
+                  <div className="field">
+                    <label>External PDF Link / URL</label>
+                    <div style={{display: 'flex', gap: 10, flexWrap: 'wrap'}}>
+                      <input
+                        type="url"
+                        placeholder="https://example.com/documents/KASA-Official-Acceptance-Pack.pdf"
+                        value={config.customPdf.url}
+                        onChange={e => setConfig({
+                          ...config,
+                          customPdf: {
+                            ...config.customPdf,
+                            url: e.target.value.trim(),
+                            fileName: config.customPdf.fileName || 'Official Acceptance Pack'
+                          }
+                        })}
+                        style={{flex: 1, minWidth: 260}}
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-outline"
+                        disabled={!config.customPdf.url}
+                        onClick={() => {
+                          if (config.customPdf.url) {
+                            window.open(config.customPdf.url, '_blank', 'noopener,noreferrer');
+                          }
+                        }}
+                        style={{display: 'inline-flex', alignItems: 'center', gap: 6}}
+                      >
+                        <ExternalLink size={15}/> Test / Preview Link ↗
+                      </button>
+                    </div>
+                    <p className="muted" style={{fontSize: 12, marginTop: 6}}>
+                      Direct HTTPS URL to an official PDF document. For Google Drive files, ensure sharing is set to &ldquo;Anyone with the link&rdquo; and use a direct download link.
+                    </p>
+                  </div>
+
+                  <div className="field">
+                    <label>Document Display Name (optional)</label>
+                    <input
+                      type="text"
+                      placeholder="E.g. KASA Official Acceptance Pack 2027"
+                      value={config.customPdf.fileName}
+                      onChange={e => setConfig({
+                        ...config,
+                        customPdf: {
+                          ...config.customPdf,
+                          fileName: e.target.value
+                        }
+                      })}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div style={{marginTop: 20}}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={busy || uploadingPdf}
+                  onClick={() => void save()}
+                  style={{display: 'inline-flex', alignItems: 'center', gap: 6}}
+                >
+                  <Save size={16}/> Save Acceptance Pack Settings
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* TAB 2: BRANDING & HEADER */}
       {activeTab === 'branding' && (
         <section className="panel pad-panel">
           <h2>Institutional Branding & Contacts</h2>
