@@ -39,13 +39,28 @@ export function getClientAuth():Auth|null{
 }
 
 let check:ReturnType<typeof initializeAppCheck>|undefined;
-export async function appCheckToken(){
- const siteKey=process.env.NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY;
+export async function appCheckToken(): Promise<string> {
+ const siteKey=process.env.NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY?.trim();
  if(!firebaseApp||typeof window==='undefined'||!siteKey)return '';
- if(!check)check=initializeAppCheck(firebaseApp,{
-  provider:new ReCaptchaV3Provider(siteKey),isTokenAutoRefreshEnabled:true
- });
- return (await getToken(check)).token;
+
+ // Suppress dummy/placeholder site keys that cause Google ReCAPTCHA 400 Bad Request
+ if (/^(c+|x+|placeholder|your-site-key-here|12345+)$/i.test(siteKey) || siteKey.length < 15) {
+  return '';
+ }
+
+ try {
+  if(!check) {
+   check=initializeAppCheck(firebaseApp,{
+    provider:new ReCaptchaV3Provider(siteKey),
+    isTokenAutoRefreshEnabled:true
+   });
+  }
+  const result = await getToken(check, false);
+  return result.token || '';
+ } catch (err) {
+  console.warn('Firebase AppCheck lookup safely bypassed:', err);
+  return '';
+ }
 }
 export async function authHeaders(){
  const a=getClientAuth()||auth;
