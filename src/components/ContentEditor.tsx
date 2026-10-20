@@ -524,6 +524,13 @@ export function ContentEditor({kind}: {kind: Type}) {
                   >
                     <Calendar size={16} /> 3. Schedule & Visibility
                   </button>
+                  <button
+                    type="button"
+                    className={`modal-page-tab-btn ${modalTab === 'custom' ? 'active' : ''}`}
+                    onClick={() => setModalTab('custom')}
+                  >
+                    <Tag size={16} /> 4. Custom Fields & Metadata ({Object.keys((ann?.customFields as Record<string, string>) || {}).length})
+                  </button>
                 </>
               )}
             </div>
@@ -989,6 +996,69 @@ export function ContentEditor({kind}: {kind: Type}) {
                           <small className="field-hint">Leave blank for no expiration date.</small>
                         </div>
                       </div>
+                    </div>
+                  )}
+
+                  {/* ANNOUNCEMENT TAB 4: CUSTOM FIELDS & METADATA */}
+                  {modalTab === 'custom' && (
+                    <div className="modal-page-card">
+                      <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 16}}>
+                        <div>
+                          <h3 style={{margin: 0, display: 'inline-flex', alignItems: 'center', gap: 8}}>
+                            <Tag size={18} /> Custom Announcement Fields & Metadata
+                          </h3>
+                          <p className="muted" style={{margin: '4px 0 0'}}>
+                            Add custom metadata attributes, external references, or venue details to this announcement.
+                          </p>
+                        </div>
+                        <button type="button" className="btn btn-outline" onClick={addCustomField} style={{display: 'inline-flex', alignItems: 'center', gap: 6}}>
+                          <Plus size={15} /> Add Custom Field
+                        </button>
+                      </div>
+
+                      {Object.keys((ann.customFields as Record<string, string>) || {}).length === 0 ? (
+                        <div className="empty-panel" style={{padding: '30px 20px', textAlign: 'center'}}>
+                          <Tag size={32} style={{color: 'var(--muted)', opacity: 0.5, marginBottom: 8}} />
+                          <p style={{margin: 0, fontWeight: 600}}>No custom fields configured for this announcement.</p>
+                          <small className="muted">Click &ldquo;Add Custom Field&rdquo; above to add custom attributes.</small>
+                        </div>
+                      ) : (
+                        <div style={{display: 'flex', flexDirection: 'column', gap: 16}}>
+                          {Object.entries((ann.customFields as Record<string, string>) || {}).map(([key, val], idx) => (
+                            <div key={`cf-ann-${idx}-${key}`} style={{display: 'flex', gap: 12, alignItems: 'flex-start', background: '#f8faf9', padding: 14, borderRadius: 10, border: '1px solid var(--border)'}}>
+                              <div style={{flex: 1}}>
+                                <label style={{fontSize: 12, fontWeight: 700, marginBottom: 4, display: 'block'}}>Field Name / Key</label>
+                                <input
+                                  type="text"
+                                  placeholder="Field Name (e.g. Venue / Contact Person)"
+                                  value={key}
+                                  onChange={e => updateCustomFieldKey(key, e.target.value)}
+                                  style={{fontSize: 13}}
+                                />
+                              </div>
+                              <div style={{flex: 2}}>
+                                <label style={{fontSize: 12, fontWeight: 700, marginBottom: 4, display: 'block'}}>Field Value / Content</label>
+                                <textarea
+                                  rows={2}
+                                  placeholder="Field Value / Content"
+                                  value={String(val || '')}
+                                  onChange={e => updateCustomFieldValue(key, e.target.value)}
+                                  style={{fontSize: 13, lineHeight: 1.5}}
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                className="icon-btn"
+                                onClick={() => removeCustomField(key)}
+                                title="Remove custom field"
+                                style={{color: '#ef4444', marginTop: 24, padding: 8}}
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </>

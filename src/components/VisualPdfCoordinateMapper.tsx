@@ -2,10 +2,11 @@
 
 import {useState, useRef, useEffect, useCallback} from 'react';
 import {
-  Move, FileText, Sliders, ArrowUp, ArrowDown, ArrowLeft, ArrowRight,
-  Eye, RefreshCw, ZoomIn, ZoomOut, CheckCircle2, RotateCcw
+  Move, Sliders, ArrowUp, ArrowDown, ArrowLeft, ArrowRight,
+  Eye, RefreshCw, ZoomIn, ZoomOut, CheckCircle2, AlertCircle, FileText
 } from 'lucide-react';
 import type {AcceptanceLetterConfig} from '@/lib/acceptance-letter-config';
+import {authHeaders} from '@/lib/firebase-client';
 
 type PageNumber = 1 | 2 | 3;
 
@@ -65,27 +66,23 @@ export function VisualPdfCoordinateMapper({config, onChange, onPreviewPdf, previ
   const [activePage, setActivePage] = useState<PageNumber>(1);
   const [selectedFieldKey, setSelectedFieldKey] = useState<keyof AcceptanceLetterConfig['enrollmentFormOffsets']>('fullNames');
   const [draggingKey, setDraggingKey] = useState<keyof AcceptanceLetterConfig['enrollmentFormOffsets'] | null>(null);
-  const [scale, setScale] = useState<number>(0.9); // Scale for canvas display
-  const canvasRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState<number>(0.9);
+  const [renderingPdf, setRenderingPdf] = useState(false);
+  const [pdfRendered, setPdfRendered] = useState(false);
+  const [renderError, setRenderError] = useState('');
 
-  // Standard PDF dimensions for A4 at 72dpi
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
+  const pdfCanvasRef = useRef<HTMLCanvasElement>(null);
+
   const PDF_WIDTH = 595;
   const PDF_HEIGHT = 842;
 
   const pageFields = ENROLLMENT_FORM_FIELDS.filter(f => f.page === activePage);
 
-  // Convert PDF coordinates (0,0 at bottom-left) to DOM Top/Left
   function pdfToDomCoords(pdfX: number, pdfY: number) {
     const domX = pdfX * scale;
     const domY = (PDF_HEIGHT - pdfY) * scale;
     return {left: domX, top: domY};
-  }
-
-  // Convert DOM Top/Left to PDF coordinates (0,0 at bottom-left)
-  function domToPdfCoords(domLeft: number, domTop: number) {
-    const pdfX = Math.round(Math.max(10, Math.min(560, domLeft / scale)));
-    const pdfY = Math.round(Math.max(10, Math.min(820, PDF_HEIGHT - (domTop / scale))));
-    return {x: pdfX, y: pdfY};
   }
 
   const updateFieldOffset = useCallback((
@@ -106,7 +103,68 @@ export function VisualPdfCoordinateMapper({config, onChange, onPreviewPdf, previ
     onChange(updated);
   }, [config, onChange]);
 
-  // Handle Dragging
+  // Load PDF.js dynamically in browser
+  useEffect(() => {
+    if ((window as any).pdfjsLib) return;
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    script.async = true;
+    script.onload = () => {
+      (window as any).pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    };
+    document.body.appendChild(script);
+  }, []);
+
+  // Render actual live PDF page image on background canvas
+  const renderActualPdfPage = useCallback(async () => {
+    setRenderingPdf(true);
+    setRenderError('');
+    try {
+      const headers = await authHeaders();
+      const res = await fetch('/api/admin/settings/acceptance-letter/preview-enrollment-form', {
+        method: 'POST',
+        headers: {...headers, 'Content-Type': 'application/json'},
+        body: JSON.stringify({config})
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to generate live PDF preview');
+      }
+
+      const pdfArrayBuffer = await res.arrayBuffer();
+      const pdfjs = (window as any).pdfjsLib;
+
+      if (pdfjs && pdfCanvasRef.current) {
+        const pdfDoc = await pdfjs.getDocument({data: pdfArrayBuffer}).promise;
+        const page = await pdfDoc.getPage(activePage);
+
+        const canvas = pdfCanvasRef.current;
+        const ctx = canvas.getContext('2d');
+
+        const viewport = page.getViewport({scale: scale * 1.5});
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+
+        if (ctx) {
+          await page.render({canvasContext: ctx, viewport}).promise;
+          setPdfRendered(true);
+        }
+      }
+    } catch (err) {
+      setRenderError(err instanceof Error ? err.message : 'Unable to render live PDF canvas.');
+    } finally {
+      setRenderingPdf(false);
+    }
+  }, [config, activePage, scale]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void renderActualPdfPage();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [renderActualPdfPage]);
+
+  // Handle Mouse Dragging
   const handleMouseDown = (key: keyof AcceptanceLetterConfig['enrollmentFormOffsets'], e: React.MouseEvent) => {
     e.stopPropagation();
     setSelectedFieldKey(key);
@@ -114,8 +172,8 @@ export function VisualPdfCoordinateMapper({config, onChange, onPreviewPdf, previ
   };
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!draggingKey || !canvasRef.current) return;
-    const rect = canvasRef.current.getBoundingClientRect();
+    if (!draggingKey || !canvasContainerRef.current) return;
+    const rect = canvasContainerRef.current.getBoundingClientRect();
     const domLeft = e.clientX - rect.left;
     const domTop = e.clientY - rect.top;
     const pdfX = Math.round(Math.max(10, Math.min(560, domLeft / scale)));
@@ -138,7 +196,6 @@ export function VisualPdfCoordinateMapper({config, onChange, onPreviewPdf, previ
     }
   }, [draggingKey, handleMouseMove, handleMouseUp]);
 
-  // Nudge controls for 1px adjustments
   const nudge = (dx: number, dy: number) => {
     if (!selectedFieldKey) return;
     const cur = config.enrollmentFormOffsets[selectedFieldKey] || {x: 100, y: 500, fontSize: 9};
@@ -153,14 +210,14 @@ export function VisualPdfCoordinateMapper({config, onChange, onPreviewPdf, previ
 
   return (
     <div style={{display: 'flex', flexDirection: 'column', gap: 20}}>
-      {/* Top Controls Bar */}
+      {/* Top Bar Controls */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         background: '#ffffff', padding: '14px 20px', borderRadius: 12,
         border: '1px solid var(--border)', flexWrap: 'wrap', gap: 12
       }}>
         <div style={{display: 'flex', alignItems: 'center', gap: 8}}>
-          <span style={{fontSize: 13, fontWeight: 700, color: 'var(--ink)'}}>Select Page:</span>
+          <span style={{fontSize: 13, fontWeight: 700, color: 'var(--ink)'}}>Page View:</span>
           <div className="tab-group" style={{margin: 0}}>
             <button
               type="button"
@@ -187,6 +244,16 @@ export function VisualPdfCoordinateMapper({config, onChange, onPreviewPdf, previ
         </div>
 
         <div style={{display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap'}}>
+          <button
+            type="button"
+            className="btn btn-outline"
+            disabled={renderingPdf}
+            onClick={() => void renderActualPdfPage()}
+            style={{display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, padding: '7px 12px'}}
+          >
+            <RefreshCw size={14} className={renderingPdf ? 'spin' : ''} /> {renderingPdf ? 'Rendering PDF…' : 'Update Live Canvas'}
+          </button>
+
           <div style={{display: 'flex', alignItems: 'center', gap: 4, background: '#f1f5f3', padding: '2px 8px', borderRadius: 8}}>
             <button type="button" className="icon-btn" onClick={() => setScale(s => Math.max(0.6, s - 0.1))} title="Zoom out">
               <ZoomOut size={16} />
@@ -204,91 +271,57 @@ export function VisualPdfCoordinateMapper({config, onChange, onPreviewPdf, previ
             onClick={onPreviewPdf}
             style={{display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13}}
           >
-            <Eye size={16} /> {previewing ? 'Generating Preview…' : 'Live PDF Preview ↗'}
+            <Eye size={16} /> {previewing ? 'Generating…' : 'Full PDF Preview ↗'}
           </button>
         </div>
       </div>
 
-      {/* Main Layout Grid: Document Canvas on Left, Precision Controls on Right */}
+      {/* Grid: Live PDF Canvas on Left, Nudge Panel on Right */}
       <div style={{display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20, alignItems: 'start'}}>
-        {/* Left Column: Interactive Document Canvas */}
+        {/* Left Column: ACTUAL RENDERED LIVE PDF DOCUMENT CANVAS */}
         <div style={{
-          background: '#e2e8f0', padding: 24, borderRadius: 12,
-          border: '1px solid var(--border)', display: 'flex', justifyContent: 'center',
-          overflow: 'auto', minHeight: 600
+          background: '#334155', padding: 24, borderRadius: 12,
+          border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'center',
+          overflow: 'auto', minHeight: 620
         }}>
+          {renderingPdf && (
+            <div style={{fontSize: 12, color: '#e2e8f0', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6}}>
+              <RefreshCw size={14} className="spin" /> Rendering actual live PDF document background…
+            </div>
+          )}
+          {renderError && (
+            <div style={{fontSize: 12, color: '#f87171', marginBottom: 12}}>
+              {renderError} (Falling back to document grid)
+            </div>
+          )}
+
           <div
-            ref={canvasRef}
+            ref={canvasContainerRef}
             style={{
               width: PDF_WIDTH * scale,
               height: PDF_HEIGHT * scale,
               position: 'relative',
               background: '#ffffff',
-              boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
+              boxShadow: '0 12px 40px rgba(0,0,0,0.4)',
               borderRadius: 4,
               overflow: 'hidden',
               userSelect: 'none'
             }}
           >
-            {/* Visual Template Background Guidance */}
-            <div style={{
-              position: 'absolute', inset: 0, pointerEvents: 'none',
-              padding: 20 * scale, display: 'flex', flexDirection: 'column', gap: 12 * scale
-            }}>
-              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #103f2c', paddingBottom: 8 * scale}}>
-                <div>
-                  <strong style={{fontSize: 11 * scale, color: '#103f2c', display: 'block'}}>KAMAILA ACADEMICS, SPORTS & APPRENTICESHIP (KASA)</strong>
-                  <span style={{fontSize: 8 * scale, color: '#64748b'}}>Official 3-Page Enrollment Form Template — Page {activePage} of 3</span>
-                </div>
-                <div style={{fontSize: 8 * scale, background: '#f1f5f9', padding: '2px 6px', borderRadius: 4, border: '1px solid #cbd5e1'}}>
-                  Scale: A4 (595 × 842 pt)
-                </div>
-              </div>
+            {/* The Actual Rendered Live PDF Document Canvas */}
+            <canvas
+              ref={pdfCanvasRef}
+              style={{
+                width: '100%',
+                height: '100%',
+                position: 'absolute',
+                inset: 0,
+                pointerEvents: 'none',
+                opacity: pdfRendered ? 1 : 0.2
+              }}
+            />
 
-              {activePage === 1 && (
-                <div style={{display: 'flex', flexDirection: 'column', gap: 10 * scale, marginTop: 10}}>
-                  <div style={{background: '#f8fafc', border: '1px dashed #cbd5e1', padding: 8 * scale, borderRadius: 4, height: 40 * scale}}>
-                    <span style={{fontSize: 8 * scale, color: '#94a3b8'}}>Top Header Section (Application Date & Intake)</span>
-                  </div>
-                  <div style={{background: '#f8fafc', border: '1px dashed #cbd5e1', padding: 8 * scale, borderRadius: 4, height: 50 * scale}}>
-                    <span style={{fontSize: 8 * scale, color: '#94a3b8'}}>1. Programme Selection Box</span>
-                  </div>
-                  <div style={{background: '#f8fafc', border: '1px dashed #cbd5e1', padding: 8 * scale, borderRadius: 4, height: 180 * scale}}>
-                    <span style={{fontSize: 8 * scale, color: '#94a3b8'}}>2. Personal Details (Full Name, NRC, Sex, DOB, Phone, Email, Address, District)</span>
-                  </div>
-                  <div style={{background: '#f8fafc', border: '1px dashed #cbd5e1', padding: 8 * scale, borderRadius: 4, height: 120 * scale}}>
-                    <span style={{fontSize: 8 * scale, color: '#94a3b8'}}>3. Educational & Qualification Background</span>
-                  </div>
-                </div>
-              )}
-
-              {activePage === 2 && (
-                <div style={{display: 'flex', flexDirection: 'column', gap: 10 * scale, marginTop: 10}}>
-                  <div style={{background: '#f8fafc', border: '1px dashed #cbd5e1', padding: 8 * scale, borderRadius: 4, height: 80 * scale}}>
-                    <span style={{fontSize: 8 * scale, color: '#94a3b8'}}>4. Employment & Occupation Details</span>
-                  </div>
-                  <div style={{background: '#f8fafc', border: '1px dashed #cbd5e1', padding: 8 * scale, borderRadius: 4, height: 180 * scale}}>
-                    <span style={{fontSize: 8 * scale, color: '#94a3b8'}}>5. Parent / Guardian & Emergency Contacts</span>
-                  </div>
-                  <div style={{background: '#f8fafc', border: '1px dashed #cbd5e1', padding: 8 * scale, borderRadius: 4, height: 140 * scale}}>
-                    <span style={{fontSize: 8 * scale, color: '#94a3b8'}}>6. Sponsorship & CDF Payment Pathway</span>
-                  </div>
-                </div>
-              )}
-
-              {activePage === 3 && (
-                <div style={{display: 'flex', flexDirection: 'column', gap: 10 * scale, marginTop: 10}}>
-                  <div style={{background: '#f8fafc', border: '1px dashed #cbd5e1', padding: 8 * scale, borderRadius: 4, height: 160 * scale}}>
-                    <span style={{fontSize: 8 * scale, color: '#94a3b8'}}>7. Declaration & Applicant Signature Section</span>
-                  </div>
-                  <div style={{background: '#f8fafc', border: '1px dashed #cbd5e1', padding: 8 * scale, borderRadius: 4, height: 180 * scale}}>
-                    <span style={{fontSize: 8 * scale, color: '#94a3b8'}}>For Office Use Only (Enrollment No, Offer Reference, Status)</span>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Draggable Field Tag Overlays for the Active Page */}
+            {/* Draggable Field Tag Overlays Directly On Top of the Live PDF Document */}
             {pageFields.map(f => {
               const offset = config.enrollmentFormOffsets[f.key] || {x: 100, y: 500, fontSize: 9};
               const domPos = pdfToDomCoords(offset.x, offset.y);
@@ -311,7 +344,7 @@ export function VisualPdfCoordinateMapper({config, onChange, onPreviewPdf, previ
                     gap: 6,
                     padding: '3px 8px',
                     borderRadius: 6,
-                    background: isSelected ? 'var(--green, #103f2c)' : 'rgba(16, 63, 44, 0.85)',
+                    background: isSelected ? 'var(--green, #103f2c)' : 'rgba(16, 63, 44, 0.88)',
                     color: '#ffffff',
                     boxShadow: isSelected ? '0 4px 12px rgba(16,63,44,0.4)' : '0 2px 6px rgba(0,0,0,0.2)',
                     border: isSelected ? '2px solid #e0b561' : '1px solid #ffffff',
@@ -338,13 +371,12 @@ export function VisualPdfCoordinateMapper({config, onChange, onPreviewPdf, previ
           </div>
         </div>
 
-        {/* Right Column: Precision Controls Panel */}
+        {/* Right Column: Precision Nudge Controls */}
         <div style={{display: 'flex', flexDirection: 'column', gap: 16}}>
-          {/* Selected Field Precision Box */}
           {selectedFieldObj ? (
             <div className="panel pad-panel" style={{borderLeft: '4px solid var(--green, #103f2c)'}}>
               <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10}}>
-                <span className="overline" style={{margin: 0, color: 'var(--green)'}}>SELECTED FIELD</span>
+                <span className="overline" style={{margin: 0, color: 'var(--green)'}}>DRAGGED FIELD</span>
                 <span className="tag tag-gray" style={{fontSize: 11}}>Page {selectedFieldObj.page}</span>
               </div>
               <h3 style={{margin: '0 0 4px', fontSize: 16}}>{selectedFieldObj.label}</h3>

@@ -194,7 +194,28 @@ export async function generateAcceptancePackPdf(
   }
 
   function drawHeader(page: any, pageNum = 1) {
-    drawHeadedPaper(page, pageNum);
+    if (pageNum === 1) {
+      drawHeadedPaper(page, pageNum);
+      return;
+    }
+
+    // Clean minimal continuation running header for pages 2, 3, 4, 5 (Headed paper on page 1 only)
+    page.drawText(ascii(cfg.institution.name || 'KAMAILA ACADEMICS, SPORTS & APPRENTICESHIP (KASA)'), {
+      x: 40, y: 808, size: 8.5, font: bold, color: green
+    });
+    page.drawText(`Acceptance Pack  |  Ref: ${ascii(data.reference)}  |  Page ${pageNum} of 5`, {
+      x: 350, y: 808, size: 8, font: regular, color: mutedText
+    });
+    page.drawLine({start: {x: 38, y: 800}, end: {x: 557, y: 800}, thickness: 0.8, color: borderCol});
+
+    // Clean continuation footer
+    page.drawLine({start: {x: 38, y: 35}, end: {x: 557, y: 35}, thickness: 0.5, color: borderCol});
+    page.drawText(`KASA Official Acceptance Document  |  Student: ${ascii(data.studentName)}`, {
+      x: 40, y: 22, size: 8, font: regular, color: mutedText
+    });
+    page.drawText(`Page ${pageNum} of 5`, {
+      x: 510, y: 22, size: 8, font: bold, color: green
+    });
   }
 
   function drawFooter(page: any, _pageNum: number) {
