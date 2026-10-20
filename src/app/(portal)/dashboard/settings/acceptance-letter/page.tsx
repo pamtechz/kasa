@@ -7,6 +7,7 @@ import {
   UploadCloud, Link as LinkIcon, FileText, ExternalLink, Check, FileCheck, Sliders, FileDown
 } from 'lucide-react';
 import {api, PageHeader} from '@/components/Portal';
+import {VisualPdfCoordinateMapper} from '@/components/VisualPdfCoordinateMapper';
 import {authHeaders} from '@/lib/firebase-client';
 import {
   type AcceptanceLetterConfig,
@@ -1225,118 +1226,22 @@ export default function AcceptanceLetterDesigner() {
         </section>
       )}
 
-      {/* TAB 7: ENROLLMENT FORM FIELD ALIGNMENT (X/Y OFFSETS) */}
+      {/* TAB 7: VISUAL DRAG-AND-DROP ENROLLMENT FORM FIELD ALIGNMENT */}
       {activeTab === 'formAlignment' && (
         <section className="panel pad-panel">
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:12,marginBottom:16}}>
-            <div>
-              <h2>Enrollment Form Field Alignment (X / Y Coordinates)</h2>
-              <p className="muted" style={{fontSize:13,margin:0}}>
-                Adjust the online text overlay position coordinates (X, Y, Font Size) so fields line up 100% perfectly with your pre-printed form boxes.
-              </p>
-            </div>
-            <button
-              type="button"
-              className="btn btn-outline"
-              disabled={previewing}
-              onClick={() => void previewEnrollmentFormAlignment()}
-              style={{display:'inline-flex',alignItems:'center',gap:6}}
-            >
-              <Eye size={16}/> {previewing ? 'Generating…' : 'Preview Enrollment Form Alignment PDF ↗'}
-            </button>
+          <div style={{marginBottom: 16}}>
+            <h2>Visual Drag & Drop Enrollment Form Field Mapper</h2>
+            <p className="muted" style={{fontSize: 13, margin: '4px 0 0'}}>
+              Drag and drop field overlays directly on the A4 document canvas to align text 100% perfectly with your pre-printed form boxes.
+            </p>
           </div>
 
-          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(280px, 1fr))',gap:16,marginTop:20}}>
-            {[
-              {id: 'applicationDate', label: 'Application Date'},
-              {id: 'intakeAndYear', label: 'Intake & Academic Year'},
-              {id: 'programmeTitle', label: 'Programme Title'},
-              {id: 'fullNames', label: 'Applicant Full Names'},
-              {id: 'dob', label: 'Date of Birth'},
-              {id: 'gender', label: 'Gender'},
-              {id: 'nationality', label: 'Nationality'},
-              {id: 'nrcNumber', label: 'NRC / Passport Number'},
-              {id: 'mobileNumber', label: 'Mobile Phone Number'},
-              {id: 'whatsappNumber', label: 'WhatsApp Number'},
-              {id: 'email', label: 'Email Address'},
-              {id: 'residentialAddress', label: 'Residential Address'},
-              {id: 'district', label: 'District'},
-              {id: 'province', label: 'Province'},
-              {id: 'highestGrade', label: 'Highest Grade Completed'},
-              {id: 'schoolInstitution', label: 'School / Institution'},
-              {id: 'qualificationYear', label: 'Year Completed'},
-              {id: 'occupation', label: 'Occupation'},
-              {id: 'guardianName', label: 'Guardian Full Name'},
-              {id: 'guardianRelationship', label: 'Guardian Relationship'},
-              {id: 'guardianMobile', label: 'Guardian Mobile'},
-              {id: 'emergencyName', label: 'Emergency Contact Name'},
-              {id: 'emergencyMobile', label: 'Emergency Mobile'},
-              {id: 'sponsorName', label: 'Sponsor / CDF Name'},
-              {id: 'declarationName', label: 'Declaration Name'},
-              {id: 'declarationDate', label: 'Declaration Date'},
-              {id: 'officeReference', label: 'Office Reference ID'},
-              {id: 'officeEnrollmentNum', label: 'Office Enrollment Number'},
-              {id: 'officeConfirmedProg', label: 'Office Confirmed Programme'},
-              {id: 'officeIntakeDate', label: 'Office Intake Start Date'}
-            ].map(field => {
-              const offsets = config.enrollmentFormOffsets || {};
-              const current = (offsets as Record<string, {x: number; y: number; fontSize?: number}>)[field.id] || {x: 100, y: 500, fontSize: 9};
-
-              const updateOffset = (key: 'x' | 'y' | 'fontSize', val: number) => {
-                const nextOffsets = {
-                  ...(config.enrollmentFormOffsets || {}),
-                  [field.id]: {
-                    ...current,
-                    [key]: val
-                  }
-                };
-                setConfig({
-                  ...config,
-                  enrollmentFormOffsets: nextOffsets
-                });
-              };
-
-              return (
-                <div key={field.id} style={{background:'#f8faf9',border:'1px solid #dbe5e0',borderRadius:10,padding:14}}>
-                  <strong style={{fontSize:13,display:'block',marginBottom:8,color:'var(--green)'}}>{field.label}</strong>
-                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
-                   <div>
-                    <label style={{fontSize:10,fontWeight:700,color:'var(--muted)',display:'block',marginBottom:2}}>X (pt)</label>
-                    <input
-                     type="number"
-                     step="1"
-                     value={current.x}
-                     onChange={e=>updateOffset('x', Number(e.target.value))}
-                     style={{width:'100%',fontSize:12,padding:'6px 8px'}}
-                    />
-                   </div>
-                   <div>
-                    <label style={{fontSize:10,fontWeight:700,color:'var(--muted)',display:'block',marginBottom:2}}>Y (pt)</label>
-                    <input
-                     type="number"
-                     step="1"
-                     value={current.y}
-                     onChange={e=>updateOffset('y', Number(e.target.value))}
-                     style={{width:'100%',fontSize:12,padding:'6px 8px'}}
-                    />
-                   </div>
-                   <div>
-                    <label style={{fontSize:10,fontWeight:700,color:'var(--muted)',display:'block',marginBottom:2}}>Size (pt)</label>
-                    <input
-                     type="number"
-                     step="1"
-                     min="6"
-                     max="24"
-                     value={current.fontSize || 9}
-                     onChange={e=>updateOffset('fontSize', Number(e.target.value))}
-                     style={{width:'100%',fontSize:12,padding:'6px 8px'}}
-                    />
-                   </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <VisualPdfCoordinateMapper
+            config={config}
+            onChange={updated => setConfig(updated)}
+            onPreviewPdf={() => void previewEnrollmentFormAlignment()}
+            previewing={previewing}
+          />
         </section>
       )}
 
