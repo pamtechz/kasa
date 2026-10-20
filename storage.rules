@@ -1,7 +1,32 @@
 rules_version = '2';
 service firebase.storage {
- match /b/{bucket}/o {
-   // Server handles validation, writes, and time-limited access.
-   match /{allPaths=**} { allow read, write: if false; }
- }
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isStaff() {
+      return isSignedIn() && (
+        firestore.get(/databases/(default)/documents/profiles/$(request.auth.uid)).data.role in ['super_admin', 'admin', 'reviewer']
+      );
+    }
+
+    // Public Assets (Templates, Logos, Badges)
+    match /public/{allPaths=**} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
+    // Staging / Temporary File Uploads
+    match /staging/{allPaths=**} {
+      allow read, write: if isSignedIn();
+    }
+
+    // Protected Student Documents
+    match /documents/{submissionId}/{allPaths=**} {
+      allow read: if isStaff() || (isSignedIn() && request.auth.uid == submissionId);
+      allow write: if isStaff() || isSignedIn();
+    }
+  }
 }

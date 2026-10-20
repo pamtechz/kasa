@@ -1,7 +1,89 @@
 rules_version = '2';
 service cloud.firestore {
- match /databases/{database}/documents {
-   // All data access is via authenticated server endpoints. The Admin SDK bypasses rules.
-   match /{document=**} { allow read, write: if false; }
- }
+  match /databases/{database}/documents {
+
+    // Helper functions for Role-Based Access Control (RBAC)
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isUser(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data;
+    }
+
+    function isStaff() {
+      return isSignedIn() && (
+        getUserData().role == 'super_admin' ||
+        getUserData().role == 'admin' ||
+        getUserData().role == 'reviewer'
+      );
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        getUserData().role == 'super_admin' ||
+        getUserData().role == 'admin'
+      );
+    }
+
+    // Profiles
+    match /profiles/{uid} {
+      allow read: if isUser(uid) || isStaff();
+      allow write: if isUser(uid) || isAdmin();
+    }
+
+    // Submissions
+    match /submissions/{submissionId} {
+      allow read: if isStaff() ||
+        (isSignedIn() && resource.data.agentId == request.auth.uid) ||
+        (isSignedIn() && resource.data.answers.userUid == request.auth.uid);
+      allow create: if true;
+      allow update, delete: if isAdmin();
+    }
+
+    // Public Collections (Form Schema, Catalog, Site Settings)
+    match /forms/{formId} {
+      allow read: if resource.data.published == true || isStaff();
+      allow write: if isAdmin();
+    }
+
+    match /programmes/{progId} {
+      allow read: if resource.data.published == true || isStaff();
+      allow write: if isAdmin();
+    }
+
+    match /announcements/{annId} {
+      allow read: if resource.data.published == true || isStaff();
+      allow write: if isAdmin();
+    }
+
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // System & Analytics Collections
+    match /referralClicks/{clickId} {
+      allow create: if true;
+      allow read, update, delete: if isStaff();
+    }
+
+    match /notificationOutbox/{noticeId} {
+      allow read: if isSignedIn();
+      allow write: if isStaff();
+    }
+
+    match /adCampaigns/{adId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /auditLog/{logId} {
+      allow read, write: if isAdmin();
+    }
+  }
 }

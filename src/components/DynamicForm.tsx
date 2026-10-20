@@ -5,7 +5,7 @@ import Image from 'next/image';
 import {signInWithEmailAndPassword,updatePassword} from 'firebase/auth';
 import {
  ArrowLeft,ArrowRight,CheckCircle2,LoaderCircle,Paperclip,
- ShieldCheck,Image as ImageIcon,FileDown,LockKeyhole,Copy,KeyRound,Check
+ ShieldCheck,Image as ImageIcon,FileDown,LockKeyhole,Copy,KeyRound,Check,Users
 } from 'lucide-react';
 import type {Field,FormSchema} from '@/lib/types';
 import {appCheckToken,auth,requireClientAuth} from '@/lib/firebase-client';
@@ -269,6 +269,29 @@ export function DynamicForm({form,agentCode}:{form:FormSchema;agentCode?:string}
   <div className="form-intro"><span className="overline">KASA · ONLINE APPLICATION</span><h1>{form.title}</h1><p>{form.subtitle}</p></div>
   <div className="step-progress"><div className="step-copy"><strong>Step {step+1} of {form.sections.length}</strong><span>{form.sections[step].title}</span></div><div className="progress-track" role="progressbar" aria-label="Application progress" aria-valuemin={0} aria-valuemax={form.sections.length} aria-valuenow={step+1}><div style={{width:`${(step+1)/form.sections.length*100}%`}}/></div></div>
   <div className="form-fields"><h2 ref={sectionHeading} tabIndex={-1}>{form.sections[step].title}</h2>{form.sections[step].description&&<p className="muted">{form.sections[step].description}</p>}
+  {step === 0 && (
+   <div className="field full" style={{background: 'rgba(16,63,44,0.03)', padding: 14, borderRadius: 10, border: '1px solid var(--border)', margin: '12px 0 16px'}}>
+    <label style={{fontSize: 13, fontWeight: 700, color: 'var(--green)', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4}}>
+     <Users size={16} /> Were you referred by a KASA District Agent or Student?
+    </label>
+    {agentCode ? (
+     <div style={{display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, fontSize: 13, color: 'var(--green)', fontWeight: 700}}>
+      <CheckCircle2 size={16} /> Attributed to Referral Code: <span className="copy-code">{agentCode}</span>
+     </div>
+    ) : (
+     <div style={{marginTop: 6}}>
+      <input
+       type="text"
+       placeholder="Enter District Agent Code, Student Referral Code, or Agent Name (optional)"
+       value={valString(answers['referralCode'])}
+       onChange={e => update('referralCode', e.target.value.toUpperCase())}
+       style={{fontSize: 13, width: '100%'}}
+      />
+      <small className="field-hint">Leave blank if applying directly without a referral agent.</small>
+     </div>
+    )}
+   </div>
+  )}
   {!availableChoices&&<div className="notice" role="alert"><strong>Choices not available yet.</strong> KASA has not published an active option for {unavailableOptions.map(f=>f.label).join(', ')}. You can return after KASA updates the catalogue or <Link href="/contact">contact admissions</Link>.</div>}
   {visible.map(f=><div className="field" key={f.id}><label htmlFor={f.id}>{f.label}{f.required&&<b className="required"> *</b>}</label>{f.description&&<p className="field-hint">{f.description}</p>}
    {['text','tel','email','number','date'].includes(f.type)&&<input id={f.id} type={f.type==='tel'?'tel':f.type} placeholder={f.placeholder||''} value={valString(answers[f.id])} required={f.required} onChange={e=>update(f.id,e.target.value)}/>}

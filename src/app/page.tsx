@@ -3,6 +3,7 @@ import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import {useRouter} from 'next/navigation';
 import {PublicApplicationLinks} from '@/components/PublicApplicationLinks';
+import {AdBanner} from '@/components/AdBanner';
 import {BrandLogo} from '@/components/BrandLogo';
 import {HeroSlider} from '@/components/HeroSlider';
 import {defaultSite,type SiteSettings} from '@/lib/site';
@@ -184,6 +185,10 @@ export default function Home(){
     <Link href="/programmes" className="btn btn-outline">Explore All Programmes <ArrowRight size={15}/></Link>
    </div>
   </section>}
+
+  <div className="container" style={{marginTop: 30}}>
+   <AdBanner placement="homepage_hero" />
+  </div>
 
   <section className="home-cdf-banner">
    <div className="container home-cdf-inner">

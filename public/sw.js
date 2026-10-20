@@ -31,12 +31,20 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Only cache GET requests for static assets or pages
+  // Only handle GET requests for static assets or HTML pages
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
 
-  // Bypass API requests to ensure fresh network responses
-  if (url.pathname.startsWith('/api/')) return;
+  // Strictly bypass API routes, Firebase Auth, and external services
+  if (
+    url.pathname.startsWith('/api/') ||
+    url.hostname.includes('identitytoolkit') ||
+    url.hostname.includes('firebase') ||
+    url.hostname.includes('googleapis') ||
+    url.hostname.includes('cloudinary')
+  ) {
+    return;
+  }
 
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
@@ -54,7 +62,7 @@ self.addEventListener('fetch', (event) => {
 
         return networkResponse;
       }).catch(() => {
-        return cachedResponse || new Response('Offline - KASA Network', { status: 503, headers: { 'Content-Type': 'text/plain' } });
+        return cachedResponse || fetch(event.request);
       });
     })
   );

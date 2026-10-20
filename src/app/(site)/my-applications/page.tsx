@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import {SiteChrome, PageIntro} from '@/components/SiteChrome';
 import {ConfirmModal} from '@/components/ConfirmModal';
+import {AdBanner} from '@/components/AdBanner';
 import {auth, authHeaders, appCheckToken, firebaseConfigured, signOutClient} from '@/lib/firebase-client';
 import {StatusBadge} from '@/components/Portal';
 
@@ -576,6 +577,8 @@ export default function MyApplications() {
             )}
 
             {/* TAB 2: REFERRAL PROGRAM & REWARDS */}
+            <AdBanner placement="student_portal" />
+
             {activeTab === 'referrals' && (
               <>
                 {/* Metric Cards */}
