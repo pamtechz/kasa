@@ -1,0 +1,24 @@
+{
+  "name": "KASA Enrollment Network",
+  "short_name": "KASA",
+  "description": "Kamaila Academics, Sports and Apprenticeship enrollment and district agents portal",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#103f2c",
+  "theme_color": "#103f2c",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/kasa-logo-white.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/kasa-logo-white.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -176,6 +176,62 @@ export function ContentEditor({kind}: {kind: Type}) {
     });
   }
 
+  const renderCustomFieldsSection = (sectionTitle = 'Custom Section Attributes') => (
+    <div style={{marginTop: 24, paddingTop: 18, borderTop: '1px solid var(--border)'}}>
+      <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 12}}>
+        <div>
+          <h4 style={{margin: 0, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 14, color: 'var(--ink)'}}>
+            <Tag size={15} style={{color: 'var(--green)'}} /> {sectionTitle}
+          </h4>
+          <p className="muted" style={{margin: '2px 0 0', fontSize: 12}}>
+            Add custom attributes or extra key-value inputs to this section.
+          </p>
+        </div>
+        <button type="button" className="btn btn-outline" onClick={addCustomField} style={{fontSize: 12, padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: 4}}>
+          <Plus size={14} /> Add Custom Field
+        </button>
+      </div>
+
+      {Object.keys((current?.customFields as Record<string, string>) || {}).length > 0 && (
+        <div style={{display: 'flex', flexDirection: 'column', gap: 10}}>
+          {Object.entries((current?.customFields as Record<string, string>) || {}).map(([key, val], idx) => (
+            <div key={`cf-sec-${idx}-${key}`} style={{display: 'flex', gap: 10, alignItems: 'flex-start', background: '#f8faf9', padding: 10, borderRadius: 8, border: '1px solid var(--border)'}}>
+              <div style={{flex: 1}}>
+                <label style={{fontSize: 10, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 2}}>Field Name / Key</label>
+                <input
+                  type="text"
+                  placeholder="Field Name"
+                  value={key}
+                  onChange={e => updateCustomFieldKey(key, e.target.value)}
+                  style={{fontSize: 12, padding: '6px 8px'}}
+                />
+              </div>
+              <div style={{flex: 2}}>
+                <label style={{fontSize: 10, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 2}}>Field Value / Content</label>
+                <textarea
+                  rows={1}
+                  placeholder="Field Value / Content"
+                  value={String(val || '')}
+                  onChange={e => updateCustomFieldValue(key, e.target.value)}
+                  style={{fontSize: 12, padding: '6px 8px', lineHeight: 1.4}}
+                />
+              </div>
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={() => removeCustomField(key)}
+                title="Remove field"
+                style={{color: '#ef4444', marginTop: 18, padding: 6}}
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   const [deletingItem, setDeletingItem] = useState<Programme | Announcement | null>(null);
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
@@ -203,9 +259,37 @@ export function ContentEditor({kind}: {kind: Type}) {
     setError('');
     setMessage('');
     try {
+      const cleanItem: Record<string, any> = structuredClone(current);
+      cleanItem.id = String(cleanItem.id || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'item-id';
+      cleanItem.title = String(cleanItem.title || 'Untitled').trim();
+      cleanItem.description = String(cleanItem.description || '').trim();
+
+      if (isProgramme) {
+        if (!cleanItem.category) cleanItem.category = 'short-course';
+        if (cleanItem.durationHours !== null && cleanItem.durationHours !== undefined) {
+          const num = Number(cleanItem.durationHours);
+          cleanItem.durationHours = Number.isFinite(num) && num >= 0 ? Math.round(num) : null;
+        } else {
+          cleanItem.durationHours = null;
+        }
+        if (!cleanItem.fee || typeof cleanItem.fee !== 'object') {
+          cleanItem.fee = { currency: 'ZMW', note: '', tuition: null, practical: null, administration: null, foodOptional: null, accommodationOptional: null, packageTotal: null };
+        } else {
+          cleanItem.fee.currency = 'ZMW';
+          for (const feeKey of ['tuition', 'practical', 'administration', 'foodOptional', 'accommodationOptional', 'packageTotal']) {
+            if (cleanItem.fee[feeKey] !== null && cleanItem.fee[feeKey] !== undefined && cleanItem.fee[feeKey] !== '') {
+              const val = Number(cleanItem.fee[feeKey]);
+              cleanItem.fee[feeKey] = Number.isFinite(val) && val >= 0 ? val : null;
+            } else {
+              cleanItem.fee[feeKey] = null;
+            }
+          }
+        }
+      }
+
       await api('/api/admin/content', {
         method: editing ? 'PUT' : 'POST',
-        body: JSON.stringify({kind, item: current})
+        body: JSON.stringify({kind, item: cleanItem})
       });
       setCurrent(null);
       await load(true);
@@ -653,6 +737,8 @@ export function ContentEditor({kind}: {kind: Type}) {
                           Publish this programme on KASA public website and application forms
                         </label>
                       </div>
+
+                      {renderCustomFieldsSection('Overview Custom Attributes')}
                     </div>
                   )}
 
@@ -688,6 +774,8 @@ export function ContentEditor({kind}: {kind: Type}) {
                       <div style={{marginTop: 14}}>
                         <span className="count-chip">{prog.modules.length} modules configured</span>
                       </div>
+
+                      {renderCustomFieldsSection('Curriculum Custom Attributes')}
                     </div>
                   )}
 

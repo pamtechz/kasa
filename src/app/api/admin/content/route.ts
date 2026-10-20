@@ -29,7 +29,10 @@ export async function POST(req:Request){
   if(!collection)throw new HttpError(400,'Invalid content type.');
   const schema=collection==='programmes'?programmeSchema:announcementSchema;
   const parsed=schema.safeParse(body?.item);
-  if(!parsed.success)throw new HttpError(400,parsed.error.issues.map(x=>x.message).slice(0,4).join('; '));
+  if(!parsed.success) {
+   const issues = parsed.error.issues.map(x=>`${x.path.join('.') || 'field'}: ${x.message}`).join('; ');
+   throw new HttpError(400,`Validation error (${issues})`);
+  }
   const item=parsed.data,ref=db.collection(collection).doc(item.id);
   const existing=await ref.get();
   if(existing.exists)throw new HttpError(409,'An item with this ID already exists. Use update.');
@@ -46,7 +49,10 @@ export async function PUT(req:Request){
   if(!collection)throw new HttpError(400,'Invalid content type.');
   const schema=collection==='programmes'?programmeSchema:announcementSchema;
   const parsed=schema.safeParse(body?.item);
-  if(!parsed.success)throw new HttpError(400,parsed.error.issues.map(x=>x.message).slice(0,4).join('; '));
+  if(!parsed.success) {
+   const issues = parsed.error.issues.map(x=>`${x.path.join('.') || 'field'}: ${x.message}`).join('; ');
+   throw new HttpError(400,`Validation error (${issues})`);
+  }
   const ref=db.collection(collection).doc(parsed.data.id);
   if(!(await ref.get()).exists)throw new HttpError(404,'Record does not exist.');
   await ref.set({...parsed.data,updatedAt:new Date().toISOString(),updatedBy:who.uid},{merge:true});
