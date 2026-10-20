@@ -52,6 +52,8 @@ export default function MyReferrals() {
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
   const [deletingRef, setDeletingRef] = useState<Referral | null>(null);
+  const [selectedRefIds, setSelectedRefIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteTarget, setBulkDeleteTarget] = useState<'selected' | 'all' | null>(null);
   const [q, setQ] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'paid'>('all');
 
@@ -183,17 +185,28 @@ export default function MyReferrals() {
     }
   }
 
-  async function copy(slug: string) {
-    const url = new URL('/apply/' + slug, window.location.origin);
-    url.searchParams.set('ref', data?.agent.agentCode || '');
-    await navigator.clipboard.writeText(url.toString());
-    setNotice('Referral link copied. Candidates can use this link to apply directly with your attribution.');
+  async function confirmBulkDeleteReferrals() {
+    if (!bulkDeleteTarget) return;
+    setBusy(true);
+    try {
+      const idsToDelete = bulkDeleteTarget === 'selected' ? Array.from(selectedRefIds) : filtered.map(x => x.id);
+      for (const id of idsToDelete) {
+        await api(`/api/agent/referrals?id=${id}`, {method: 'DELETE'});
+      }
+      setNotice(`Successfully withdrawn ${idsToDelete.length} referral(s).`);
+      setSelectedRefIds(new Set());
+      setBulkDeleteTarget(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Bulk withdraw failed.');
+    } finally {
+      setBusy(false);
+    }
   }
 
   const referralsList = useMemo(() => data?.referrals || [], [data?.referrals]);
   const total = useMemo(() => referralsList.reduce((n, r) => n + Number(r.commission?.amount || 0), 0), [referralsList]);
   const paid = useMemo(() => referralsList.reduce((n, r) => n + (r.commission?.paidAt ? Number(r.commission.amount) : 0), 0), [referralsList]);
-
 
   const filtered = useMemo(() => {
     return referralsList.filter(r => {
@@ -204,13 +217,34 @@ export default function MyReferrals() {
         const query = q.toLowerCase();
         const matchRef = r.reference.toLowerCase().includes(query);
         const matchName = (r.candidateName || '').toLowerCase().includes(query);
-        const matchProg = (r.programme || '').toLowerCase().includes(query);
         const matchPhone = (r.phone || '').toLowerCase().includes(query);
-        if (!matchRef && !matchName && !matchProg && !matchPhone) return false;
+        const matchProg = (r.programme || '').toLowerCase().includes(query);
+        return matchRef || matchName || matchPhone || matchProg;
       }
       return true;
     });
   }, [referralsList, statusFilter, q]);
+
+  const allReferralsSelected = filtered.length > 0 && filtered.every(x => selectedRefIds.has(x.id));
+
+  function toggleSelectAllReferrals() {
+    if (allReferralsSelected) setSelectedRefIds(new Set());
+    else setSelectedRefIds(new Set(filtered.map(x => x.id)));
+  }
+
+  function toggleSelectReferral(id: string) {
+    const next = new Set(selectedRefIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedRefIds(next);
+  }
+
+  async function copy(slug: string) {
+    const url = new URL('/apply/' + slug, window.location.origin);
+    url.searchParams.set('ref', data?.agent.agentCode || '');
+    await navigator.clipboard.writeText(url.toString());
+    setNotice('Referral link copied. Candidates can use this link to apply directly with your attribution.');
+  }
 
   return (
     <>
@@ -290,7 +324,17 @@ export default function MyReferrals() {
               <Search size={14} style={{position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)'}} />
             </div>
 
-            <div style={{display: 'flex', gap: 4}}>
+            <div style={{display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap'}}>
+              {selectedRefIds.size > 0 && (
+                <button className="btn btn-outline" disabled={busy} onClick={() => setBulkDeleteTarget('selected')} style={{fontSize: 12, padding: '6px 12px', color: '#ef4444', borderColor: 'rgba(239,68,68,0.4)', display: 'inline-flex', alignItems: 'center', gap: 6}}>
+                  <Trash2 size={14} /> Withdraw Selected ({selectedRefIds.size})
+                </button>
+              )}
+              {filtered.length > 0 && (
+                <button className="btn btn-outline" disabled={busy} onClick={() => setBulkDeleteTarget('all')} style={{fontSize: 12, padding: '6px 12px', color: '#ef4444', borderColor: 'rgba(239,68,68,0.4)', display: 'inline-flex', alignItems: 'center', gap: 6}}>
+                  <Trash2 size={14} /> Withdraw All ({filtered.length})
+                </button>
+              )}
               <button
                 className={`btn btn-sm ${statusFilter === 'all' ? 'btn-primary' : 'btn-outline'}`}
                 onClick={() => setStatusFilter('all')}
@@ -323,6 +367,7 @@ export default function MyReferrals() {
           <table className="data-table">
             <thead>
               <tr>
+                <th style={{width: 40}}><input type="checkbox" checked={allReferralsSelected} onChange={toggleSelectAllReferrals} aria-label="Select all referrals"/></th>
                 <th>Reference</th>
                 <th>Candidate Name</th>
                 <th>Programme</th>
@@ -336,11 +381,11 @@ export default function MyReferrals() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="empty-state">Loading candidate referrals…</td>
+                  <td colSpan={9} className="empty-state">Loading candidate referrals…</td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="empty-state">
+                  <td colSpan={9} className="empty-state">
                     {referralsList.length === 0
                       ? 'No candidate referrals recorded yet. Click "Register candidate" above to register your first student.'
                       : 'No referrals match your search or status filter.'}
@@ -349,6 +394,7 @@ export default function MyReferrals() {
               ) : (
                 filtered.map(r => (
                   <tr key={r.id}>
+                    <td><input type="checkbox" checked={selectedRefIds.has(r.id)} onChange={() => toggleSelectReferral(r.id)} aria-label={`Select ${r.reference}`}/></td>
                     <td><strong>{r.reference}</strong></td>
                     <td>
                       <div style={{display: 'flex', alignItems: 'center', gap: 6}}>
@@ -576,6 +622,18 @@ export default function MyReferrals() {
         busy={busy}
         onConfirm={() => void confirmDeleteReferral()}
         onCancel={() => setDeletingRef(null)}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(bulkDeleteTarget)}
+        title="Withdraw Multiple Candidate Referrals"
+        message={`Are you sure you want to withdraw ${bulkDeleteTarget === 'selected' ? `${selectedRefIds.size} selected` : `all ${filtered.length}`} candidate referral(s)?`}
+        kind="danger"
+        confirmLabel="Withdraw Referrals"
+        cancelLabel="Cancel"
+        busy={busy}
+        onConfirm={() => void confirmBulkDeleteReferrals()}
+        onCancel={() => setBulkDeleteTarget(null)}
       />
     </>
   );

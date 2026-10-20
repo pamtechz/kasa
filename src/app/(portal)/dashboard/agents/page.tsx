@@ -30,6 +30,8 @@ export default function Agents() {
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
   const [deletingAgent, setDeletingAgent] = useState<Agent | null>(null);
+  const [selectedUids, setSelectedUids] = useState<Set<string>>(new Set());
+  const [bulkDeleteTarget, setBulkDeleteTarget] = useState<'selected' | 'all' | null>(null);
   const [loading, setLoading] = useState(true);
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
   const [editDistrict, setEditDistrict] = useState('');
@@ -118,6 +120,42 @@ export default function Agents() {
     }
   }
 
+  async function confirmBulkDeleteAgents() {
+    if (!bulkDeleteTarget) return;
+    setBusy(true); setError(''); setNotice('');
+    try {
+      const uidsToDelete = bulkDeleteTarget === 'selected' ? Array.from(selectedUids) : agents.map(a => a.uid);
+      for (const uid of uidsToDelete) {
+        await api(`/api/admin/agents/${uid}`, { method: 'DELETE' });
+      }
+      setNotice(`Successfully removed ${uidsToDelete.length} agent(s).`);
+      setSelectedUids(new Set());
+      setBulkDeleteTarget(null);
+      await load(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Bulk removal failed.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const allAgentsSelected = agents.length > 0 && agents.every(a => selectedUids.has(a.uid));
+
+  function toggleSelectAllAgents() {
+    if (allAgentsSelected) {
+      setSelectedUids(new Set());
+    } else {
+      setSelectedUids(new Set(agents.map(a => a.uid)));
+    }
+  }
+
+  function toggleSelectAgent(uid: string) {
+    const next = new Set(selectedUids);
+    if (next.has(uid)) next.delete(uid);
+    else next.add(uid);
+    setSelectedUids(next);
+  }
+
   async function shareAgent(a: Agent) {
     const form = forms[0];
     if (!form) {
@@ -200,18 +238,31 @@ export default function Agents() {
       </div>
 
       <div className="panel">
-        <div className="panel-title">
+        <div className="panel-title" style={{flexWrap:'wrap',gap:12}}>
           <div>
             <h2>Registered agents</h2>
             <p>Codes are for attribution and do not authorize CDF approvals.</p>
           </div>
-          <span className="count-chip">{agents.length} agents</span>
+          <div style={{display:'flex',gap:8,alignItems:'center',marginLeft:'auto'}}>
+            <span className="count-chip">{agents.length} agents</span>
+            {selectedUids.size > 0 && (
+              <button className="btn btn-outline" disabled={busy} onClick={() => setBulkDeleteTarget('selected')} style={{fontSize:12,padding:'6px 12px',color:'#ef4444',borderColor:'rgba(239,68,68,0.4)',display:'inline-flex',alignItems:'center',gap:6}}>
+                <Trash2 size={14} /> Delete Selected ({selectedUids.size})
+              </button>
+            )}
+            {agents.length > 0 && (
+              <button className="btn btn-outline" disabled={busy} onClick={() => setBulkDeleteTarget('all')} style={{fontSize:12,padding:'6px 12px',color:'#ef4444',borderColor:'rgba(239,68,68,0.4)',display:'inline-flex',alignItems:'center',gap:6}}>
+                <Trash2 size={14} /> Delete All Agents ({agents.length})
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="table-scroll">
           <table className="data-table">
             <thead>
               <tr>
+                <th style={{width: 40}}><input type="checkbox" checked={allAgentsSelected} onChange={toggleSelectAllAgents} aria-label="Select all agents"/></th>
                 <th>Agent</th>
                 <th>District</th>
                 <th>Referral code</th>
@@ -223,7 +274,7 @@ export default function Agents() {
               {loading ? (
                 Array.from({length: 3}).map((_, i) => (
                   <tr key={'skel-agent-' + i}>
-                    <td colSpan={5} style={{padding: '12px 24px'}}>
+                    <td colSpan={6} style={{padding: '12px 24px'}}>
                       <div className="skeleton-row" />
                     </td>
                   </tr>
@@ -231,6 +282,7 @@ export default function Agents() {
               ) : agents.length > 0 ? (
                 agents.map(a => (
                   <tr key={a.uid}>
+                    <td><input type="checkbox" checked={selectedUids.has(a.uid)} onChange={() => toggleSelectAgent(a.uid)} aria-label={`Select ${a.displayName}`}/></td>
                     <td>
                       <strong>{a.displayName}</strong>
                       <small className="table-sub">{a.email}</small>
@@ -402,6 +454,18 @@ export default function Agents() {
         busy={busy}
         onConfirm={() => void confirmDeleteAgent()}
         onCancel={() => setDeletingAgent(null)}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(bulkDeleteTarget)}
+        title="Remove Multiple District Agents"
+        message={`Are you sure you want to remove ${bulkDeleteTarget === 'selected' ? `${selectedUids.size} selected` : `all ${agents.length}`} agent(s)? This action cannot be undone.`}
+        kind="danger"
+        confirmLabel="Remove Agents"
+        cancelLabel="Cancel"
+        busy={busy}
+        onConfirm={() => void confirmBulkDeleteAgents()}
+        onCancel={() => setBulkDeleteTarget(null)}
       />
     </>
   );

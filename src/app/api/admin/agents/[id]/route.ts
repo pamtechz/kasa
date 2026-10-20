@@ -1,6 +1,7 @@
 import {db} from '@/lib/firebase-admin';
 import {fail,json,HttpError} from '@/lib/errors';
 import {operator,audit,sameOrigin,safeText} from '@/lib/security';
+import {invalidateGeneralCache} from '@/lib/server-cache';
 export const runtime='nodejs';
 
 export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
@@ -19,7 +20,9 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
   if(Object.keys(changes).length===1)throw new HttpError(400,'No valid changes supplied.');
   const ref=db.collection('profiles').doc(id);const snap=await ref.get();
   if(!snap.exists||snap.data()?.role!=='agent')throw new HttpError(404,'Agent not found.');
-  await ref.update(changes);await audit(admin.uid,'agent.updated',id,changes);return json({ok:true});
+  await ref.update(changes);
+  invalidateGeneralCache('agents');
+  await audit(admin.uid,'agent.updated',id,changes);return json({ok:true});
  }catch(e){return fail(e);}
 }
 
@@ -32,6 +35,7 @@ export async function DELETE(req:Request,{params}:{params:Promise<{id:string}>})
   const snap=await ref.get();
   if(!snap.exists||snap.data()?.role!=='agent')throw new HttpError(404,'Agent not found.');
   await ref.delete();
+  invalidateGeneralCache('agents');
   await audit(admin.uid,'agent.deleted',id,{agentCode:snap.data()?.agentCode});
   return json({ok:true});
  }catch(e){return fail(e);}

@@ -28,6 +28,7 @@ export default function Applications(){
  const [deletingApp,setDeletingApp]=useState<ApplicantRecord|null>(null);
  const [selectedIds,setSelectedIds]=useState<Set<string>>(new Set());
  const [downloadingBatch,setDownloadingBatch]=useState(false);
+ const [bulkDeleteTarget,setBulkDeleteTarget]=useState<'selected'|'all'|null>(null);
 
  const [next,setNext]=useState('');
  const [cdfRef,setCdfRef]=useState('');
@@ -96,6 +97,25 @@ export default function Applications(){
    await refresh(true);
   } catch (err) {
    setError(err instanceof Error ? err.message : 'Unable to delete application.');
+  } finally {
+   setBusy(false);
+  }
+ }
+
+ async function confirmBulkDelete() {
+  if (!bulkDeleteTarget) return;
+  setBusy(true); setError(''); setMessage('');
+  try {
+   const idsToDelete = bulkDeleteTarget === 'selected' ? Array.from(selectedIds) : filtered.map(x => x.id);
+   for (const id of idsToDelete) {
+    await api(`/api/admin/submissions/${id}`, { method: 'DELETE' });
+   }
+   setMessage(`Successfully deleted ${idsToDelete.length} application record(s).`);
+   setSelectedIds(new Set());
+   setBulkDeleteTarget(null);
+   await refresh(true);
+  } catch (err) {
+   setError(err instanceof Error ? err.message : 'Bulk delete failed.');
   } finally {
    setBusy(false);
   }
@@ -201,14 +221,16 @@ export default function Applications(){
  async function downloadLetter(){if(!selected)return;setError('');try{const headers=await authHeaders();const res=await fetch(`/api/admin/submissions/${selected.id}/letter`,{headers});if(!res.ok){const body=await res.json();throw Error(body.error||'Unable to generate letter.');}const blob=await res.blob();const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`KASA-Acceptance-${selected.reference}.pdf`;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);}catch(e){setError(e instanceof Error?e.message:'Unable to download letter.');}}
  async function viewFile(field:string){if(!selected)return;try{const result=await api<{url:string}>(`/api/admin/file?submissionId=${selected.id}&fieldId=${encodeURIComponent(field)}`);window.open(result.url,'_blank','noopener,noreferrer');}catch(e){setError(e instanceof Error?e.message:'Unable to open attachment.');}}
 
- return <><PageHeader title="Applications" subtitle="Review recruitment and student applications, verify CDF outcomes and manage commission records." action={role!=='agent'?<button className="btn btn-primary" onClick={()=>setCreatingApp(true)}><Plus size={16}/> New application</button>:undefined}/>
+ return <><PageHeader title="Applications" subtitle="Review recruitment and student applications, verify CDF outcomes and manage commission records." action={role!=='agent'?<Link href="/dashboard/applications/new" className="btn btn-primary" style={{display:'inline-flex',alignItems:'center',gap:6}}><Plus size={16}/> New application</Link>:undefined}/>
  <div className="panel">
   <div className="table-controls" style={{flexWrap:'wrap',gap:12}}>
    <label className="search-box"><Search size={18}/><input placeholder="Search applications or reference…" value={q} onChange={e=>setQ(e.target.value)}/></label>
    <label className="filter-select"><Filter size={17}/><select value={status} onChange={e=>setStatus(e.target.value)}><option value="all">All statuses</option>{Object.keys(nextStages).concat('commission_paid','rejected').map(x=><option key={x} value={x}>{x.replaceAll('_',' ')}</option>)}</select></label>
-   <div style={{display:'flex',gap:8,marginLeft:'auto'}}>
+   <div style={{display:'flex',gap:8,marginLeft:'auto',flexWrap:'wrap'}}>
     {selectedIds.size>0&&<button className="btn btn-outline" disabled={downloadingBatch} onClick={()=>void handleBatchDownload()} style={{fontSize:12,padding:'8px 12px',display:'inline-flex',alignItems:'center',gap:6}}><FileDown size={14}/> Download Selected ({selectedIds.size})</button>}
     <button className="btn btn-outline" disabled={downloadingBatch||filtered.length===0} onClick={()=>void handleBatchDownload([])} style={{fontSize:12,padding:'8px 12px',display:'inline-flex',alignItems:'center',gap:6}}><Download size={14}/> Download All (CSV)</button>
+    {selectedIds.size>0&&['super_admin','admin'].includes(role)&&<button className="btn btn-outline" disabled={busy} onClick={()=>setBulkDeleteTarget('selected')} style={{fontSize:12,padding:'8px 12px',color:'#ef4444',borderColor:'rgba(239,68,68,0.4)',display:'inline-flex',alignItems:'center',gap:6}}><Trash2 size={14}/> Delete Selected ({selectedIds.size})</button>}
+    {filtered.length>0&&['super_admin','admin'].includes(role)&&<button className="btn btn-outline" disabled={busy} onClick={()=>setBulkDeleteTarget('all')} style={{fontSize:12,padding:'8px 12px',color:'#ef4444',borderColor:'rgba(239,68,68,0.4)',display:'inline-flex',alignItems:'center',gap:6}}><Trash2 size={14}/> Delete All ({filtered.length})</button>}
    </div>
   </div>
   {message&&<div className="notice">{message}</div>}
@@ -256,66 +278,16 @@ export default function Applications(){
   onCancel={()=>setDeletingApp(null)}
  />
 
- {creatingApp&&(
-  <div className="modal-page-overlay" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)setCreatingApp(false);}}>
-   <div className="modal-page" role="dialog" aria-modal="true" aria-label="Register New Application">
-    <div className="modal-page-header">
-     <div className="modal-page-header-left">
-      <button
-       type="button"
-       className="icon-btn"
-       onClick={()=>setCreatingApp(false)}
-       title="Back to applications list (Esc)"
-       aria-label="Back to applications list"
-      >
-       <ArrowLeft size={19}/>
-      </button>
-      <div>
-       <span className="modal-page-badge">MANUAL ENTRY & OFFLINE REGISTRATION</span>
-       <h2>Register New Application</h2>
-      </div>
-     </div>
-     <div className="modal-page-header-right">
-      <button className="icon-btn modal-page-close-btn" type="button" onClick={()=>setCreatingApp(false)} aria-label="Close modal page"><X size={20}/></button>
-     </div>
-    </div>
-    <form onSubmit={e=>void createApplication(e)} style={{display:'flex',flexDirection:'column',flex:1}}>
-     <div className="modal-page-body">
-      <div className="modal-page-card">
-       <h3>Applicant Details</h3>
-       <p className="muted">Enter student records directly for offline or sponsored applicants.</p>
-       <div className="form-grid">
-        <div className="field full"><label>Student full name *</label><input required placeholder="E.g. Chisamba Mumba" value={newName} onChange={e=>setNewName(e.target.value)}/></div>
-        <div className="field"><label>Email address</label><input type="email" placeholder="student@example.com" value={newEmail} onChange={e=>setNewEmail(e.target.value)}/></div>
-        <div className="field"><label>Phone number</label><input type="tel" placeholder="+260 97..." value={newPhone} onChange={e=>setNewPhone(e.target.value)}/></div>
-        <div className="field"><label>NRC / National ID Number</label><input placeholder="123456/10/1" value={newNrc} onChange={e=>setNewNrc(e.target.value)}/></div>
-        <div className="field"><label>District / Town</label><input placeholder="E.g. Lusaka, Chibombo" value={newDistrict} onChange={e=>setNewDistrict(e.target.value)}/></div>
-       </div>
-      </div>
-      <div className="modal-page-card">
-       <h3>Programme & Sponsorship</h3>
-       <div className="form-grid">
-        <div className="field full"><label>Programme / Course name *</label><input required placeholder="E.g. General Agriculture (TEVETA Level II)" value={newProgramme} onChange={e=>setNewProgramme(e.target.value)}/></div>
-        <div className="field"><label>Funding pathway</label><select value={newFundingMethod} onChange={e=>setNewFundingMethod(e.target.value as 'cdf'|'self_funded')}><option value="cdf">Constituency Development Fund (CDF)</option><option value="self_funded">Self-funded / Private</option></select></div>
-        <div className="field"><label>Initial status</label><select value={newStatus} onChange={e=>setNewStatus(e.target.value as SubmissionStatus)}><option value="submitted">Submitted</option><option value="under_review">Under Review</option><option value="accepted">Accepted</option></select></div>
-        <div className="field full"><label>Internal notes</label><textarea rows={3} placeholder="Add any background notes or intake details..." value={newNote} onChange={e=>setNewNote(e.target.value)}/></div>
-       </div>
-      </div>
-     </div>
-     <div className="modal-page-footer">
-      <div className="modal-page-footer-left">
-       <span className="muted" style={{fontSize:13}}>
-        Press <strong>Esc</strong> or click <strong>Cancel</strong> to discard manual entry
-       </span>
-      </div>
-      <div className="modal-page-footer-actions">
-       <button className="btn btn-outline" type="button" onClick={()=>setCreatingApp(false)}>Cancel</button>
-       <button className="btn btn-primary" type="submit" disabled={busy||!newName.trim()||!newProgramme.trim()}><Plus size={16}/>{busy?'Registering…':'Create application'}</button>
-      </div>
-     </div>
-    </form>
-   </div>
-  </div>
- )}
+ <ConfirmModal
+  isOpen={Boolean(bulkDeleteTarget)}
+  title="Delete Multiple Applications"
+  message={`Are you sure you want to permanently delete ${bulkDeleteTarget === 'selected' ? `${selectedIds.size} selected` : `all ${filtered.length}`} application(s)? This action cannot be reversed.`}
+  kind="danger"
+  confirmLabel="Delete Applications"
+  cancelLabel="Cancel"
+  busy={busy}
+  onConfirm={()=>void confirmBulkDelete()}
+  onCancel={()=>setBulkDeleteTarget(null)}
+ />
  </>;
 }

@@ -1,12 +1,17 @@
 import {db} from '@/lib/firebase-admin';
 import {operator, newId, safeText, sameOrigin} from '@/lib/security';
 import {fail, json, HttpError} from '@/lib/errors';
+import {getGeneralCache, setGeneralCache, invalidateGeneralCache} from '@/lib/server-cache';
 
 export const runtime = 'nodejs';
 
 export async function GET(req: Request) {
   try {
     const user = await operator(req, ['super_admin', 'admin', 'reviewer', 'agent']);
+    const cacheKey = `notifications-${user.role}-${user.role === 'agent' ? user.uid : 'all'}`;
+    const cached = getGeneralCache<{notifications: any[]}>(cacheKey);
+    if (cached) return json(cached);
+
     const items = await db.collection('notificationOutbox').limit(300).get();
     const notifications = items.docs
       .map(d => ({id: d.id, ...d.data()}))
@@ -18,7 +23,9 @@ export async function GET(req: Request) {
       .sort((a: any, b: any) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
       .slice(0, 150);
 
-    return json({notifications});
+    const res = {notifications};
+    setGeneralCache(cacheKey, res);
+    return json(res);
   } catch (e) {
     return fail(e);
   }
@@ -58,6 +65,7 @@ export async function POST(req: Request) {
     };
 
     await db.collection('notificationOutbox').doc(id).set(docData);
+    invalidateGeneralCache('notifications');
     return json({ok: true, id, notification: {id, ...docData}});
   } catch (e) {
     return fail(e);
@@ -107,6 +115,7 @@ export async function PATCH(req: Request) {
     }
 
     await ref.update(updates);
+    invalidateGeneralCache('notifications');
     return json({ok: true, notification: {id, ...data, ...updates}});
   } catch (e) {
     return fail(e);
@@ -126,6 +135,7 @@ export async function DELETE(req: Request) {
       const batch = db.batch();
       snap.docs.forEach(d => batch.delete(d.ref));
       await batch.commit();
+      invalidateGeneralCache('notifications');
       return json({ok: true, cleared: snap.size});
     }
 
@@ -140,6 +150,7 @@ export async function DELETE(req: Request) {
     }
 
     await ref.delete();
+    invalidateGeneralCache('notifications');
     return json({ok: true, deletedId: id});
   } catch (e) {
     return fail(e);

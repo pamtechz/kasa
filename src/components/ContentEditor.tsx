@@ -121,6 +121,8 @@ export function ContentEditor({kind}: {kind: Type}) {
 
   const [deletingItem, setDeletingItem] = useState<Programme | Announcement | null>(null);
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteTarget, setBulkDeleteTarget] = useState<'selected' | 'all' | null>(null);
 
   function openCreate() {
     setCurrent(isProgramme ? structuredClone(emptyProgramme) : structuredClone(emptyAnnouncement));
@@ -174,9 +176,42 @@ export function ContentEditor({kind}: {kind: Type}) {
     }
   }
 
+  async function confirmBulkDeleteContent() {
+    if (!bulkDeleteTarget) return;
+    try {
+      const idsToDelete = bulkDeleteTarget === 'selected' ? Array.from(selectedItemIds) : filteredItems.map(x => x.id);
+      for (const id of idsToDelete) {
+        await api('/api/admin/content', {
+          method: 'DELETE',
+          body: JSON.stringify({kind, id})
+        });
+      }
+      setSelectedItemIds(new Set());
+      setBulkDeleteTarget(null);
+      await load(true);
+      setMessage(`Successfully deleted ${idsToDelete.length} record(s).`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Bulk delete failed.');
+    }
+  }
+
   const filteredItems = items.filter(x =>
     (x.title + ' ' + x.description + ' ' + x.id).toLowerCase().includes(filter.toLowerCase())
   );
+
+  const allItemsSelected = filteredItems.length > 0 && filteredItems.every(x => selectedItemIds.has(x.id));
+
+  function toggleSelectAllItems() {
+    if (allItemsSelected) setSelectedItemIds(new Set());
+    else setSelectedItemIds(new Set(filteredItems.map(x => x.id)));
+  }
+
+  function toggleSelectItem(id: string) {
+    const next = new Set(selectedItemIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedItemIds(next);
+  }
 
   return (
     <>
@@ -198,7 +233,7 @@ export function ContentEditor({kind}: {kind: Type}) {
       {message && !current && <div className="notice">{message}</div>}
 
       <div className="panel">
-        <div className="table-controls">
+        <div className="table-controls" style={{flexWrap:'wrap',gap:12}}>
           <label className="search-box">
             <Search size={16} />
             <input
@@ -207,13 +242,26 @@ export function ContentEditor({kind}: {kind: Type}) {
               onChange={e => setFilter(e.target.value)}
             />
           </label>
-          <span className="count-chip">{filteredItems.length} records</span>
+          <div style={{display:'flex',gap:8,alignItems:'center',marginLeft:'auto'}}>
+            <span className="count-chip">{filteredItems.length} records</span>
+            {selectedItemIds.size > 0 && (
+              <button className="btn btn-outline" onClick={() => setBulkDeleteTarget('selected')} style={{fontSize:12,padding:'6px 12px',color:'#ef4444',borderColor:'rgba(239,68,68,0.4)',display:'inline-flex',alignItems:'center',gap:6}}>
+                <Trash2 size={14} /> Delete Selected ({selectedItemIds.size})
+              </button>
+            )}
+            {filteredItems.length > 0 && (
+              <button className="btn btn-outline" onClick={() => setBulkDeleteTarget('all')} style={{fontSize:12,padding:'6px 12px',color:'#ef4444',borderColor:'rgba(239,68,68,0.4)',display:'inline-flex',alignItems:'center',gap:6}}>
+                <Trash2 size={14} /> Delete All ({filteredItems.length})
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="table-scroll">
           <table className="data-table">
             <thead>
               <tr>
+                <th style={{width: 40}}><input type="checkbox" checked={allItemsSelected} onChange={toggleSelectAllItems} aria-label="Select all items"/></th>
                 <th>Title</th>
                 <th>Category</th>
                 <th>Publication</th>
@@ -225,7 +273,7 @@ export function ContentEditor({kind}: {kind: Type}) {
                 // Shimmer skeleton loading state for fast perception
                 Array.from({length: 4}).map((_, i) => (
                   <tr key={'skel-' + i}>
-                    <td colSpan={4} style={{padding: '12px 24px'}}>
+                    <td colSpan={5} style={{padding: '12px 24px'}}>
                       <div className="skeleton-row" />
                     </td>
                   </tr>
@@ -233,6 +281,7 @@ export function ContentEditor({kind}: {kind: Type}) {
               ) : filteredItems.length > 0 ? (
                 filteredItems.map(x => (
                   <tr key={x.id}>
+                    <td><input type="checkbox" checked={selectedItemIds.has(x.id)} onChange={() => toggleSelectItem(x.id)} aria-label={`Select ${x.title}`}/></td>
                     <td>
                       <strong>{x.title}</strong>
                       <small className="table-sub">{x.id}</small>
@@ -864,6 +913,18 @@ export function ContentEditor({kind}: {kind: Type}) {
         busy={busy}
         onConfirm={() => void confirmRemove()}
         onCancel={() => setDeletingItem(null)}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(bulkDeleteTarget)}
+        title="Delete Multiple Records"
+        message={`Are you sure you want to permanently delete ${bulkDeleteTarget === 'selected' ? `${selectedItemIds.size} selected` : `all ${filteredItems.length}`} record(s)?`}
+        kind="danger"
+        confirmLabel="Delete Records"
+        cancelLabel="Cancel"
+        busy={busy}
+        onConfirm={() => void confirmBulkDeleteContent()}
+        onCancel={() => setBulkDeleteTarget(null)}
       />
 
       <ConfirmModal

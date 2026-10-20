@@ -30,6 +30,8 @@ export default function Notifications() {
   const [busy, setBusy] = useState(false);
   const [deletingNotice, setDeletingNotice] = useState<Notice | null>(null);
   const [confirmingClearRead, setConfirmingClearRead] = useState(false);
+  const [selectedNoticeIds, setSelectedNoticeIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteTarget, setBulkDeleteTarget] = useState<'selected' | 'all' | null>(null);
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<'all' | 'unread' | 'read' | 'urgent'>('all');
   const [recipientFilter, setRecipientFilter] = useState<string>('all');
@@ -166,6 +168,32 @@ export default function Notifications() {
     }
   }
 
+  async function confirmBulkDeleteNotices() {
+    if (!bulkDeleteTarget) return;
+    setBusy(true);
+    try {
+      const idsToDelete = bulkDeleteTarget === 'selected' ? Array.from(selectedNoticeIds) : filtered.map(x => x.id);
+      for (const id of idsToDelete) {
+        await api(`/api/notifications?id=${id}`, {method: 'DELETE'});
+      }
+      setNotice(`Successfully deleted ${idsToDelete.length} notification(s).`);
+      setSelectedNoticeIds(new Set());
+      setBulkDeleteTarget(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Bulk delete failed.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function toggleSelectNotice(id: string) {
+    const next = new Set(selectedNoticeIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedNoticeIds(next);
+  }
+
   async function executeClearReadNotices() {
     setBusy(true);
     try {
@@ -214,6 +242,16 @@ export default function Notifications() {
             <button className="btn btn-outline" onClick={() => void load()} disabled={loading}>
               <RefreshCw size={15} /> Refresh
             </button>
+            {selectedNoticeIds.size > 0 && (
+              <button className="btn btn-outline" onClick={() => setBulkDeleteTarget('selected')} disabled={busy} style={{color: '#ef4444', borderColor: 'rgba(239,68,68,0.4)'}}>
+                <Trash2 size={15} /> Delete Selected ({selectedNoticeIds.size})
+              </button>
+            )}
+            {filtered.length > 0 && (
+              <button className="btn btn-outline" onClick={() => setBulkDeleteTarget('all')} disabled={busy} style={{color: '#ef4444', borderColor: 'rgba(239,68,68,0.4)'}}>
+                <Trash2 size={15} /> Delete All ({filtered.length})
+              </button>
+            )}
             {stats.total > 0 && (
               <button className="btn btn-outline" onClick={() => setConfirmingClearRead(true)} disabled={busy}>
                 <Trash2 size={15} /> Clear read
@@ -334,6 +372,13 @@ export default function Notifications() {
                     transition: 'all 0.15s ease'
                   }}
                 >
+                  <input
+                    type="checkbox"
+                    checked={selectedNoticeIds.has(n.id)}
+                    onChange={() => toggleSelectNotice(n.id)}
+                    aria-label={`Select ${n.title}`}
+                    style={{marginTop: 10}}
+                  />
                   <div
                     style={{
                       width: 38,
@@ -561,6 +606,18 @@ export default function Notifications() {
         busy={busy}
         onConfirm={() => void confirmDeleteNotice()}
         onCancel={() => setDeletingNotice(null)}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(bulkDeleteTarget)}
+        title="Delete Multiple Notifications"
+        message={`Are you sure you want to delete ${bulkDeleteTarget === 'selected' ? `${selectedNoticeIds.size} selected` : `all ${filtered.length}`} notification(s)?`}
+        kind="danger"
+        confirmLabel="Delete Notifications"
+        cancelLabel="Cancel"
+        busy={busy}
+        onConfirm={() => void confirmBulkDeleteNotices()}
+        onCancel={() => setBulkDeleteTarget(null)}
       />
 
       <ConfirmModal
