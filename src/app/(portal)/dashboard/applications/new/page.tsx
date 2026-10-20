@@ -1,18 +1,36 @@
 'use client';
-import {useState} from 'react';
+import {useState, useEffect} from 'react';
 import Link from 'next/link';
 import {useRouter} from 'next/navigation';
 import {ArrowLeft, Plus, User, GraduationCap, FileText, CheckCircle2} from 'lucide-react';
-import {api, PageHeader} from '@/components/Portal';
+import {api, cachedApi, PageHeader} from '@/components/Portal';
 import type {SubmissionStatus} from '@/lib/types';
+import type {Programme} from '@/lib/content';
+
+const defaultProgrammesList = [
+  'General Agriculture Trade Test Level III (TEVETA)',
+  'Heavy Machinery & Plant Equipment Operation',
+  'Commercial Agribusiness & Irrigation Technology',
+  'Automotive Mechanics & Heavy Duty Repair',
+  'Industrial Electrical & Solar Systems Technology',
+  'Construction & Bricklaying Technology',
+  'Metal Fabrication & Arc Welding',
+  'Carpentry & Joinery',
+  'Information & Communications Technology (ICT)',
+  'Community Health & First Aid Assistance',
+  'Sports Leadership & Physical Education Coaching',
+  'Tailoring, Fashion Design & Textile Technology'
+];
 
 export default function NewApplicationPage() {
   const router = useRouter();
+  const [configuredProgrammes, setConfiguredProgrammes] = useState<string[]>(defaultProgrammesList);
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newPhone, setNewPhone] = useState('');
   const [newNrc, setNewNrc] = useState('');
-  const [newProgramme, setNewProgramme] = useState('');
+  const [selectedProgrammeOption, setSelectedProgrammeOption] = useState('');
+  const [customProgrammeText, setCustomProgrammeText] = useState('');
   const [newFundingMethod, setNewFundingMethod] = useState<'cdf' | 'self_funded'>('cdf');
   const [newDistrict, setNewDistrict] = useState('');
   const [newStatus, setNewStatus] = useState<SubmissionStatus>('submitted');
@@ -21,9 +39,27 @@ export default function NewApplicationPage() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
+  useEffect(() => {
+    cachedApi<{items: Programme[]}>('/api/public/content?kind=programmes')
+      .then(res => {
+        if (res?.items && res.items.length > 0) {
+          const titles = res.items.map(p => p.title).filter(Boolean);
+          const combined = Array.from(new Set([...titles, ...defaultProgrammesList]));
+          setConfiguredProgrammes(combined);
+          if (!selectedProgrammeOption && combined.length > 0) {
+            setSelectedProgrammeOption(combined[0]);
+          }
+        }
+      })
+      .catch(() => {});
+  }, [selectedProgrammeOption]);
+
+  const finalProgrammeName = selectedProgrammeOption === 'other' ? customProgrammeText : selectedProgrammeOption;
+
   async function createApplication(e: React.FormEvent) {
     e.preventDefault();
-    if (!newName.trim() || !newProgramme.trim()) return;
+    const programmeToSubmit = finalProgrammeName.trim();
+    if (!newName.trim() || !programmeToSubmit) return;
     setBusy(true);
     setError('');
     setMessage('');
@@ -35,7 +71,7 @@ export default function NewApplicationPage() {
           email: newEmail,
           phone: newPhone,
           nrc: newNrc,
-          programme: newProgramme,
+          programme: programmeToSubmit,
           fundingMethod: newFundingMethod,
           district: newDistrict,
           status: newStatus,
@@ -105,9 +141,25 @@ export default function NewApplicationPage() {
             </div>
             <div className="form-grid">
               <div className="field full">
-                <label>Programme / Course Name *</label>
-                <input required placeholder="E.g. General Agriculture Trade Test Level III" value={newProgramme} onChange={e => setNewProgramme(e.target.value)} />
+                <label>Selected Training Programme *</label>
+                <select value={selectedProgrammeOption} onChange={e => setSelectedProgrammeOption(e.target.value)}>
+                  {configuredProgrammes.map(p => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                  <option value="other">Other / Custom Course Title...</option>
+                </select>
               </div>
+              {selectedProgrammeOption === 'other' && (
+                <div className="field full">
+                  <label>Enter Custom Programme Title *</label>
+                  <input
+                    required
+                    placeholder="Enter full course name..."
+                    value={customProgrammeText}
+                    onChange={e => setCustomProgrammeText(e.target.value)}
+                  />
+                </div>
+              )}
               <div className="field">
                 <label>Funding Pathway</label>
                 <select value={newFundingMethod} onChange={e => setNewFundingMethod(e.target.value as 'cdf' | 'self_funded')}>
@@ -141,7 +193,7 @@ export default function NewApplicationPage() {
             <Link href="/dashboard/applications" className="btn btn-outline">
               Cancel
             </Link>
-            <button className="btn btn-primary" type="submit" disabled={busy || !newName.trim() || !newProgramme.trim()}>
+            <button className="btn btn-primary" type="submit" disabled={busy || !newName.trim() || !finalProgrammeName.trim()}>
               <Plus size={16} /> {busy ? 'Registering Application…' : 'Register New Application'}
             </button>
           </div>

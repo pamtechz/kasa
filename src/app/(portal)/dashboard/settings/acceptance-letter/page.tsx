@@ -166,12 +166,21 @@ export default function AcceptanceLetterDesigner() {
               onClick={() => void previewPdf()}
               style={{display: 'inline-flex', alignItems: 'center', gap: 6}}
             >
-              <Eye size={16}/> {previewing ? 'Generating…' : 'Live PDF Preview ↗'}
+              <Eye size={16}/> {previewing ? 'Generating…' : 'Preview Acceptance Pack'}
             </button>
             <button
               type="button"
               className="btn btn-outline"
-              onClick={resetDefaults}
+              disabled={previewing}
+              onClick={() => void previewEnrollmentFormAlignment()}
+              style={{display: 'inline-flex', alignItems: 'center', gap: 6}}
+            >
+              <FileCheck size={16}/> {previewing ? 'Generating…' : 'Preview Enrollment Form'}
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={() => setConfirmingReset(true)}
               style={{display: 'inline-flex', alignItems: 'center', gap: 6}}
               title="Reset to official KASA template"
             >
