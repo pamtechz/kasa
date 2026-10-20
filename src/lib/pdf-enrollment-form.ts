@@ -22,6 +22,43 @@ function wrap(text: string, size: number, maxWidth: number, font: {widthOfTextAt
   return lines;
 }
 
+function drawFittedText(
+  page: any,
+  text: string | null | undefined,
+  pos: {x: number; y: number; fontSize: number},
+  maxWidth: number,
+  font: any,
+  color: any,
+  maxLines = 1
+) {
+  const clean = ascii(text).trim();
+  if (!clean) return;
+
+  let size = pos.fontSize;
+  let textWidth = font.widthOfTextAtSize(clean, size);
+
+  if (textWidth <= maxWidth) {
+    page.drawText(clean, { x: pos.x, y: pos.y, size, font, color });
+    return;
+  }
+
+  while (size > 6.5) {
+    size -= 0.5;
+    if (font.widthOfTextAtSize(clean, size) <= maxWidth) {
+      page.drawText(clean, { x: pos.x, y: pos.y, size, font, color });
+      return;
+    }
+  }
+
+  size = Math.max(size, 6.5);
+  const lines = wrap(clean, size, maxWidth, font);
+  let currentY = pos.y;
+  for (let i = 0; i < Math.min(lines.length, maxLines); i++) {
+    page.drawText(lines[i], { x: pos.x, y: currentY, size, font, color });
+    currentY -= (size + 1.5);
+  }
+}
+
 export type EnrollmentFormData = {
   reference: string;
   applicationDate: string;
@@ -130,78 +167,45 @@ export async function generateEnrollmentFormPdf(data: EnrollmentFormData, custom
 
       if (p1) {
         // Application Date & Intake
-        const posAppDate = getPos('applicationDate');
-        const posIntake = getPos('intakeAndYear');
-        p1.drawText(ascii(data.applicationDate || new Date().toLocaleDateString('en-GB')), { x: posAppDate.x, y: posAppDate.y, size: posAppDate.fontSize, font: bold, color: blueInk });
-        p1.drawText(ascii(data.intakeAndYear || '2027 Intake'), { x: posIntake.x, y: posIntake.y, size: posIntake.fontSize, font: bold, color: blueInk });
+        drawFittedText(p1, data.applicationDate || new Date().toLocaleDateString('en-GB'), getPos('applicationDate'), 120, bold, blueInk);
+        drawFittedText(p1, data.intakeAndYear || '2027 Intake', getPos('intakeAndYear'), 120, bold, blueInk);
 
         // Programme title & applicant details
-        const posProg = getPos('programmeTitle');
-        const posName = getPos('fullNames');
-        const posDob = getPos('dob');
-        const posGender = getPos('gender');
-        const posNat = getPos('nationality');
-        const posNrc = getPos('nrcNumber');
-        const posMob = getPos('mobileNumber');
-        const posWa = getPos('whatsappNumber');
-        const posMail = getPos('email');
-        const posAddr = getPos('residentialAddress');
-        const posDist = getPos('district');
-        const posProv = getPos('province');
+        drawFittedText(p1, data.programmeTitle, getPos('programmeTitle'), 360, bold, blueInk, 2);
+        drawFittedText(p1, data.fullNames, getPos('fullNames'), 430, bold, blueInk);
+        drawFittedText(p1, data.dob || '—', getPos('dob'), 110, regular, blueInk);
+        drawFittedText(p1, data.gender || '—', getPos('gender'), 90, regular, blueInk);
+        drawFittedText(p1, data.nationality || 'Zambian', getPos('nationality'), 180, regular, blueInk);
+        drawFittedText(p1, data.nrcNumber || 'On file', getPos('nrcNumber'), 160, regular, blueInk);
+        drawFittedText(p1, data.mobileNumber || '—', getPos('mobileNumber'), 170, regular, blueInk);
+        drawFittedText(p1, data.whatsappNumber || data.mobileNumber || '—', getPos('whatsappNumber'), 170, regular, blueInk);
+        drawFittedText(p1, data.email || '—', getPos('email'), 340, regular, blueInk);
+        drawFittedText(p1, data.residentialAddress || '—', getPos('residentialAddress'), 330, regular, blueInk);
+        drawFittedText(p1, data.district || '—', getPos('district'), 180, regular, blueInk);
+        drawFittedText(p1, data.province || '—', getPos('province'), 220, regular, blueInk);
 
-        p1.drawText(ascii(data.programmeTitle), { x: posProg.x, y: posProg.y, size: posProg.fontSize, font: bold, color: blueInk });
-        p1.drawText(ascii(data.fullNames), { x: posName.x, y: posName.y, size: posName.fontSize, font: bold, color: blueInk });
-        p1.drawText(ascii(data.dob || '—'), { x: posDob.x, y: posDob.y, size: posDob.fontSize, font: regular, color: blueInk });
-        p1.drawText(ascii(data.gender || '—'), { x: posGender.x, y: posGender.y, size: posGender.fontSize, font: regular, color: blueInk });
-        p1.drawText(ascii(data.nationality || 'Zambian'), { x: posNat.x, y: posNat.y, size: posNat.fontSize, font: regular, color: blueInk });
-        p1.drawText(ascii(data.nrcNumber || 'On file'), { x: posNrc.x, y: posNrc.y, size: posNrc.fontSize, font: regular, color: blueInk });
-        p1.drawText(ascii(data.mobileNumber || '—'), { x: posMob.x, y: posMob.y, size: posMob.fontSize, font: regular, color: blueInk });
-        p1.drawText(ascii(data.whatsappNumber || data.mobileNumber || '—'), { x: posWa.x, y: posWa.y, size: posWa.fontSize, font: regular, color: blueInk });
-        p1.drawText(ascii(data.email || '—'), { x: posMail.x, y: posMail.y, size: posMail.fontSize, font: regular, color: blueInk });
-        p1.drawText(ascii(data.residentialAddress || '—'), { x: posAddr.x, y: posAddr.y, size: posAddr.fontSize, font: regular, color: blueInk });
-        p1.drawText(ascii(data.district || '—'), { x: posDist.x, y: posDist.y, size: posDist.fontSize, font: regular, color: blueInk });
-        p1.drawText(ascii(data.province || '—'), { x: posProv.x, y: posProv.y, size: posProv.fontSize, font: regular, color: blueInk });
-
-        const posGrade = getPos('highestGrade');
-        const posSchool = getPos('schoolInstitution');
-        const posYear = getPos('qualificationYear');
-        p1.drawText(ascii(data.highestGrade || 'Grade 12'), { x: posGrade.x, y: posGrade.y, size: posGrade.fontSize, font: regular, color: blueInk });
-        p1.drawText(ascii(data.schoolInstitution || 'Secondary School'), { x: posSchool.x, y: posSchool.y, size: posSchool.fontSize, font: regular, color: blueInk });
-        p1.drawText(ascii(data.qualificationYear || '2025'), { x: posYear.x, y: posYear.y, size: posYear.fontSize, font: regular, color: blueInk });
+        drawFittedText(p1, data.highestGrade || 'Grade 12', getPos('highestGrade'), 260, regular, blueInk);
+        drawFittedText(p1, data.schoolInstitution || 'Secondary School', getPos('schoolInstitution'), 250, regular, blueInk);
+        drawFittedText(p1, data.qualificationYear || '2025', getPos('qualificationYear'), 80, regular, blueInk);
       }
 
       if (p2) {
-        const posOcc = getPos('occupation');
-        const posGName = getPos('guardianName');
-        const posGRel = getPos('guardianRelationship');
-        const posGMob = getPos('guardianMobile');
-        const posEName = getPos('emergencyName');
-        const posEMob = getPos('emergencyMobile');
-        const posSponsor = getPos('sponsorName');
-
-        p2.drawText(ascii(data.occupation || 'N/A'), { x: posOcc.x, y: posOcc.y, size: posOcc.fontSize, font: regular, color: blueInk });
-        p2.drawText(ascii(data.guardianName || 'Mwape Senior'), { x: posGName.x, y: posGName.y, size: posGName.fontSize, font: bold, color: blueInk });
-        p2.drawText(ascii(data.guardianRelationship || 'Parent'), { x: posGRel.x, y: posGRel.y, size: posGRel.fontSize, font: regular, color: blueInk });
-        p2.drawText(ascii(data.guardianMobile || '—'), { x: posGMob.x, y: posGMob.y, size: posGMob.fontSize, font: regular, color: blueInk });
-        p2.drawText(ascii(data.emergencyName || data.guardianName || 'Emergency Contact'), { x: posEName.x, y: posEName.y, size: posEName.fontSize, font: regular, color: blueInk });
-        p2.drawText(ascii(data.emergencyMobile || data.guardianMobile || '—'), { x: posEMob.x, y: posEMob.y, size: posEMob.fontSize, font: regular, color: blueInk });
-        p2.drawText(ascii(data.sponsorName || (data.feesPaidBy?.toLowerCase().includes('cdf') ? 'Constituency Development Fund (CDF)' : data.fullNames)), { x: posSponsor.x, y: posSponsor.y, size: posSponsor.fontSize, font: regular, color: blueInk });
+        drawFittedText(p2, data.occupation || 'N/A', getPos('occupation'), 380, regular, blueInk);
+        drawFittedText(p2, data.guardianName || 'Mwape Senior', getPos('guardianName'), 430, bold, blueInk);
+        drawFittedText(p2, data.guardianRelationship || 'Parent', getPos('guardianRelationship'), 180, regular, blueInk);
+        drawFittedText(p2, data.guardianMobile || '—', getPos('guardianMobile'), 130, regular, blueInk);
+        drawFittedText(p2, data.emergencyName || data.guardianName || 'Emergency Contact', getPos('emergencyName'), 430, regular, blueInk);
+        drawFittedText(p2, data.emergencyMobile || data.guardianMobile || '—', getPos('emergencyMobile'), 180, regular, blueInk);
+        drawFittedText(p2, data.sponsorName || (data.feesPaidBy?.toLowerCase().includes('cdf') ? 'Constituency Development Fund (CDF)' : data.fullNames), getPos('sponsorName'), 370, regular, blueInk);
       }
 
       if (p3) {
-        const posDecName = getPos('declarationName');
-        const posDecDate = getPos('declarationDate');
-        const posOffRef = getPos('officeReference');
-        const posOffNum = getPos('officeEnrollmentNum');
-        const posOffProg = getPos('officeConfirmedProg');
-        const posOffDate = getPos('officeIntakeDate');
-
-        p3.drawText(ascii(data.fullNames), { x: posDecName.x, y: posDecName.y, size: posDecName.fontSize, font: bold, color: blueInk });
-        p3.drawText(ascii(data.applicationDate || new Date().toLocaleDateString('en-GB')), { x: posDecDate.x, y: posDecDate.y, size: posDecDate.fontSize, font: bold, color: blueInk });
-        p3.drawText(ascii(data.reference), { x: posOffRef.x, y: posOffRef.y, size: posOffRef.fontSize, font: bold, color: blueInk });
-        p3.drawText(ascii(data.reference), { x: posOffNum.x, y: posOffNum.y, size: posOffNum.fontSize, font: bold, color: blueInk });
-        p3.drawText(ascii(data.programmeTitle), { x: posOffProg.x, y: posOffProg.y, size: posOffProg.fontSize, font: bold, color: blueInk });
-        p3.drawText(ascii(data.intakeAndYear || 'January 2027'), { x: posOffDate.x, y: posOffDate.y, size: posOffDate.fontSize, font: regular, color: blueInk });
+        drawFittedText(p3, data.fullNames, getPos('declarationName'), 220, bold, blueInk);
+        drawFittedText(p3, data.applicationDate || new Date().toLocaleDateString('en-GB'), getPos('declarationDate'), 110, bold, blueInk);
+        drawFittedText(p3, data.reference, getPos('officeReference'), 120, bold, blueInk);
+        drawFittedText(p3, data.reference, getPos('officeEnrollmentNum'), 180, bold, blueInk);
+        drawFittedText(p3, data.programmeTitle, getPos('officeConfirmedProg'), 160, bold, blueInk, 2);
+        drawFittedText(p3, data.intakeAndYear || 'January 2027', getPos('officeIntakeDate'), 180, regular, blueInk);
       }
 
       return await pdf.save();

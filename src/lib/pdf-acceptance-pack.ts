@@ -229,10 +229,15 @@ export async function generateAcceptancePackPdf(
   }
   y -= 6;
 
-  const drawField = (label: string, value: string, curX: number, curY: number) => {
-    page1.drawText(`${label}: `, {x: curX, y: curY, size: 8.8, font: bold, color: darkInk});
-    const labelW = bold.widthOfTextAtSize(`${label}: `, 8.8);
-    page1.drawText(ascii(value), {x: curX + labelW, y: curY, size: 8.8, font: regular, color: darkInk});
+  const drawField = (label: string, value: string, curX: number, curY: number, maxColumnW = 230) => {
+    page1.drawText(`${label}: `, {x: curX, y: curY, size: 8.5, font: bold, color: darkInk});
+    const labelW = bold.widthOfTextAtSize(`${label}: `, 8.5);
+    let size = 8.5;
+    const cleanVal = ascii(value).trim();
+    while (size > 6.5 && regular.widthOfTextAtSize(cleanVal, size) > maxColumnW - labelW) {
+      size -= 0.5;
+    }
+    page1.drawText(cleanVal, {x: curX + labelW, y: curY, size, font: regular, color: darkInk});
   };
 
   // Details box
