@@ -2,28 +2,28 @@ import {z} from 'zod';
 import type {Field,FormSchema} from './types';
 import {HttpError} from './errors';
 const fieldValidator=z.object({
- id:z.string().min(1).max(90).regex(/^[a-zA-Z0-9_-]+$/),
- label:z.string().trim().min(1).max(250),
+ id:z.string().min(1).max(120).regex(/^[a-zA-Z0-9_-]+$/),
+ label:z.string().trim().min(1).max(50000),
  type:z.enum(['text','textarea','email','tel','number','date','select','radio','checkbox','file','image']),
  required:z.boolean(),
- description:z.string().max(1000).optional(),
- placeholder:z.string().max(300).optional(),
- options:z.array(z.string().trim().max(200)).max(100).optional(),
+ description:z.string().max(50000).optional(),
+ placeholder:z.string().max(50000).optional(),
+ options:z.array(z.string().trim().max(50000)).max(500).optional(),
  optionsSource:z.enum(['programmes','intakes']).optional(),
- condition:z.object({fieldId:z.string(),equals:z.string().max(300)}).optional()
+ condition:z.object({fieldId:z.string(),equals:z.string().max(50000)}).optional()
 }).passthrough();
 export const formValidator=z.object({
- slug:z.string().min(1).max(120).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
- title:z.string().trim().min(1).max(250),
- subtitle:z.string().trim().max(1000),
+ slug:z.string().min(1).max(200).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+ title:z.string().trim().min(1).max(50000),
+ subtitle:z.string().trim().max(50000),
  kind:z.enum(['agent','student','custom']),
  published:z.boolean(),
  sections:z.array(z.object({
-  id:z.string().regex(/^[a-zA-Z0-9_-]+$/).max(90),
-  title:z.string().trim().min(1).max(250),
-  description:z.string().max(1000).optional(),
-  fields:z.array(fieldValidator).max(50)
- }).passthrough()).min(1).max(25)
+  id:z.string().regex(/^[a-zA-Z0-9_-]+$/).max(120),
+  title:z.string().trim().min(1).max(50000),
+  description:z.string().max(50000).optional(),
+  fields:z.array(fieldValidator).max(100)
+ }).passthrough()).min(1).max(50)
 }).passthrough().superRefine((form,ctx)=>{
  const fields=form.sections.flatMap(s=>s.fields);
  const ids=fields.map(f=>f.id);
@@ -151,9 +151,9 @@ export function cleanAnswers(schema:FormSchema,answers:unknown){
    if(!Array.isArray(v)||v.length>60||v.some(t=>typeof t!=='string'||!f.options?.includes(t))||new Set(v).size!==v.length)throw new HttpError(400,`Invalid selection: ${f.label}.`);
    clean[f.id]=v;continue;
   }
-  if(typeof v!=='string'||v.length>2000)throw new HttpError(400,`Invalid answer: ${f.label}.`);
+  if(typeof v!=='string'||v.length>50000)throw new HttpError(400,`Invalid answer: ${f.label}.`);
   const s=v.trim();
-  if(f.type!=='textarea'&&s.length>500)throw new HttpError(400,`Answer is too long: ${f.label}.`);
+  if(f.type!=='textarea'&&s.length>5000)throw new HttpError(400,`Answer is too long: ${f.label}.`);
   if(f.type==='email'&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s))throw new HttpError(400,`Invalid email: ${f.label}.`);
   if(f.type==='tel'&&!/^\+?[0-9() \-]{8,20}$/.test(s))throw new HttpError(400,`Invalid phone: ${f.label}.`);
   if(f.type==='number'&&(!Number.isFinite(Number(s))||s===''))throw new HttpError(400,`Invalid number: ${f.label}.`);
