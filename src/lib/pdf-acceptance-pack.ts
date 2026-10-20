@@ -1,6 +1,7 @@
 import {PDFDocument, StandardFonts, rgb} from 'pdf-lib';
 import {readFile} from 'node:fs/promises';
 import {join} from 'node:path';
+import QRCode from 'qrcode';
 import {
   type AcceptanceLetterConfig,
   defaultAcceptanceLetterConfig
@@ -102,6 +103,19 @@ export async function generateAcceptancePackPdf(
       logoImage = await pdf.embedPng(logoBytes);
     } catch {}
   }
+
+  let qrImage: any = null;
+  try {
+    const verifyUrl = `https://kasaschool.vercel.app/verify/${data.reference}`;
+    const qrDataUrl = await QRCode.toDataURL(verifyUrl, {
+      margin: 1,
+      width: 140,
+      color: { dark: '#103f2c', light: '#ffffff' }
+    });
+    const base64Data = qrDataUrl.replace(/^data:image\/png;base64,/, '');
+    const qrBytes = Buffer.from(base64Data, 'base64');
+    qrImage = await pdf.embedPng(qrBytes);
+  } catch {}
 
   const green = hexToRgb(cfg.institution.primaryColorHex, rgb(0.055, 0.361, 0.212));
   const gold = hexToRgb(cfg.institution.goldColorHex, rgb(0.773, 0.608, 0.153));
@@ -309,8 +323,11 @@ export async function generateAcceptancePackPdf(
   y -= 26;
 
   page1.drawLine({start: {x: 40, y}, end: {x: 230, y}, thickness: 0.8, color: darkInk});
-  page1.drawRectangle({x: 380, y: y - 10, width: 140, height: 40, color: rgb(0.98, 0.98, 0.98), borderColor: borderCol, borderWidth: 1});
-  page1.drawText(ascii(cfg.letter.officialStampText), {x: 412, y: y + 8, size: 7.8, font: bold, color: mutedText});
+  page1.drawRectangle({x: 380, y: y - 10, width: 140, height: 42, color: rgb(0.98, 0.98, 0.98), borderColor: borderCol, borderWidth: 1});
+  page1.drawText(ascii(cfg.letter.officialStampText), {x: 388, y: y + 16, size: 7.5, font: bold, color: mutedText});
+  if (qrImage) {
+    page1.drawImage(qrImage, { x: 472, y: y - 8, width: 38, height: 38 });
+  }
 
   page1.drawText(ascii(data.signatory || cfg.letter.signatory), {x: 40, y: y - 12, size: 8.8, font: bold, color: darkInk});
   page1.drawText(ascii(data.signatoryTitle || cfg.letter.signatoryTitle), {x: 40, y: y - 22, size: 8, font: regular, color: mutedText});
@@ -613,11 +630,14 @@ export async function generateAcceptancePackPdf(
   y -= 18;
 
   // FOR OFFICE USE ONLY
-  page5.drawRectangle({x: 38, y: y - 30, width: 519, height: 36, color: rgb(0.95, 0.96, 0.95), borderColor: borderCol, borderWidth: 1});
-  page5.drawText('FOR OFFICE USE ONLY', {x: 44, y: y - 8, size: 8, font: bold, color: rgb(0.7, 0.2, 0.2)});
-  page5.drawText('Received by: _________________________________    Date: ______________    Status: [X] ADMITTED', {
-    x: 44, y: y - 22, size: 8, font: regular, color: darkInk
+  page5.drawRectangle({x: 38, y: y - 36, width: 519, height: 42, color: rgb(0.95, 0.96, 0.95), borderColor: borderCol, borderWidth: 1});
+  page5.drawText('FOR OFFICE USE ONLY & DOCUMENT VERIFICATION', {x: 44, y: y - 8, size: 8, font: bold, color: rgb(0.7, 0.2, 0.2)});
+  page5.drawText('Received by: ________________________  Date: __________  Status: [X] ADMITTED', {
+    x: 44, y: y - 24, size: 8, font: regular, color: darkInk
   });
+  if (qrImage) {
+    page5.drawImage(qrImage, { x: 508, y: y - 34, width: 38, height: 38 });
+  }
 
   drawFooter(page5, 5);
 

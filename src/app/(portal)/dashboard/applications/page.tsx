@@ -2,7 +2,7 @@
 import {useEffect,useMemo,useState} from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import {ArrowLeft,ArrowRight,Download,ExternalLink,Filter,Plus,Search,Trash2,X,Pencil,CheckSquare,Square,FileDown} from 'lucide-react';
+import {ArrowLeft,ArrowRight,Download,ExternalLink,Filter,Plus,Search,Trash2,X,Pencil,CheckSquare,Square,FileDown,Mail} from 'lucide-react';
 import {api, cachedApi, PageHeader, StatusBadge} from '@/components/Portal';
 import {ConfirmModal} from '@/components/ConfirmModal';
 import type {ApplicantRecord,SubmissionStatus} from '@/lib/types';
@@ -204,6 +204,21 @@ export default function Applications(){
   }
  }
 
+ async function handleBatchEmail() {
+  setBusy(true); setError(''); setMessage('');
+  try {
+   const res = await api<{ok: boolean; message: string; sentCount: number}>('/api/admin/submissions/batch-email', {
+    method: 'POST',
+    body: JSON.stringify({ ids: Array.from(selectedIds) })
+   });
+   setMessage(res.message);
+  } catch (err) {
+   setError(err instanceof Error ? err.message : 'Batch notification dispatch failed.');
+  } finally {
+   setBusy(false);
+  }
+ }
+
  async function update(){if(!selected||!next)return;setError('');setMessage('');setBusy(true);try{
   await api(`/api/admin/submissions/${selected.id}`,{method:'PATCH',body:JSON.stringify({status:next,cdfReference:cdfRef,paymentReference:payRef,enrollmentPaymentReference:paidRef,enrollmentPaymentAmount:Number(paidAmount),enrollmentConfirmed,note,referralVerified})});
   setMessage('Application updated.');setSelected(null);setNext('');setCdfRef('');setPayRef('');setPaidRef('');setPaidAmount('');setEnrollmentConfirmed(false);setNote('');setReferralVerified(false);await refresh();
@@ -227,6 +242,7 @@ export default function Applications(){
    <label className="search-box"><Search size={18}/><input placeholder="Search applications or reference…" value={q} onChange={e=>setQ(e.target.value)}/></label>
    <label className="filter-select"><Filter size={17}/><select value={status} onChange={e=>setStatus(e.target.value)}><option value="all">All statuses</option>{Object.keys(nextStages).concat('commission_paid','rejected').map(x=><option key={x} value={x}>{x.replaceAll('_',' ')}</option>)}</select></label>
    <div style={{display:'flex',gap:8,marginLeft:'auto',flexWrap:'wrap'}}>
+    {selectedIds.size>0&&<button className="btn btn-outline" disabled={busy} onClick={()=>void handleBatchEmail()} style={{fontSize:12,padding:'8px 12px',display:'inline-flex',alignItems:'center',gap:6}}><Mail size={14}/> Dispatch Acceptance Packs ({selectedIds.size})</button>}
     {selectedIds.size>0&&<button className="btn btn-outline" disabled={downloadingBatch} onClick={()=>void handleBatchDownload()} style={{fontSize:12,padding:'8px 12px',display:'inline-flex',alignItems:'center',gap:6}}><FileDown size={14}/> Download Selected ({selectedIds.size})</button>}
     <button className="btn btn-outline" disabled={downloadingBatch||filtered.length===0} onClick={()=>void handleBatchDownload([])} style={{fontSize:12,padding:'8px 12px',display:'inline-flex',alignItems:'center',gap:6}}><Download size={14}/> Download All (CSV)</button>
     {selectedIds.size>0&&['super_admin','admin'].includes(role)&&<button className="btn btn-outline" disabled={busy} onClick={()=>setBulkDeleteTarget('selected')} style={{fontSize:12,padding:'8px 12px',color:'#ef4444',borderColor:'rgba(239,68,68,0.4)',display:'inline-flex',alignItems:'center',gap:6}}><Trash2 size={14}/> Delete Selected ({selectedIds.size})</button>}

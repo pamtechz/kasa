@@ -17,6 +17,11 @@ const base=z.object({
  published:z.boolean()
 });
 const money=z.number().min(0).max(500000).nullable();
+export const customFeeItemSchema = z.object({
+  label: z.string().trim().min(1).max(120),
+  amount: z.number().min(0).max(500000)
+});
+
 export const programmeSchema=base.extend({
  category:z.enum(['main','agri-sport','short-course']),
  duration:flexString,
@@ -25,14 +30,28 @@ export const programmeSchema=base.extend({
  certification:flexString,
  modules:flexModules,
  fee:z.object({
-  tuition:money,practical:money,administration:money,foodOptional:money,accommodationOptional:money,packageTotal:money,
-  currency:z.literal('ZMW'),note:flexString
+  tuition:money,
+  admission:money.optional(),
+  studentId:money.optional(),
+  practical:money,
+  facilities:money.optional(),
+  medical:money.optional(),
+  enrolment:money.optional(),
+  exam:money.optional(),
+  administration:money,
+  totalTuitionFees:money.optional(),
+  foodOptional:money,
+  accommodationOptional:money,
+  packageTotal:money,
+  customFeeItems:z.array(customFeeItemSchema).optional().default([]),
+  currency:z.literal('ZMW'),
+  note:flexString
  }).passthrough(),
  customFields:z.record(z.unknown()).optional(),
- seedSource:z.string().optional(),
- updatedAt:z.string().optional(),
- updatedBy:z.string().optional(),
- createdAt:z.string().optional()
+ seedSource:flexString.optional(),
+ updatedAt:flexString.optional(),
+ updatedBy:flexString.optional(),
+ createdAt:flexString.optional()
 }).passthrough();
 export const announcementSchema=base.extend({
  body:flexString,
@@ -44,10 +63,10 @@ export const announcementSchema=base.extend({
  imageUrl:z.string().url().max(600).optional(),
  tags:z.array(z.string().trim().max(50)).max(10).optional(),
  customFields:z.record(z.unknown()).optional(),
- seedSource:z.string().optional(),
- updatedAt:z.string().optional(),
- updatedBy:z.string().optional(),
- createdAt:z.string().optional()
+ seedSource:flexString.optional(),
+ updatedAt:flexString.optional(),
+ updatedBy:flexString.optional(),
+ createdAt:flexString.optional()
 }).passthrough();
 export type Programme=z.infer<typeof programmeSchema>;
 export type Announcement=z.infer<typeof announcementSchema>;

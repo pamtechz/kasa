@@ -54,7 +54,7 @@ self.addEventListener('fetch', (event) => {
 
         return networkResponse;
       }).catch(() => {
-        return cachedResponse;
+        return cachedResponse || new Response('Offline - KASA Network', { status: 503, headers: { 'Content-Type': 'text/plain' } });
       });
     })
   );

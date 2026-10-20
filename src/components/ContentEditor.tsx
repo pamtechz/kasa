@@ -29,6 +29,7 @@ const emptyProgramme: Programme = {
     foodOptional: null,
     accommodationOptional: null,
     packageTotal: null,
+    customFeeItems: [],
     currency: 'ZMW',
     note: ''
   }
@@ -809,50 +810,91 @@ export function ContentEditor({kind}: {kind: Type}) {
                     </div>
                   )}
 
-                  {/* TAB 4: FEES STRUCTURE */}
-                  {modalTab === 'fees' && (
+                  {/* TAB 4: FEES STRUCTURE & AUTO-CALCULATED TOTALS */}
+                  {modalTab === 'fees' && (() => {
+                    const feeObj = prog.fee || {};
+                    const tuitionNum = Number(feeObj.tuition) || 0;
+                    const admissionNum = Number(feeObj.admission) || 0;
+                    const studentIdNum = Number(feeObj.studentId) || 0;
+                    const practicalNum = Number(feeObj.practical) || 0;
+                    const facilitiesNum = Number(feeObj.facilities) || 0;
+                    const medicalNum = Number(feeObj.medical) || 0;
+                    const enrolmentNum = Number(feeObj.enrolment) || 0;
+                    const examNum = Number(feeObj.exam) || 0;
+                    const adminNum = Number(feeObj.administration) || 0;
+
+                    const autoTotalTuition = tuitionNum + admissionNum + studentIdNum + practicalNum + facilitiesNum + medicalNum + enrolmentNum + examNum + adminNum;
+                    const accomNum = Number(feeObj.accommodationOptional) || 0;
+                    const foodNum = Number(feeObj.foodOptional) || 0;
+                    const autoPackageTotal = autoTotalTuition + accomNum + foodNum;
+
+                    return (
                     <div className="modal-page-card">
                       <h3>
-                        <DollarSign size={18} /> Proposed Course Fee Components (ZMW)
+                        <DollarSign size={18} /> Official Course Fee Schedule & Auto-Calculated Totals
                       </h3>
                       <p>
-                        Break down tuition, practical, accommodation and meal components. Leave blank if not confirmed or inclusive.
+                        Configure all tuition components, provisions, and optional boarding fees. Totals are calculated automatically by the system.
                       </p>
 
                       <div className="form-grid">
-                        {(
-                          [
-                            'tuition',
-                            'practical',
-                            'administration',
-                            'foodOptional',
-                            'accommodationOptional',
-                            'packageTotal'
-                          ] as const
-                        ).map(k => (
-                          <div className="field" key={k}>
-                            <label>
-                              {(
-                                {
-                                  tuition: 'Tuition Fee (ZMW)',
-                                  practical: 'Practical / Lab Fee (ZMW)',
-                                  administration: 'Administration / Exam Fee (ZMW)',
-                                  foodOptional: 'Food & Meals (Optional, ZMW)',
-                                  accommodationOptional: 'Accommodation / Hostel (Optional, ZMW)',
-                                  packageTotal: 'Full Proposed Package (ZMW)'
-                                }
-                              )[k]}
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              placeholder="0.00"
-                              value={prog.fee[k] ?? ''}
-                              onChange={e => feeField(k, e.target.value)}
-                            />
-                          </div>
-                        ))}
+                        <div className="field">
+                          <label>Tuition Fees (ZMW)</label>
+                          <input type="number" min="0" step="0.01" placeholder="0.00" value={feeObj.tuition ?? ''} onChange={e => feeField('tuition', e.target.value)} />
+                        </div>
+                        <div className="field">
+                          <label>Admission and Registration (ZMW)</label>
+                          <input type="number" min="0" step="0.01" placeholder="0.00" value={feeObj.admission ?? ''} onChange={e => feeField('admission', e.target.value)} />
+                        </div>
+                        <div className="field">
+                          <label>Student ID Card (ZMW)</label>
+                          <input type="number" min="0" step="0.01" placeholder="0.00" value={feeObj.studentId ?? ''} onChange={e => feeField('studentId', e.target.value)} />
+                        </div>
+                        <div className="field">
+                          <label>Practical Inputs / Supplies (ZMW)</label>
+                          <input type="number" min="0" step="0.01" placeholder="0.00" value={feeObj.practical ?? ''} onChange={e => feeField('practical', e.target.value)} />
+                        </div>
+                        <div className="field">
+                          <label>Facilities & Maintenance (ZMW)</label>
+                          <input type="number" min="0" step="0.01" placeholder="0.00" value={feeObj.facilities ?? ''} onChange={e => feeField('facilities', e.target.value)} />
+                        </div>
+                        <div className="field">
+                          <label>Medical Provision (ZMW)</label>
+                          <input type="number" min="0" step="0.01" placeholder="0.00" value={feeObj.medical ?? ''} onChange={e => feeField('medical', e.target.value)} />
+                        </div>
+                        <div className="field">
+                          <label>Enrolment Provision (ZMW)</label>
+                          <input type="number" min="0" step="0.01" placeholder="0.00" value={feeObj.enrolment ?? ''} onChange={e => feeField('enrolment', e.target.value)} />
+                        </div>
+                        <div className="field">
+                          <label>Exam or Assessment Provision (ZMW)</label>
+                          <input type="number" min="0" step="0.01" placeholder="0.00" value={feeObj.exam ?? ''} onChange={e => feeField('exam', e.target.value)} />
+                        </div>
+                      </div>
+
+                      {/* AUTO-CALCULATED TOTAL TUITION FEES BANNER */}
+                      <div style={{background: 'rgba(16, 63, 44, 0.08)', border: '1.5px solid var(--green)', padding: '14px 18px', borderRadius: 10, marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
+                        <span style={{fontWeight: 700, fontSize: 13, color: 'var(--green)', letterSpacing: '0.05em', textTransform: 'uppercase'}}>TOTAL TUITION FEES</span>
+                        <strong style={{fontSize: 18, color: 'var(--green)'}}>ZMW {autoTotalTuition.toLocaleString('en-US', {minimumFractionDigits: 2})}</strong>
+                      </div>
+
+                      {/* OPTIONAL BOARDING & MEALS */}
+                      <h4 style={{marginTop: 20, marginBottom: 8, fontSize: 14}}>Optional Boarding & Accommodation Components</h4>
+                      <div className="form-grid">
+                        <div className="field">
+                          <label>Accommodation / Hostel (Optional, ZMW)</label>
+                          <input type="number" min="0" step="0.01" placeholder="0.00" value={feeObj.accommodationOptional ?? ''} onChange={e => feeField('accommodationOptional', e.target.value)} />
+                        </div>
+                        <div className="field">
+                          <label>Food & Meals (Optional, ZMW)</label>
+                          <input type="number" min="0" step="0.01" placeholder="0.00" value={feeObj.foodOptional ?? ''} onChange={e => feeField('foodOptional', e.target.value)} />
+                        </div>
+                      </div>
+
+                      {/* AUTO-CALCULATED TOTAL PROGRAMME PACKAGE BANNER */}
+                      <div style={{background: 'var(--green, #103f2c)', color: '#ffffff', padding: '16px 20px', borderRadius: 10, marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
+                        <span style={{fontWeight: 700, fontSize: 14, letterSpacing: '0.05em', textTransform: 'uppercase'}}>TOTAL PROGRAMME PACKAGE</span>
+                        <strong style={{fontSize: 20, color: 'var(--gold, #e0b561)'}}>ZMW {autoPackageTotal.toLocaleString('en-US', {minimumFractionDigits: 2})}</strong>
                       </div>
 
                       <div className="field" style={{marginTop: 16}}>
@@ -860,12 +902,13 @@ export function ContentEditor({kind}: {kind: Type}) {
                         <textarea
                           rows={3}
                           placeholder="e.g. Instalment payment terms: 40% registration deposit, 30% midterm, 30% before examinations. Hostel space is optional and subject to availability."
-                          value={prog.fee.note}
+                          value={feeObj.note || ''}
                           onChange={e => feeField('note', e.target.value)}
                         />
                       </div>
                     </div>
-                  )}
+                    );
+                  })()}
 
                   {/* TAB 5: CUSTOM FIELDS & METADATA */}
                   {modalTab === 'custom' && (

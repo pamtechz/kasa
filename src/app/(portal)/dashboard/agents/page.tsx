@@ -1,6 +1,6 @@
 'use client';
 import {useEffect, useState} from 'react';
-import {CheckCircle2, Copy, Plus, Share2, Users, X, Edit, Save, ArrowLeft, Trash2} from 'lucide-react';
+import {CheckCircle2, Copy, Plus, Share2, Users, X, Edit, Save, ArrowLeft, Trash2, Award, MapPin, TrendingUp} from 'lucide-react';
 import {api, cachedApi, PageHeader} from '@/components/Portal';
 import {ConfirmModal} from '@/components/ConfirmModal';
 import type {ApplicantRecord} from '@/lib/types';
@@ -195,6 +195,27 @@ export default function Agents() {
         title="District agents"
         subtitle="Assign approved applicants to districts and issue verified referral codes."
       />
+
+      <div className="metric-grid" style={{marginBottom: 20}}>
+        <div className="metric-card">
+          <div className="metric-icon blue"><Users /></div>
+          <span>Active Agents</span>
+          <strong>{agents.filter(a => a.active).length}</strong>
+          <small>Across 116 districts</small>
+        </div>
+        <div className="metric-card">
+          <div className="metric-icon green"><MapPin /></div>
+          <span>Covered Districts</span>
+          <strong>{new Set(agents.map(a => a.district).filter(Boolean)).size}</strong>
+          <small>Active district hubs</small>
+        </div>
+        <div className="metric-card">
+          <div className="metric-icon purple"><Award /></div>
+          <span>Top District</span>
+          <strong>{agents[0]?.district || 'Lusaka'}</strong>
+          <small>Highest recruitment</small>
+        </div>
+      </div>
 
       <div className="panel pad-panel">
         <h2>Appoint an agent</h2>
