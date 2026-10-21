@@ -18,10 +18,12 @@ export function StudentPortal({children}: {children: React.ReactNode}) {
   const [sessionError, setSessionError] = useState('');
   const [collapsed, setCollapsed] = useState(false);
   const [mobile, setMobile] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const path = usePathname();
 
   useEffect(() => {
+    setMounted(true);
     try {
       setCollapsed(window.localStorage.getItem('kasa_student_sidebar_collapsed') === 'true');
     } catch {}
@@ -158,7 +160,7 @@ export function StudentPortal({children}: {children: React.ReactNode}) {
         </div>
       </aside>
 
-      {mobile && <button className="sidebar-overlay" onClick={() => setMobile(false)} />}
+      {mounted && mobile && <button className="sidebar-overlay" onClick={() => setMobile(false)} />}
 
       <div className="portal-body">
         <header className="portal-top">
