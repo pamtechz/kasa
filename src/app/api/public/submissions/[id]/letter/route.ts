@@ -1,3 +1,4 @@
+import {authorizeSubmissionDocument} from '@/lib/submission-access';
 import {db, storage} from '@/lib/firebase-admin';
 import {fail, HttpError} from '@/lib/errors';
 import {generateAcceptancePackPdf, type AcceptancePackData} from '@/lib/pdf-acceptance-pack';
@@ -12,19 +13,13 @@ export const runtime = 'nodejs';
 export async function GET(req: Request, {params}: {params: Promise<{id: string}>}) {
   try {
     const {id} = await params;
-    const url = new URL(req.url);
-    const token = url.searchParams.get('token');
-
     const snap = await db.collection('submissions').doc(id).get();
     if (!snap.exists) throw new HttpError(404, 'Application not found.');
     const data = snap.data()!;
+    await authorizeSubmissionDocument(req,data);
 
-    // Security check: require either matching download token or valid auth
-    if (token && data.downloadToken && token === data.downloadToken) {
-      // Authorized via submission token
-    } else {
-      const authHeader = req.headers.get('authorization') || '';
-      if (!authHeader) throw new HttpError(403, 'A valid authorization token is required to view this document.');
+    if (!['accepted','letter_issued','cdf_submitted','cdf_approved','payment_verified','commission_paid'].includes(String(data.status))) {
+      throw new HttpError(403,'This application does not yet have an approved or conditional acceptance letter.');
     }
 
     const answers = data.answers || {};

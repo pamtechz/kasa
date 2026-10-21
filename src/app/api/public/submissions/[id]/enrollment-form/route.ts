@@ -1,3 +1,4 @@
+import {authorizeSubmissionDocument} from '@/lib/submission-access';
 import {db} from '@/lib/firebase-admin';
 import {fail, HttpError} from '@/lib/errors';
 import {generateEnrollmentFormPdf, type EnrollmentFormData} from '@/lib/pdf-enrollment-form';
@@ -7,22 +8,10 @@ export const runtime = 'nodejs';
 export async function GET(req: Request, {params}: {params: Promise<{id: string}>}) {
   try {
     const {id} = await params;
-    const url = new URL(req.url);
-    const token = url.searchParams.get('token');
-
     const snap = await db.collection('submissions').doc(id).get();
     if (!snap.exists) throw new HttpError(404, 'Application not found.');
     const data = snap.data()!;
-
-    if (token && data.downloadToken && token === data.downloadToken) {
-      // Authorized via submission token
-    } else {
-      const authHeader = req.headers.get('authorization') || '';
-      if (!authHeader) throw new HttpError(403, 'A valid authorization token is required to view this document.');
-    }
-
-    const letterSettingsDoc = await db.collection('settings').doc('acceptanceLetter').get();
-    const offsets = letterSettingsDoc.data()?.enrollmentFormOffsets || {};
+    await authorizeSubmissionDocument(req,data);
 
     const answers = data.answers || {};
 

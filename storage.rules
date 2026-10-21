@@ -1,32 +1,17 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isStaff() {
-      return isSignedIn() && (
-        firestore.get(/databases/(default)/documents/profiles/$(request.auth.uid)).data.role in ['super_admin', 'admin', 'reviewer']
-      );
-    }
-
-    // Public Assets (Templates, Logos, Badges)
+    // Public branding assets may be read by anyone. Uploads still go through
+    // authenticated server routes using the Firebase Admin SDK.
     match /public/{allPaths=**} {
       allow read: if true;
-      allow write: if isStaff();
+      allow write: if false;
     }
 
-    // Staging / Temporary File Uploads
-    match /staging/{allPaths=**} {
-      allow read, write: if isSignedIn();
-    }
-
-    // Protected Student Documents
-    match /documents/{submissionId}/{allPaths=**} {
-      allow read: if isStaff() || (isSignedIn() && request.auth.uid == submissionId);
-      allow write: if isStaff() || isSignedIn();
+    // Private staging documents, CDF evidence and submission attachments
+    // are accessible only through authorized backend endpoints.
+    match /{allPaths=**} {
+      allow read, write: if false;
     }
   }
 }

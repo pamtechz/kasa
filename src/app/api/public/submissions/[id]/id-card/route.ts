@@ -1,3 +1,4 @@
+import {authorizeSubmissionDocument} from '@/lib/submission-access';
 import {db} from '@/lib/firebase-admin';
 import {fail, HttpError} from '@/lib/errors';
 import {generateStudentIdCardPdf, type StudentIdCardData} from '@/lib/pdf-student-id';
@@ -7,19 +8,13 @@ export const runtime = 'nodejs';
 export async function GET(req: Request, {params}: {params: Promise<{id: string}>}) {
   try {
     const {id} = await params;
-    const url = new URL(req.url);
-    const token = url.searchParams.get('token');
-
     const snap = await db.collection('submissions').doc(id).get();
     if (!snap.exists) throw new HttpError(404, 'Student record not found.');
     const data = snap.data()!;
+    await authorizeSubmissionDocument(req,data);
 
-    // Require token or auth
-    if (token && data.downloadToken && token === data.downloadToken) {
-      // Authorized via download token
-    } else {
-      const authHeader = req.headers.get('authorization') || '';
-      if (!authHeader) throw new HttpError(403, 'Authorization required.');
+    if (!['cdf_approved','payment_verified','commission_paid'].includes(String(data.status))) {
+      throw new HttpError(403,'A student ID is available only after verified enrollment.');
     }
 
     const answers = data.answers || {};
