@@ -4,7 +4,7 @@ import {useState, useEffect} from 'react';
 import Link from 'next/link';
 import {AgentPortal} from '@/components/AgentPortal';
 import {
-  Users, MapPin, Award, Wallet, PlusCircle, Share2, Copy, Check, RefreshCw
+  Users, MapPin, Award, Wallet, PlusCircle, Share2, Copy, Check, RefreshCw, Trophy, Sparkles
 } from 'lucide-react';
 import {authHeaders} from '@/lib/firebase-client';
 
@@ -25,9 +25,22 @@ type ReferralData = {
   totalEarned: number;
 };
 
+type LeaderboardEntry = {
+  uid: string;
+  displayName: string;
+  district: string;
+  confirmedEnrollments: number;
+  tier: 'Bronze' | 'Silver' | 'Gold' | 'Diamond';
+  badgeEmoji: string;
+  eligibleForBonus: boolean;
+  bonusAmount: number;
+  totalPayoutWithBonus: number;
+};
+
 export default function AgentPortalDashboard() {
   const [profile, setProfile] = useState<AgentProfile | null>(null);
   const [referralData, setReferralData] = useState<ReferralData | null>(null);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
@@ -36,9 +49,10 @@ export default function AgentPortalDashboard() {
     setLoading(true);
     try {
       const headers = await authHeaders();
-      const [meRes, refRes] = await Promise.all([
+      const [meRes, refRes, leadRes] = await Promise.all([
         fetch('/api/me', {headers, cache: 'no-store'}),
-        fetch('/api/agent/referrals', {headers, cache: 'no-store'}).catch(() => null)
+        fetch('/api/agent/referrals', {headers, cache: 'no-store'}).catch(() => null),
+        fetch('/api/agent/leaderboard', {headers, cache: 'no-store'}).catch(() => null)
       ]);
 
       const meJson = await meRes.json();
@@ -49,6 +63,11 @@ export default function AgentPortalDashboard() {
       if (refRes && refRes.ok) {
         const refJson = await refRes.json().catch(() => null);
         if (refJson) setReferralData(refJson);
+      }
+
+      if (leadRes && leadRes.ok) {
+        const leadJson = await leadRes.json().catch(() => null);
+        if (leadJson?.leaderboard) setLeaderboard(leadJson.leaderboard);
       }
     } catch {} finally {
       setLoading(false);
@@ -70,6 +89,8 @@ export default function AgentPortalDashboard() {
     }
   }
 
+  const myEntry = leaderboard.find(l => l.uid === profile?.uid);
+
   return (
     <AgentPortal>
       <div className="page-heading">
@@ -78,7 +99,7 @@ export default function AgentPortalDashboard() {
           <p>Welcome back, <strong>{profile?.displayName || profile?.email || 'District Agent'}</strong>. Manage recruitment across your assigned district territory, register candidates, and track verified commissions.</p>
         </div>
         <div style={{display: 'flex', gap: 10}}>
-          <Link href="/agent-portal/register" className="btn btn-primary" style={{display: 'inline-flex', alignItems: 'center', gap: 6}}>
+          <Link href="/dashboard/applications/new" className="btn btn-primary" style={{display: 'inline-flex', alignItems: 'center', gap: 6}}>
             <PlusCircle size={16} /> Register Candidate
           </Link>
           <button className="btn btn-outline" onClick={() => void loadData()} disabled={loading}>
@@ -103,17 +124,31 @@ export default function AgentPortalDashboard() {
         </div>
         <div className="metric-card">
           <div className="metric-icon amber"><Award /></div>
-          <span>Verified Admissions</span>
-          <strong>{loading ? '—' : referralData?.successfulCount || 0}</strong>
-          <small>CDF approved or tuition paid</small>
+          <span>Achievement Tier</span>
+          <strong>{loading ? '—' : `${myEntry?.badgeEmoji || '🥉'} ${myEntry?.tier || 'Bronze'}`}</strong>
+          <small>{myEntry?.confirmedEnrollments || 0} confirmed enrollments</small>
         </div>
         <div className="metric-card">
           <div className="metric-icon purple"><Wallet /></div>
           <span>Total Commission</span>
-          <strong>{loading ? '—' : `ZMW ${(referralData?.totalEarned || 0).toFixed(2)}`}</strong>
-          <small>Earned on verified students</small>
+          <strong>{loading ? '—' : `ZMW ${(myEntry?.totalPayoutWithBonus || referralData?.totalEarned || 0).toFixed(2)}`}</strong>
+          <small>Including performance bonus</small>
         </div>
       </div>
+
+      {/* Bonus Commission Eligibility Banner */}
+      {myEntry?.eligibleForBonus && (
+        <div style={{background: 'linear-gradient(135deg, #103f2c 0%, #175e42 100%)', color: '#ffffff', padding: '18px 24px', borderRadius: 12, marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, boxShadow: '0 8px 24px rgba(16,63,44,0.15)'}}>
+          <div>
+            <div style={{display: 'flex', alignItems: 'center', gap: 8, color: 'var(--gold, #e0b561)', fontWeight: 800, fontSize: 13, letterSpacing: '0.06em', textTransform: 'uppercase'}}>
+              <Sparkles size={18} /> DIAMOND TIER BONUS UNLOCKED!
+            </div>
+            <h3 style={{margin: '4px 0 2px', fontSize: 18, color: '#ffffff'}}>Congratulations! You achieved 20+ confirmed enrollments this month!</h3>
+            <p style={{margin: 0, fontSize: 13, color: '#d0e5d9'}}>You have unlocked a flat <strong>ZMW 1,000.00 Performance Bonus</strong> added to your monthly payout ledger.</p>
+          </div>
+          <span className="tag tag-gold" style={{fontSize: 16, padding: '8px 16px', fontWeight: 800}}>+ ZMW 1,000.00 BONUS</span>
+        </div>
+      )}
 
       {/* Agent Shareable Referral Code Box */}
       <div className="panel pad-panel" style={{marginBottom: 24, borderLeft: '4px solid var(--green)'}}>
@@ -164,6 +199,65 @@ export default function AgentPortalDashboard() {
               </button>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* District Recruitment Leaderboard */}
+      <div className="panel">
+        <div className="panel-title">
+          <div style={{display: 'flex', alignItems: 'center', gap: 8}}>
+            <Trophy size={20} style={{color: 'var(--gold, #e0b561)'}} />
+            <div>
+              <h2>District Recruitment Leaderboard</h2>
+              <p>Top recruitment performance across Zambia&apos;s 116 districts.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="table-scroll">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>District Agent</th>
+                <th>District Territory</th>
+                <th>Confirmed Enrollments</th>
+                <th>Achievement Tier</th>
+                <th>Earnings + Bonus</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={6} className="empty-state">Loading district leaderboard…</td></tr>
+              ) : leaderboard.length === 0 ? (
+                <tr><td colSpan={6} className="empty-state">No agent recruitment activity recorded for this month.</td></tr>
+              ) : (
+                leaderboard.map((entry, index) => (
+                  <tr key={entry.uid} style={{background: entry.uid === profile?.uid ? 'rgba(16,63,44,0.06)' : undefined}}>
+                    <td>
+                      <strong>#{index + 1}</strong>
+                    </td>
+                    <td>
+                      <strong>{entry.displayName}</strong>
+                      {entry.uid === profile?.uid && <span className="tag tag-green" style={{marginLeft: 6, fontSize: 10}}>YOU</span>}
+                    </td>
+                    <td>{entry.district}</td>
+                    <td><strong>{entry.confirmedEnrollments}</strong> students</td>
+                    <td>
+                      <span className="tag tag-gold" style={{fontSize: 12}}>
+                        {entry.badgeEmoji} {entry.tier}
+                      </span>
+                    </td>
+                    <td>
+                      <strong style={{color: 'var(--green)'}}>
+                        ZMW {entry.totalPayoutWithBonus.toLocaleString('en-US', {minimumFractionDigits: 2})}
+                      </strong>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </AgentPortal>
