@@ -254,22 +254,48 @@
  .site-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media(max-width:800px){
- .portal-top{min-height:66px;height:auto;padding:10px 14px;gap:10px}
+ .portal-top{min-height:60px;height:auto;padding:10px 14px;gap:10px}
  .top-title{min-width:0;gap:8px}
  .top-title>span:last-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:36vw}
  .role-pill{max-width:120px;text-overflow:ellipsis;white-space:nowrap;overflow:hidden}
- .portal-main{padding:20px 14px 48px}
- .sidebar.mobile-open,.sidebar.collapsed.mobile-open{width:min(320px,calc(100vw - 40px));min-width:0}
+ .portal-main{padding:16px 12px 48px}
+ .sidebar{
+  position:fixed;
+  top:0;
+  left:0;
+  bottom:0;
+  height:100dvh;
+  transform:translateX(-100%);
+  transition:transform .26s cubic-bezier(.16,1,.3,1);
+  z-index:200;
+  box-shadow:0 0 35px rgba(0,0,0,0.35);
+  background:var(--sidebar-bg, #103f2c);
+ }
+ .sidebar.mobile-open,.sidebar.collapsed.mobile-open{
+  transform:translateX(0);
+  width:min(300px,calc(100vw - 36px))!important;
+  min-width:0!important;
+ }
  .sidebar.mobile-open .side-link{justify-content:flex-start;padding:12px 14px}
  .sidebar.mobile-open .side-header{padding:15px}
  .sidebar.mobile-open .side-links{overflow-y:auto;max-height:calc(100dvh - 175px)}
+ .sidebar-overlay{
+  position:fixed;
+  inset:0;
+  background:rgba(10,32,23,0.68);
+  backdrop-filter:blur(4px);
+  -webkit-backdrop-filter:blur(4px);
+  z-index:190;
+  border:none;
+  cursor:pointer;
+ }
  .detail-panel{width:min(100%,600px);max-width:100vw}
- .page-heading{flex-direction:column;align-items:stretch;gap:15px}
+ .page-heading{flex-direction:column;align-items:stretch;gap:12px}
  .page-heading>.btn,.page-heading>button{align-self:flex-start}
  .editor-grid,.settings-grid{grid-template-columns:1fr}
  .site-navigation{min-height:74px}
- .site-card{padding:22px}
- .table-controls{padding:14px}
+ .site-card{padding:20px}
+ .table-controls{padding:12px}
 }
 @media(max-width:620px){
  .container{width:min(100% - 28px,1200px)}
