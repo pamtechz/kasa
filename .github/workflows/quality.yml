@@ -18,9 +18,10 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, Windows, X64]
     timeout-minutes: 30
+    # Windows PowerShell 5.1 is installed on the runner; pwsh 7 is not.
     defaults:
       run:
-        shell: pwsh
+        shell: powershell
     steps:
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
