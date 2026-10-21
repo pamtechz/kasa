@@ -7,6 +7,30 @@ export const dynamic = 'force-dynamic';
 
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'kasa_whatsapp_verify_token_2027';
 
+async function sendWhatsAppMessage(toPhone: string, text: string) {
+  const token = process.env.WHATSAPP_CLOUD_API_TOKEN;
+  const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  if (!token || !phoneId) return;
+
+  try {
+    await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to: toPhone,
+        type: 'text',
+        text: { body: text }
+      })
+    });
+  } catch (err) {
+    console.warn('WhatsApp Outbound Dispatch Warning:', err);
+  }
+}
+
 // 1. GET: Handles Meta WhatsApp Cloud API Webhook Verification
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
@@ -81,6 +105,8 @@ export async function POST(req: NextRequest) {
     if (subSnap.empty) {
       const responseText = `KASA ADMISSIONS VERIFICATION\n----------------------------\nReference: ${cleanRef}\nStatus: NOT FOUND\n\nNo official application found matching reference "${cleanRef}". Please verify the reference number and try again.\n\n${newCount === 2 ? 'Notice: You have 1 remaining status lookup today.' : ''}`;
 
+      await sendWhatsAppMessage(senderPhone, responseText);
+
       return NextResponse.json({
         status: 'not_found',
         phone: senderPhone,
@@ -112,6 +138,8 @@ export async function POST(req: NextRequest) {
     if (newCount === 2) {
       replyMessage += `\nNotice: You have 1 remaining status lookup today.`;
     }
+
+    await sendWhatsAppMessage(senderPhone, replyMessage);
 
     return NextResponse.json({
       status: 'success',
