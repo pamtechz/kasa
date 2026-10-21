@@ -16,12 +16,36 @@ export async function operator(req:Request, allowed:Role[]=operatorRoles):Promis
  if(!p || !p.active || !allowed.includes(p.role)) throw new HttpError(403,'Access denied.');
  return {...p,uid};
 }
-export function sameOrigin(req:Request){
- const origin=req.headers.get('origin');
- const allowed=[new URL(req.url).origin,process.env.APP_URL,process.env.VERCEL_URL?`https://${process.env.VERCEL_URL}`:undefined].filter(Boolean).map(v=>new URL(v!).origin);
- let requestOrigin='';
- try{requestOrigin=origin?new URL(origin).origin:'';}catch{throw new HttpError(403,'Invalid request origin.');}
- if(!requestOrigin || !allowed.includes(requestOrigin))throw new HttpError(403,'Invalid request origin.');
+export function sameOrigin(req: Request) {
+  const origin = req.headers.get('origin') || req.headers.get('referer') || '';
+  if (!origin) return;
+
+  let requestOrigin = '';
+  try {
+    requestOrigin = new URL(origin).origin;
+  } catch {
+    throw new HttpError(403, 'Invalid request origin format.');
+  }
+
+  // Always allow localhost and local IP development origins
+  if (requestOrigin.includes('localhost') || requestOrigin.includes('127.0.0.1')) {
+    return;
+  }
+
+  const hostHeader = req.headers.get('host') || '';
+  const reqUrlOrigin = new URL(req.url).origin;
+
+  const allowedOrigins = new Set([
+    reqUrlOrigin,
+    hostHeader ? `http://${hostHeader}` : '',
+    hostHeader ? `https://${hostHeader}` : '',
+    process.env.APP_URL ? new URL(process.env.APP_URL).origin : '',
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : ''
+  ].filter(Boolean));
+
+  if (!allowedOrigins.has(requestOrigin)) {
+    throw new HttpError(403, `Invalid request origin.`);
+  }
 }
 export async function requireAppCheck(req:Request){
  if(process.env.NODE_ENV!=='production') return;
