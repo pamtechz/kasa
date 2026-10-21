@@ -266,8 +266,35 @@ export function DynamicForm({form,agentCode}:{form:FormSchema;agentCode?:string}
  }
 
  return <div className="form-panel">
-  <div className="form-intro"><span className="overline">KASA · ONLINE APPLICATION</span><h1>{form.title}</h1><p>{form.subtitle}</p></div>
-  <div className="step-progress"><div className="step-copy"><strong>Step {step+1} of {form.sections.length}</strong><span>{form.sections[step].title}</span></div><div className="progress-track" role="progressbar" aria-label="Application progress" aria-valuemin={0} aria-valuemax={form.sections.length} aria-valuenow={step+1}><div style={{width:`${(step+1)/form.sections.length*100}%`}}/></div></div>
+  <div className="form-intro"><span className="overline">KASA · OFFICIAL ONLINE APPLICATION</span><h1>{form.title}</h1><p>{form.subtitle}</p></div>
+
+  {/* Visual Step Pills Progress Bar */}
+  <div className="step-progress" style={{marginBottom: 20}}>
+   <div style={{display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 8, marginBottom: 10}}>
+    {form.sections.map((sec, idx) => {
+     const isDone = idx < step;
+     const isCurrent = idx === step;
+     return (
+      <div
+       key={sec.id}
+       onClick={() => isDone && setStep(idx)}
+       style={{
+        display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 20,
+        background: isCurrent ? 'var(--green, #103f2c)' : isDone ? '#eaf4ee' : '#f1f5f3',
+        color: isCurrent ? '#ffffff' : isDone ? 'var(--green)' : 'var(--muted)',
+        fontSize: 12, fontWeight: 700, cursor: isDone ? 'pointer' : 'default', whiteSpace: 'nowrap'
+       }}
+      >
+       {isDone ? <Check size={14} /> : <span style={{width: 18, height: 18, borderRadius: '50%', background: isCurrent ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.08)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10}}>{idx + 1}</span>}
+       <span>{sec.title}</span>
+      </div>
+     );
+    })}
+   </div>
+   <div className="progress-track" role="progressbar" aria-label="Application progress" aria-valuemin={0} aria-valuemax={form.sections.length} aria-valuenow={step+1}>
+    <div style={{width:`${(step+1)/form.sections.length*100}%`}}/>
+   </div>
+  </div>
   <div className="form-fields"><h2 ref={sectionHeading} tabIndex={-1}>{form.sections[step].title}</h2>{form.sections[step].description&&<p className="muted">{form.sections[step].description}</p>}
   {step === 0 && (
    <div className="field full" style={{background: 'rgba(16,63,44,0.03)', padding: 14, borderRadius: 10, border: '1px solid var(--border)', margin: '12px 0 16px'}}>
