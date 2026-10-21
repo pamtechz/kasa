@@ -37,8 +37,14 @@ jobs:
 
       # Tests import PDF libraries: install all locked dependencies first.
       # npm ci fails on an inconsistent lockfile instead of silently rewriting it.
+      - name: Check npm registry access
+        run: |
+          npm config get registry
+          npm ping --fetch-retries=0 --fetch-timeout=15000
+
       - name: Install locked dependencies
-        run: npm ci --no-audit --no-fund
+        timeout-minutes: 12
+        run: npm ci --no-audit --no-fund --prefer-offline --fetch-retries=1 --fetch-timeout=60000
 
       - name: Run source tests
         run: npm run test:source
