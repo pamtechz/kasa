@@ -91,10 +91,11 @@ export function StudentPortal({children}: {children: React.ReactNode}) {
   }
 
   const links = [
-    {name: 'My Applications', href: '/my-applications', icon: ClipboardList},
-    {name: 'Refer & Earn', href: '/portal/student/referrals', icon: Share2},
-    {name: 'Announcements', href: '/portal/student/notifications', icon: Bell},
-    {name: 'My Profile', href: '/portal/student/profile', icon: User}
+    {name: 'Portal Overview', href: '/student-portal', icon: ClipboardList},
+    {name: 'Applications & Documents', href: '/student-portal/applications', icon: FileText},
+    {name: 'Refer & Earn Program', href: '/student-portal/referrals', icon: Share2},
+    {name: 'Announcements', href: '/student-portal/notifications', icon: Bell},
+    {name: 'My Profile & Security', href: '/student-portal/profile', icon: User}
   ];
 
   if (loading) return <main className="page-loader" role="status">Loading student portal…</main>;
