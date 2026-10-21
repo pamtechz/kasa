@@ -7,8 +7,8 @@ export const runtime = 'nodejs';
 
 export async function GET(req: Request) {
   try {
-    const user = await operator(req, ['super_admin', 'admin', 'reviewer', 'agent']);
-    const cacheKey = `notifications-${user.role}-${user.role === 'agent' ? user.uid : 'all'}`;
+    const user = await operator(req, ['super_admin', 'admin', 'reviewer', 'agent', 'student']);
+    const cacheKey = `notifications-${user.role}-${user.uid}`;
     const cached = getGeneralCache<{notifications: any[]}>(cacheKey);
     if (cached) return json(cached);
 
@@ -16,7 +16,8 @@ export async function GET(req: Request) {
     const notifications = items.docs
       .map(d => ({id: d.id, ...d.data()}))
       .filter((x: any) => {
-        if (user.role === 'agent') return x.recipient === 'all' || (x.recipient === 'agent' && (!x.recipientUid || x.recipientUid === user.uid));
+        if (user.role === 'student') return x.recipient === 'all' || x.recipient === 'student' || x.recipientUid === user.uid;
+        if (user.role === 'agent') return x.recipient === 'all' || x.recipient === 'agent' || x.recipientUid === user.uid;
         if (user.role === 'reviewer') return x.recipient === 'all' || x.recipient === 'reviewer' || x.recipient === 'admin';
         return true;
       })

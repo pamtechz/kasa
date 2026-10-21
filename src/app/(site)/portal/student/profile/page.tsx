@@ -82,7 +82,7 @@ export default function StudentProfilePage() {
       {error && <div className="alert-error" style={{marginBottom: 16}}>{error}</div>}
       {message && <div className="notice" style={{marginBottom: 16}}><CheckCircle2 size={16} /> {message}</div>}
 
-      <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20}}>
+      <div className="editor-grid">
         {/* Left Column: Personal Info Form */}
         <div className="panel pad-panel">
           <div style={{display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, borderBottom: '1px solid var(--border)', paddingBottom: 12}}>

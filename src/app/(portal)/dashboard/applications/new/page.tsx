@@ -34,12 +34,19 @@ export default function NewApplicationPage() {
   const [newFundingMethod, setNewFundingMethod] = useState<'cdf' | 'self_funded'>('cdf');
   const [newDistrict, setNewDistrict] = useState('');
   const [newStatus, setNewStatus] = useState<SubmissionStatus>('submitted');
+  const [userRole, setUserRole] = useState<string>('agent');
   const [newNote, setNewNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
   useEffect(() => {
+    api<{profile: any}>('/api/me')
+      .then(res => {
+        if (res?.profile?.role) setUserRole(res.profile.role);
+      })
+      .catch(() => {});
+
     cachedApi<{items: Programme[]}>('/api/public/content?kind=programmes')
       .then(res => {
         if (res?.items && res.items.length > 0) {
@@ -167,14 +174,16 @@ export default function NewApplicationPage() {
                   <option value="self_funded">Self-Funded / Private Tuition</option>
                 </select>
               </div>
-              <div className="field">
-                <label>Initial Application Status</label>
-                <select value={newStatus} onChange={e => setNewStatus(e.target.value as SubmissionStatus)}>
-                  <option value="submitted">Submitted</option>
-                  <option value="under_review">Under Review</option>
-                  <option value="accepted">Accepted / Conditional Offer</option>
-                </select>
-              </div>
+              {userRole !== 'agent' && (
+                <div className="field">
+                  <label>Initial Application Status</label>
+                  <select value={newStatus} onChange={e => setNewStatus(e.target.value as SubmissionStatus)}>
+                    <option value="submitted">Submitted</option>
+                    <option value="under_review">Under Review</option>
+                    <option value="accepted">Accepted / Conditional Offer</option>
+                  </select>
+                </div>
+              )}
             </div>
           </div>
 

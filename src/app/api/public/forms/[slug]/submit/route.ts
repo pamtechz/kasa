@@ -234,7 +234,24 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{slug:string
     });
    }
   });
-  return json({
+   if (isCdf) {
+    const noticeId = newId();
+    await db.collection('notificationOutbox').doc(noticeId).set({
+     title: `New CDF Sponsorship Application: ${reference}`,
+     message: `Student ${String(answers['full-name'] || answers['fullNames'] || 'Applicant')} submitted a CDF Sponsorship application (${reference}) for ${form.title}. Requires Admissions Directorate review and CDF verification.`,
+     reference,
+     recipient: 'admin',
+     priority: 'urgent',
+     event: 'cdf_application_submitted',
+     read: false,
+     readBy: [],
+     createdAt: now,
+     updatedAt: now,
+     createdBy: 'System (Public CDF Submit)'
+    });
+   }
+
+   return json({
    reference,
    status:finalStatus,
    autoApproved,
