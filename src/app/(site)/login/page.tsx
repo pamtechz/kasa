@@ -4,7 +4,7 @@ import { createUserWithEmailAndPassword, sendEmailVerification, sendPasswordRese
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { firebaseConfigured, requireClientAuth, missingFirebaseBrowserSettings } from '@/lib/firebase-client';
-import { ArrowRight, LockKeyhole } from 'lucide-react';
+import { ArrowRight, ArrowLeft, LockKeyhole } from 'lucide-react';
 import { BrandLogo } from '@/components/BrandLogo';
 import { PasswordInput } from '@/components/PasswordInput';
 function readableAuthError(error: unknown): string {
@@ -36,7 +36,7 @@ export default function Login() {
         // Returning to the bootstrap page never grants a role; the bootstrap API enforces the nominated email.
         const requested = new URLSearchParams(window.location.search).get('next');
         if (requested==='/bootstrap') { router.replace('/bootstrap'); return; }
-        if (requested==='/my-applications') { router.replace('/my-applications'); return; }
+        if (requested==='/my-applications' || requested==='/student-portal') { router.replace('/student-portal'); return; }
         const token = await firebaseAuth.currentUser?.getIdToken(true);
         const resp = await fetch('/api/me', { headers: { Authorization: `Bearer ${token}` } });
         const data = await resp.json().catch(() => ({}));
@@ -49,12 +49,12 @@ export default function Login() {
           } else if (role === 'reviewer') {
             router.replace('/dashboard/applications');
           } else if (role === 'agent') {
-            router.replace('/dashboard/referrals');
+            router.replace('/agent-portal');
           } else {
-            router.replace('/my-applications');
+            router.replace('/student-portal');
           }
         } else if (resp.status === 403 || !resp.ok) {
-          router.replace(requested || '/my-applications');
+          router.replace(requested || '/student-portal');
         } else {
           throw Error(data.error || 'Unable to check your account role.');
         }
@@ -81,9 +81,9 @@ export default function Login() {
             } else if (role === 'reviewer') {
               router.replace('/dashboard/applications');
             } else if (role === 'agent') {
-              router.replace('/dashboard/referrals');
+              router.replace('/agent-portal');
             } else {
-              router.replace('/my-applications');
+              router.replace('/student-portal');
             }
           } catch {}
         }
@@ -97,7 +97,7 @@ export default function Login() {
     <p><code>{missingFirebaseBrowserSettings.join(', ')}</code></p>
     <p>For local testing, add the Firebase web-app configuration to <code>.env.local</code> and restart the Next.js development server. Vercel variables do not automatically apply to localhost.</p>
     <Link href="https://github.com/pamtechz/kasa/blob/main/docs/LOCAL_FIREBASE_AND_HYDRATION.md" target="_blank" className="back-link">View local setup guide</Link>
-    <Link href="/" className="back-link">← Return to KASA</Link>
+    <Link href="/" className="back-link" style={{display: 'inline-flex', alignItems: 'center', gap: 6}}><ArrowLeft size={14} /> Return to KASA</Link>
   </div></div></main>;
   return <main className="login-shell">
     <div className="login-art">
@@ -124,8 +124,8 @@ export default function Login() {
         <div className="auth-bottom">
           <button onClick={() => { setMode(mode === 'sign-in' ? 'register' : 'sign-in'); setMessage(''); }}>{mode === 'sign-in' ? 'Need an account? Register' : 'Already registered? Sign in'}</button>
           {mode === 'sign-in' && <button onClick={() => void reset()}>Forgot password?</button>}
-        </div><Link href="/my-applications" className="back-link">View my student applications</Link>
-        <Link href="/" className="back-link">← Return to KASA website</Link>
+        </div><Link href="/student-portal" className="back-link">Go to Student Portal</Link>
+        <Link href="/" className="back-link" style={{display: 'inline-flex', alignItems: 'center', gap: 6}}><ArrowLeft size={14} /> Return to KASA website</Link>
       </div>
     </div>
   </main>;
