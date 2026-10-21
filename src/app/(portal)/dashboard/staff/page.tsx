@@ -1,162 +1,446 @@
 'use client';
-import {useEffect,useState} from 'react';
+import {useEffect, useState} from 'react';
 import Link from 'next/link';
-import {Plus,ShieldCheck,Trash2,UserPlus,KeyRound,CheckCircle2} from 'lucide-react';
-import {api,PageHeader} from '@/components/Portal';
+import {Plus, ShieldCheck, Trash2, UserPlus, KeyRound, CheckCircle2, Edit3, Search, Filter, X, Save, Lock} from 'lucide-react';
+import {api, PageHeader} from '@/components/Portal';
 import {ConfirmModal} from '@/components/ConfirmModal';
-type Staff={uid:string;email:string;displayName:string;role:'super_admin'|'admin'|'reviewer';active:boolean};
-export default function StaffManagement(){
- const [staff,setStaff]=useState<Staff[]>([]),[email,setEmail]=useState(''),[role,setRole]=useState<'admin'|'reviewer'>('reviewer'),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
- const [deletingStaff,setDeletingStaff]=useState<Staff|null>(null);
- const [selectedStaffUids,setSelectedStaffUids]=useState<Set<string>>(new Set());
- const [bulkDeleteTarget,setBulkDeleteTarget]=useState<'selected'|'all'|null>(null);
 
- // User Provisioning States
- const [provEmail,setProvEmail]=useState('');
- const [provName,setProvName]=useState('');
- const [provRole,setProvRole]=useState<'student'|'agent'|'admin'|'reviewer'>('student');
- const [provDistrict,setProvDistrict]=useState('');
- const [provPhone,setProvPhone]=useState('');
- const [provResult,setProvResult]=useState<{email:string;displayName:string;role:string;tempPassword?:string;agentCode?:string}|null>(null);
+type UserItem = {
+  uid: string;
+  email: string;
+  displayName: string;
+  role: 'super_admin' | 'admin' | 'reviewer' | 'agent' | 'student';
+  active: boolean;
+  phone?: string;
+  district?: string;
+  agentCode?: string;
+  mustChangePassword?: boolean;
+};
 
- const load=async()=>{const r=await api<{staff:Staff[]}>('/api/admin/staff');setStaff(r.staff);};
- useEffect(()=>{void load().catch(e=>setError(e.message));},[]);
+export default function UserAndStaffManagement() {
+  const [users, setUsers] = useState<UserItem[]>([]);
+  const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [busy, setBusy] = useState(false);
 
- async function provisionUser(e: React.FormEvent) {
-  e.preventDefault();
-  if(!provEmail.trim()||!provName.trim())return;
-  setBusy(true);setError('');setNotice('');setProvResult(null);
-  try {
-   const res = await api<{ok:boolean;email:string;displayName:string;role:string;tempPassword?:string;agentCode?:string;message:string}>('/api/admin/users/provision', {
-    method: 'POST',
-    body: JSON.stringify({
-     email: provEmail,
-     displayName: provName,
-     role: provRole,
-     district: provDistrict,
-     phone: provPhone
-    })
-   });
-   setProvResult(res);
-   setNotice(res.message);
-   setProvEmail(''); setProvName(''); setProvDistrict(''); setProvPhone('');
-   await load();
-  } catch (err) {
-   setError(err instanceof Error ? err.message : 'Provisioning failed.');
-  } finally { setBusy(false); }
- }
- async function assign(){
-  setBusy(true);setError('');setNotice('');
-  try{await api('/api/admin/staff',{method:'POST',body:JSON.stringify({email,role})});setNotice('Approved staff access assigned.');setEmail('');await load();}
-  catch(e){setError(e instanceof Error?e.message:'Unable to appoint staff.');}finally{setBusy(false);}
- }
- async function change(member:Staff,data:Record<string,unknown>){
-  setError('');try{await api('/api/admin/staff/'+member.uid,{method:'PATCH',body:JSON.stringify(data)});await load();}
-  catch(e){setError(e instanceof Error?e.message:'Update failed.');}
- }
- async function confirmRemoveStaff(){
-  if(!deletingStaff)return;
-  setError('');try{await api('/api/admin/staff/'+deletingStaff.uid,{method:'DELETE'});setNotice(`Removed ${deletingStaff.displayName} from staff.`);setDeletingStaff(null);await load();}
-  catch(e){setError(e instanceof Error?e.message:'Remove failed.');}
- }
+  // User Provisioning States
+  const [provEmail, setProvEmail] = useState('');
+  const [provName, setProvName] = useState('');
+  const [provRole, setProvRole] = useState<'student' | 'agent' | 'admin' | 'reviewer'>('student');
+  const [provDistrict, setProvDistrict] = useState('');
+  const [provPhone, setProvPhone] = useState('');
+  const [provResult, setProvResult] = useState<{email: string; displayName: string; role: string; tempPassword?: string; agentCode?: string} | null>(null);
 
- const removableStaff = staff.filter(x => x.role !== 'super_admin');
- const allRemovableSelected = removableStaff.length > 0 && removableStaff.every(x => selectedStaffUids.has(x.uid));
+  // Editing User Modal States
+  const [editingUser, setEditingUser] = useState<UserItem | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPassword, setEditPassword] = useState('');
+  const [editRole, setEditRole] = useState<'student' | 'agent' | 'admin' | 'reviewer'>('student');
+  const [editDistrict, setEditDistrict] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editActive, setEditActive] = useState(true);
+  const [editMustChangePass, setEditMustChangePass] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
 
- function toggleSelectAllStaff() {
-  if (allRemovableSelected) setSelectedStaffUids(new Set());
-  else setSelectedStaffUids(new Set(removableStaff.map(x => x.uid)));
- }
+  // Deleting User Modal States
+  const [deletingUser, setDeletingUser] = useState<UserItem | null>(null);
 
- function toggleSelectStaff(uid: string) {
-  const next = new Set(selectedStaffUids);
-  if (next.has(uid)) next.delete(uid);
-  else next.add(uid);
-  setSelectedStaffUids(next);
- }
+  const loadUsers = async () => {
+    setLoading(true);
+    try {
+      const url = roleFilter !== 'all' ? `/api/admin/users?role=${roleFilter}` : '/api/admin/users';
+      const r = await api<{users: UserItem[]}>(url);
+      setUsers(Array.isArray(r.users) ? r.users : []);
+      setError('');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unable to load user accounts.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
- async function confirmBulkDeleteStaff(){
-  if(!bulkDeleteTarget)return;
-  setError('');
-  try{
-   const uidsToDelete = bulkDeleteTarget === 'selected' ? Array.from(selectedStaffUids) : removableStaff.map(x => x.uid);
-   for (const uid of uidsToDelete) {
-    await api('/api/admin/staff/' + uid, {method: 'DELETE'});
-   }
-   setNotice(`Successfully removed ${uidsToDelete.length} staff member(s).`);
-   setSelectedStaffUids(new Set());
-   setBulkDeleteTarget(null);
-   await load();
-  }catch(e){setError(e instanceof Error?e.message:'Bulk remove failed.');}
- }
- return <><PageHeader title="Staff, Agents & Student Users" subtitle="Provision student and agent accounts directly from the admin portal, assign roles, and manage authorized personnel."/>
+  useEffect(() => {
+    void loadUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roleFilter]);
 
- <section className="panel pad-panel" style={{borderLeft:'4px solid var(--green)'}}>
-  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
-   <UserPlus size={20} style={{color:'var(--green)'}}/>
-   <h2 style={{margin:0,fontSize:18}}>Provision New User Account (Student, Agent or Staff)</h2>
-  </div>
-  <p className="muted" style={{fontSize:13,marginBottom:16}}>
-   Directly create a user profile with an auto-generated temporary password. When the user logs in to their portal, they will set their permanent password.
-  </p>
+  async function provisionUser(e: React.FormEvent) {
+    e.preventDefault();
+    if (!provEmail.trim() || !provName.trim()) return;
+    setBusy(true); setError(''); setNotice(''); setProvResult(null);
+    try {
+      const res = await api<{ok: boolean; email: string; displayName: string; role: string; tempPassword?: string; agentCode?: string; message: string}>('/api/admin/users/provision', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: provEmail,
+          displayName: provName,
+          role: provRole,
+          district: provDistrict,
+          phone: provPhone
+        })
+      });
+      setProvResult(res);
+      setNotice(res.message);
+      setProvEmail(''); setProvName(''); setProvDistrict(''); setProvPhone('');
+      await loadUsers();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Provisioning failed.');
+    } finally { setBusy(false); }
+  }
 
-  <form onSubmit={e=>void provisionUser(e)}>
-   <div className="form-grid" style={{marginBottom:16}}>
-    <div className="field"><label>Full Name *</label><input required placeholder="E.g. Natasha Chileshe" value={provName} onChange={e=>setProvName(e.target.value)}/></div>
-    <div className="field"><label>Email Address *</label><input required type="email" placeholder="user@example.com" value={provEmail} onChange={e=>setProvEmail(e.target.value)}/></div>
-    <div className="field"><label>Portal Role *</label><select value={provRole} onChange={e=>setProvRole(e.target.value as any)}><option value="student">Student (Student Portal)</option><option value="agent">District Agent (Agent Portal)</option><option value="reviewer">Application Reviewer</option><option value="admin">Administrator</option></select></div>
-    <div className="field"><label>Assigned District (for Agents)</label><input placeholder="E.g. Lusaka, Chisamba" value={provDistrict} onChange={e=>setProvDistrict(e.target.value)}/></div>
-    <div className="field full"><label>Phone Number (optional)</label><input type="tel" placeholder="+260 97X XXX XXX" value={provPhone} onChange={e=>setProvPhone(e.target.value)}/></div>
-   </div>
-   <button className="btn btn-primary" type="submit" disabled={busy||!provEmail.trim()||!provName.trim()}><UserPlus size={16}/>{busy?'Provisioning…':'Provision Account'}</button>
-  </form>
+  function openEditModal(user: UserItem) {
+    setEditingUser(user);
+    setEditName(user.displayName || '');
+    setEditEmail(user.email || '');
+    setEditPassword('');
+    setEditRole(user.role === 'super_admin' ? 'admin' : user.role as any);
+    setEditDistrict(user.district || '');
+    setEditPhone(user.phone || '');
+    setEditActive(user.active !== false);
+    setEditMustChangePass(Boolean(user.mustChangePassword));
+  }
 
-  {provResult && (
-   <div style={{background:'#f0f8f3',border:'1px dashed var(--green)',padding:16,borderRadius:12,marginTop:16}}>
-    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6,color:'var(--green)',fontWeight:700}}>
-     <CheckCircle2 size={18}/>
-     <span>Account Provisioned for {provResult.displayName} ({provResult.role.toUpperCase()})</span>
-    </div>
-    <div style={{fontSize:13,lineHeight:1.6,color:'var(--ink)'}}>
-     Email: <strong>{provResult.email}</strong><br/>
-     {provResult.tempPassword && <>Generated Temporary Password: <code style={{background:'#e0f0e6',padding:'2px 6px',borderRadius:4,fontWeight:700,color:'var(--green)'}}>{provResult.tempPassword}</code><br/></>}
-     {provResult.agentCode && <>Unique Referral Code: <strong>{provResult.agentCode}</strong><br/></>}
-     <small className="muted">The user can now log in at <Link href="/login" style={{textDecoration:'underline',fontWeight:700}}>https://kasaschool.vercel.app/login</Link> and will be guided to set their permanent password.</small>
-    </div>
-   </div>
-  )}
+  async function saveUserEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingUser) return;
+    setSavingEdit(true); setError(''); setNotice('');
+    try {
+      const payload: Record<string, unknown> = {
+        displayName: editName,
+        email: editEmail,
+        role: editRole,
+        district: editDistrict,
+        phone: editPhone,
+        active: editActive,
+        mustChangePassword: editMustChangePass
+      };
 
-  {error&&<div className="alert-error" style={{marginTop:12}}>{error}</div>}
-  {notice&&!provResult&&<div className="notice" style={{marginTop:12}}>{notice}</div>}
- </section>
- <section className="panel"><div className="panel-title" style={{flexWrap:'wrap',gap:12}}><div><h2>Authorized personnel</h2><p>Super-administrator accounts can only be provisioned using the separate controlled bootstrap procedure.</p></div>
- <div style={{display:'flex',gap:8,alignItems:'center',marginLeft:'auto'}}>
-  <ShieldCheck/>
-  {selectedStaffUids.size > 0 && <button className="btn btn-outline" onClick={() => setBulkDeleteTarget('selected')} style={{fontSize:12,padding:'6px 12px',color:'#ef4444',borderColor:'rgba(239,68,68,0.4)',display:'inline-flex',alignItems:'center',gap:6}}><Trash2 size={14}/> Remove Selected ({selectedStaffUids.size})</button>}
-  {removableStaff.length > 0 && <button className="btn btn-outline" onClick={() => setBulkDeleteTarget('all')} style={{fontSize:12,padding:'6px 12px',color:'#ef4444',borderColor:'rgba(239,68,68,0.4)',display:'inline-flex',alignItems:'center',gap:6}}><Trash2 size={14}/> Remove All Staff ({removableStaff.length})</button>}
- </div></div><div className="table-scroll"><table className="data-table"><thead><tr><th style={{width:40}}><input type="checkbox" checked={allRemovableSelected} onChange={toggleSelectAllStaff} aria-label="Select all staff"/></th><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead><tbody>
- {staff.map(x=><tr key={x.uid}><td>{x.role !== 'super_admin' ? <input type="checkbox" checked={selectedStaffUids.has(x.uid)} onChange={() => toggleSelectStaff(x.uid)} aria-label={`Select ${x.displayName}`}/> : null}</td><td><strong>{x.displayName}</strong></td><td>{x.email}</td><td>{x.role.replace('_',' ')}</td><td>{x.active?'Active':'Inactive'}</td><td>{x.role!=='super_admin'?<div style={{display:'flex',gap:8,alignItems:'center'}}><button className="text-link" onClick={()=>void change(x,{active:!x.active})}>{x.active?'Deactivate':'Reactivate'}</button><button className="text-link" onClick={()=>void change(x,{role:x.role==='admin'?'reviewer':'admin'})}>Change role</button><button className="text-link" style={{color:'#ef4444'}} onClick={()=>setDeletingStaff(x)}>Remove</button></div>:'Protected'}</td></tr>)}
- {!staff.length&&<tr><td colSpan={6} className="empty-state">No staff accounts configured.</td></tr>}</tbody></table></div></section>
- <ConfirmModal
-  isOpen={Boolean(deletingStaff)}
-  title="Remove Staff Member"
-  message={`Are you sure you want to remove ${deletingStaff?.displayName} (${deletingStaff?.email}) from staff roles?`}
-  kind="danger"
-  confirmLabel="Remove Staff"
-  cancelLabel="Cancel"
-  onConfirm={()=>void confirmRemoveStaff()}
-  onCancel={()=>setDeletingStaff(null)}
- />
+      if (editPassword.trim()) {
+        payload.password = editPassword.trim();
+      }
 
- <ConfirmModal
-  isOpen={Boolean(bulkDeleteTarget)}
-  title="Remove Multiple Staff Members"
-  message={`Are you sure you want to remove ${bulkDeleteTarget === 'selected' ? `${selectedStaffUids.size} selected` : `all ${removableStaff.length}`} staff member(s)?`}
-  kind="danger"
-  confirmLabel="Remove Staff"
-  cancelLabel="Cancel"
-  onConfirm={()=>void confirmBulkDeleteStaff()}
-  onCancel={()=>setBulkDeleteTarget(null)}
- />
-</>;
+      await api(`/api/admin/users/${editingUser.uid}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload)
+      });
+
+      setNotice(`User account (${editName}) updated successfully.`);
+      setEditingUser(null);
+      await loadUsers();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'User update failed.');
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
+  async function confirmDeleteUser() {
+    if (!deletingUser) return;
+    setBusy(true); setError(''); setNotice('');
+    try {
+      await api(`/api/admin/users/${deletingUser.uid}`, {method: 'DELETE'});
+      setNotice(`User account ${deletingUser.displayName} (${deletingUser.email}) permanently deleted.`);
+      setDeletingUser(null);
+      await loadUsers();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Deletion failed.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const filteredUsers = users.filter(u => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      String(u.displayName || '').toLowerCase().includes(q) ||
+      String(u.email || '').toLowerCase().includes(q) ||
+      String(u.phone || '').toLowerCase().includes(q) ||
+      String(u.district || '').toLowerCase().includes(q) ||
+      String(u.agentCode || '').toLowerCase().includes(q)
+    );
+  });
+
+  return (
+    <>
+      <PageHeader
+        title="User & Staff Account Management"
+        subtitle="Provision, edit, update credentials, change roles, and manage all student, agent, reviewer, and administrator accounts across the system."
+      />
+
+      {/* 1. Account Provisioning Section */}
+      <section className="panel pad-panel" style={{borderLeft: '4px solid var(--green, #103f2c)', marginBottom: 24}}>
+        <div style={{display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12}}>
+          <UserPlus size={20} style={{color: 'var(--green)'}} />
+          <h2 style={{margin: 0, fontSize: 18}}>Provision New Account (Student, Agent or Staff)</h2>
+        </div>
+        <p className="muted" style={{fontSize: 13, marginBottom: 16}}>
+          Directly create a user profile with an auto-generated temporary password. When the user logs in to their portal, they will set their permanent password.
+        </p>
+
+        <form onSubmit={e => void provisionUser(e)}>
+          <div className="form-grid" style={{marginBottom: 16}}>
+            <div className="field">
+              <label>Full Name *</label>
+              <input required placeholder="E.g. Natasha Chileshe" value={provName} onChange={e => setProvName(e.target.value)} />
+            </div>
+            <div className="field">
+              <label>Email Address *</label>
+              <input required type="email" placeholder="user@example.com" value={provEmail} onChange={e => setProvEmail(e.target.value)} />
+            </div>
+            <div className="field">
+              <label>Portal Role *</label>
+              <select value={provRole} onChange={e => setProvRole(e.target.value as any)}>
+                <option value="student">Student (Student Portal)</option>
+                <option value="agent">District Agent (Agent Portal)</option>
+                <option value="reviewer">Application Reviewer</option>
+                <option value="admin">Administrator</option>
+              </select>
+            </div>
+            <div className="field">
+              <label>Assigned District (for Agents)</label>
+              <input placeholder="E.g. Lusaka, Chisamba" value={provDistrict} onChange={e => setProvDistrict(e.target.value)} />
+            </div>
+            <div className="field full">
+              <label>Phone Number (optional)</label>
+              <input type="tel" placeholder="+260 97X XXX XXX" value={provPhone} onChange={e => setProvPhone(e.target.value)} />
+            </div>
+          </div>
+          <button className="btn btn-primary" type="submit" disabled={busy || !provEmail.trim() || !provName.trim()}>
+            <UserPlus size={16} /> {busy ? 'Provisioning…' : 'Provision Account'}
+          </button>
+        </form>
+
+        {provResult && (
+          <div style={{background: '#f0f8f3', border: '1px dashed var(--green)', padding: 16, borderRadius: 12, marginTop: 16}}>
+            <div style={{display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, color: 'var(--green)', fontWeight: 700}}>
+              <CheckCircle2 size={18} />
+              <span>Account Provisioned for {provResult.displayName} ({provResult.role.toUpperCase()})</span>
+            </div>
+            <div style={{fontSize: 13, lineHeight: 1.6, color: 'var(--ink)'}}>
+              Email: <strong>{provResult.email}</strong><br />
+              {provResult.tempPassword && (
+                <>
+                  Generated Temporary Password: <code style={{background: '#e0f0e6', padding: '2px 6px', borderRadius: 4, fontWeight: 700, color: 'var(--green)'}}>{provResult.tempPassword}</code><br />
+                </>
+              )}
+              {provResult.agentCode && <>Unique Referral Code: <strong>{provResult.agentCode}</strong><br /></>}
+              <small className="muted">The user can now log in at <Link href="/login" style={{textDecoration: 'underline', fontWeight: 700}}>https://kasaschool.vercel.app/login</Link> and will be guided to set their permanent password.</small>
+            </div>
+          </div>
+        )}
+
+        {error && <div className="alert-error" style={{marginTop: 12}}>{error}</div>}
+        {notice && !provResult && <div className="notice" style={{marginTop: 12}}>{notice}</div>}
+      </section>
+
+      {/* 2. Registered Users Table & Management */}
+      <section className="panel">
+        <div className="panel-title" style={{flexWrap: 'wrap', gap: 12}}>
+          <div>
+            <h2>Registered System Accounts</h2>
+            <p>Edit user profile details, email addresses, passwords, district territory, or deactivate accounts.</p>
+          </div>
+          <div className="table-controls" style={{margin: 0, padding: 0, background: 'transparent', border: 'none'}}>
+            <label className="search-box">
+              <Search size={16} />
+              <input placeholder="Search users by name, email, code or district…" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+            </label>
+            <label className="filter-select">
+              <Filter size={16} />
+              <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}>
+                <option value="all">All Roles</option>
+                <option value="student">Students</option>
+                <option value="agent">District Agents</option>
+                <option value="reviewer">Reviewers</option>
+                <option value="admin">Administrators</option>
+                <option value="super_admin">Super Admins</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div className="table-scroll">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>User Name</th>
+                <th>Email Address</th>
+                <th>Role</th>
+                <th>District / Code</th>
+                <th>Status</th>
+                <th>Admin Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={6} className="empty-state">Loading system accounts…</td></tr>
+              ) : filteredUsers.length === 0 ? (
+                <tr><td colSpan={6} className="empty-state">No user accounts found matching your search.</td></tr>
+              ) : (
+                filteredUsers.map(u => (
+                  <tr key={u.uid}>
+                    <td>
+                      <strong>{u.displayName || 'User'}</strong>
+                      {u.phone && <small className="table-sub">{u.phone}</small>}
+                    </td>
+                    <td>{u.email}</td>
+                    <td>
+                      <span className={`tag ${u.role === 'super_admin' ? 'tag-purple' : u.role === 'admin' ? 'tag-blue' : u.role === 'agent' ? 'tag-green' : 'tag-gray'}`}>
+                        {u.role.replace('_', ' ').toUpperCase()}
+                      </span>
+                    </td>
+                    <td>
+                      {u.agentCode ? <code>{u.agentCode}</code> : u.district || '—'}
+                    </td>
+                    <td>
+                      <span className={`tag ${u.active !== false ? 'tag-green' : 'tag-red'}`}>
+                        {u.active !== false ? 'Active' : 'Disabled'}
+                      </span>
+                    </td>
+                    <td>
+                      {u.role === 'super_admin' ? (
+                        <span className="muted" style={{fontSize: 12}}>Protected</span>
+                      ) : (
+                        <div style={{display: 'flex', gap: 10, alignItems: 'center'}}>
+                          <button
+                            type="button"
+                            className="text-link"
+                            onClick={() => openEditModal(u)}
+                            style={{display: 'inline-flex', alignItems: 'center', gap: 4}}
+                          >
+                            <Edit3 size={14} /> Edit & Reset
+                          </button>
+                          <button
+                            type="button"
+                            className="text-link"
+                            style={{color: '#ef4444'}}
+                            onClick={() => setDeletingUser(u)}
+                          >
+                            <Trash2 size={14} /> Delete
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* MODAL: EDIT USER DETAILS, PASSWORD & EMAIL */}
+      {editingUser && (
+        <div className="modal-page-overlay" role="dialog" aria-modal="true">
+          <div className="modal-page" style={{maxWidth: 680}}>
+            <header className="modal-page-header">
+              <div className="modal-page-header-left">
+                <span className="modal-page-badge">ADMIN USER CONTROL</span>
+                <h2>Edit Account: {editingUser.displayName}</h2>
+              </div>
+              <div className="modal-page-header-right">
+                <button type="button" className="icon-btn" onClick={() => setEditingUser(null)} aria-label="Close">
+                  <X size={20} />
+                </button>
+              </div>
+            </header>
+
+            <form onSubmit={e => void saveUserEdit(e)} style={{display: 'flex', flexDirection: 'column', flex: 1}}>
+              <div className="modal-page-body">
+                <div className="modal-page-card">
+                  <h3><UserPlus size={18} /> User Profile & Credentials</h3>
+                  <p>Update full name, verified email address, or force a new password directly in Firebase Auth.</p>
+
+                  <div className="form-grid">
+                    <div className="field full">
+                      <label>Full Name *</label>
+                      <input required value={editName} onChange={e => setEditName(e.target.value)} />
+                    </div>
+
+                    <div className="field full">
+                      <label>Email Address *</label>
+                      <input required type="email" value={editEmail} onChange={e => setEditEmail(e.target.value)} />
+                      <small className="field-hint">Updating email updates Firebase Auth and Firestore profile.</small>
+                    </div>
+
+                    <div className="field full" style={{background: '#f8faf9', padding: 12, borderRadius: 8, border: '1px dashed var(--border)'}}>
+                      <label style={{color: 'var(--green)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6}}>
+                        <Lock size={15} /> Set New Password (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Leave blank to keep existing password, or enter new 8+ char password"
+                        value={editPassword}
+                        onChange={e => setEditPassword(e.target.value)}
+                        minLength={8}
+                        style={{marginTop: 6, fontSize: 13}}
+                      />
+                      <small className="field-hint">Entering a new password immediately updates Firebase Auth password.</small>
+                    </div>
+
+                    <div className="field">
+                      <label>Portal Role *</label>
+                      <select value={editRole} onChange={e => setEditRole(e.target.value as any)}>
+                        <option value="student">Student (Student Portal)</option>
+                        <option value="agent">District Agent (Agent Portal)</option>
+                        <option value="reviewer">Application Reviewer</option>
+                        <option value="admin">Administrator</option>
+                      </select>
+                    </div>
+
+                    <div className="field">
+                      <label>District Territory</label>
+                      <input placeholder="E.g. Lusaka, Chisamba" value={editDistrict} onChange={e => setEditDistrict(e.target.value)} />
+                    </div>
+
+                    <div className="field full">
+                      <label>Phone Number</label>
+                      <input type="tel" value={editPhone} onChange={e => setEditPhone(e.target.value)} />
+                    </div>
+
+                    <div className="field full" style={{display: 'flex', gap: 20, marginTop: 8}}>
+                      <label className="required-toggle" style={{fontSize: 13}}>
+                        <input type="checkbox" checked={editActive} onChange={e => setEditActive(e.target.checked)} />
+                        Account Active Status
+                      </label>
+                      <label className="required-toggle" style={{fontSize: 13}}>
+                        <input type="checkbox" checked={editMustChangePass} onChange={e => setEditMustChangePass(e.target.checked)} />
+                        Force Password Reset On Next Login
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <footer className="modal-page-footer">
+                <button type="button" className="btn btn-outline" onClick={() => setEditingUser(null)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={savingEdit || !editName.trim() || !editEmail.trim()}>
+                  <Save size={16} /> {savingEdit ? 'Saving Changes…' : 'Save User Account'}
+                </button>
+              </footer>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* CONFIRM DELETE USER MODAL */}
+      <ConfirmModal
+        isOpen={Boolean(deletingUser)}
+        title="Delete User Account"
+        message={`Are you sure you want to permanently delete ${deletingUser?.displayName} (${deletingUser?.email})? This deletes their profile and Firebase Auth account.`}
+        kind="danger"
+        confirmLabel="Delete User Account"
+        cancelLabel="Cancel"
+        onConfirm={() => void confirmDeleteUser()}
+        onCancel={() => setDeletingUser(null)}
+      />
+    </>
+  );
 }
