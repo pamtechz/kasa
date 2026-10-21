@@ -20,7 +20,7 @@ export type ApplicantRecord = {id:string;reference:string;formId:string;formTitl
   documents?:Record<string,{kind:string;label:string;path:string;fileName:string;contentType:string;size:number;uploadedAt:string;uploadedBy:string;verifiedAt:string|null;verifiedBy:string|null}>;
   commission?:{amount:number;currency:string;trigger?:'cdf_approval'|'payment';approvedAt?:string;paidAt?:string;paymentReference?:string};
 };
-export type Role = 'super_admin'|'admin'|'reviewer'|'agent'|'student';
+export type Role = 'super_admin'|'admin'|'reviewer'|'agent'|'student'|'finance';
 export type Profile = {
   uid:string; email:string; displayName:string; role:Role; active:boolean;
   agentCode?:string; district?:string; province?:string; constituency?:string; ward?:string;
