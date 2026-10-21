@@ -2,7 +2,7 @@
 import {useEffect,useMemo,useState} from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import {ArrowLeft,ArrowRight,Download,ExternalLink,Filter,Plus,Search,Trash2,X,Pencil,CheckSquare,Square,FileDown,Mail} from 'lucide-react';
+import {ArrowLeft,ArrowRight,Download,ExternalLink,Filter,Plus,Search,Trash2,X,Pencil,CheckSquare,Square,FileDown,Mail,Upload} from 'lucide-react';
 import {api, cachedApi, PageHeader, StatusBadge} from '@/components/Portal';
 import {ConfirmModal} from '@/components/ConfirmModal';
 import type {ApplicantRecord,SubmissionStatus} from '@/lib/types';
