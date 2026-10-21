@@ -10,7 +10,7 @@ function canReadNotice(user:{uid:string;role:string},notice:Record<string,unknow
 }
 function safeNotice<T extends Record<string,unknown>>(notice:T):T{
   if(typeof notice.message!=='string')return notice;
-  return {...notice,message:notice.message.replace(/(Temporary password:\\s*)\\S+/gi,'$1[REDACTED]')} as T;
+  return {...notice,message:notice.message.replace(/(Temporary password:\s*)\S+/gi,'$1[REDACTED]')} as T;
 }
 
 export const runtime = 'nodejs';
