@@ -36,7 +36,7 @@ export function sameOrigin(req: Request) {
   const allowedOrigins = new Set([
     requestUrl.origin,
     process.env.APP_URL ? new URL(process.env.APP_URL).origin : '',
-    process.env.VERCEL_URL ? new URL('https://' + process.env.VERCEL_URL.replace(/^https?:\\/\\//,'')).origin : ''
+    process.env.VERCEL_URL ? new URL('https://' + process.env.VERCEL_URL.replace('https://','').replace('http://','')).origin : ''
   ].filter(Boolean));
 
   if (!allowedOrigins.has(requestOrigin)) {
