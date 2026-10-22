@@ -7,7 +7,7 @@ import {
   ClipboardList, CheckCircle2, Download, FileText, UploadCloud,
   FileCheck, Clock, ShieldCheck, RefreshCw, AlertCircle
 } from 'lucide-react';
-import {authHeaders} from '@/lib/firebase-client';
+import {authHeaders,appCheckToken} from '@/lib/firebase-client';
 import {StatusBadge} from '@/components/Portal';
 
 type ApplicantItem = {
@@ -25,6 +25,9 @@ export default function StudentPortalApplicationsPage() {
   const [items, setItems] = useState<ApplicantItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [claimReference,setClaimReference]=useState('');
+  const [claimToken,setClaimToken]=useState('');
+  const [claimBusy,setClaimBusy]=useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
@@ -47,6 +50,26 @@ export default function StudentPortalApplicationsPage() {
   useEffect(() => {
     void loadApplications();
   }, []);
+
+  async function claimExistingApplication(event:React.FormEvent){
+    event.preventDefault();
+    setClaimBusy(true);setMessage('');setError('');
+    try{
+      const headers:Record<string,string>={...(await authHeaders()),'Content-Type':'application/json'};
+      const check=await appCheckToken();
+      if(check)headers['x-firebase-appcheck']=check;
+      const response=await fetch('/api/student/applications',{
+        method:'POST',headers,
+        body:JSON.stringify({reference:claimReference.trim(),downloadToken:claimToken.trim()})
+      });
+      const data=await response.json();
+      if(!response.ok)throw new Error(data.error||'Application could not be linked.');
+      setClaimReference('');setClaimToken('');
+      await loadApplications();
+      setMessage('Your application was securely linked to your verified student account.');
+    }catch(err){setError(err instanceof Error?err.message:'Application could not be linked.');}
+    finally{setClaimBusy(false);}
+  }
 
   async function uploadDocument(submissionId: string, kind: string, file?: File) {
     if (!file) return;
@@ -88,6 +111,31 @@ export default function StudentPortalApplicationsPage() {
 
       {error && <div className="alert-error" style={{marginBottom: 16}}>{error}</div>}
       {message && <div className="notice" style={{marginBottom: 16}}><CheckCircle2 size={16} /> {message}</div>}
+
+      <section className="panel pad-panel" aria-label="Claim existing application" style={{marginBottom:20}}>
+        <h2 style={{fontSize:18,marginBottom:6}}>Claim an existing application</h2>
+        <p className="muted" style={{fontSize:13}}>
+          If you applied without signing in, link the application to your verified account using its reference and
+          the private 64-character download token issued on your submission receipt. An email address alone cannot establish ownership.
+        </p>
+        <form onSubmit={event=>void claimExistingApplication(event)} className="form-grid">
+          <div className="field">
+            <label htmlFor="claim-reference">Application reference</label>
+            <input id="claim-reference" required maxLength={40} value={claimReference}
+              placeholder="KASA-2027-XXXXXXXX" onChange={event=>setClaimReference(event.target.value)}/>
+          </div>
+          <div className="field">
+            <label htmlFor="claim-token">Private application token</label>
+            <input id="claim-token" required minLength={64} maxLength={64} autoComplete="off"
+              type="password" value={claimToken} onChange={event=>setClaimToken(event.target.value)}/>
+          </div>
+          <div className="field full">
+            <button type="submit" className="btn btn-primary" disabled={claimBusy||!claimReference.trim()||claimToken.trim().length!==64}>
+              {claimBusy?'Linking…':'Securely link application'}
+            </button>
+          </div>
+        </form>
+      </section>
 
       <div style={{display: 'flex', flexDirection: 'column', gap: 20}}>
         {loading ? (

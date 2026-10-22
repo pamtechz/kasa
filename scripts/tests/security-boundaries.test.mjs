@@ -189,3 +189,21 @@ test('Public offer verification exposes no applicant identity or pending status'
  assert.doesNotMatch(page,/record\?\.answers|studentName|fundingMethod/);
  assert.match(page,/student portal/);
 });
+
+test('Student account linking requires verified identity and receipt token',()=>{
+ const route=source('src/app/api/student/applications/route.ts');
+ const page=source('src/app/(portal)/student-portal/applications/page.tsx');
+ assert.match(route,/where\('applicantUid','==',user.uid\)/);
+ assert.doesNotMatch(route,/recentApps|limit\(200\)/);
+ assert.match(route,/record.downloadToken/);
+ assert.match(route,/timingSafeEqual/);
+ assert.match(page,/Claim an existing application/);
+ assert.match(page,/appCheckToken/);
+});
+test('Enrollment forms do not invent school records, health declarations or sponsors',()=>{
+ const route=source('src/app/api/public/submissions/[id]/enrollment-form/route.ts');
+ assert.doesNotMatch(route,/Grade 12|Practical farming interests|None to report|P\.O\. Box 40|Approved 2027 Tariff/);
+ assert.doesNotMatch(route,/\|\| 'Zambian'|\|\| 'Parent'/);
+ assert.match(route,/sponsorName: String\(answers\['sponsorName'\]/);
+ assert.match(route,/learningSupport: String\(answers\['learningSupport'\]/);
+});

@@ -1,3 +1,4 @@
+import {timingSafeEqual} from 'node:crypto';
 import type {NextRequest} from 'next/server';
 import {adminAuth,db} from '@/lib/firebase-admin';
 import {rateLimit,sameOrigin,requireAppCheck} from '@/lib/security';
@@ -16,31 +17,11 @@ async function verifiedUser(req:Request){
 export async function GET(req:Request){
  try{
   const user=await verifiedUser(req);
-  const userEmail=user.email?.toLowerCase() || '';
-
+  // Only explicitly linked account records can be listed. Matching an email
+  // supplied on an anonymous form is not sufficient proof of ownership.
   const uidQuery=await db.collection('submissions').where('applicantUid','==',user.uid).limit(100).get();
   const map=new Map<string, Record<string, unknown>>();
-
-  uidQuery.docs.forEach(doc => {
-   map.set(doc.id, { id: doc.id, ...doc.data() });
-  });
-
-  if (userEmail) {
-   const recentApps = await db.collection('submissions').limit(200).get();
-   recentApps.docs.forEach(doc => {
-    if (!map.has(doc.id)) {
-     const x = doc.data();
-     const emailField = x.formSnapshot?.sections?.flatMap((s:{fields:{id:string;type:string}[]})=>s.fields).find((f:{type:string})=>f.type==='email');
-     const answerEmail = emailField ? String(x.answers?.[emailField.id] || '').trim().toLowerCase() : '';
-     if (answerEmail === userEmail || String(x.answers?.email || '').trim().toLowerCase() === userEmail) {
-      map.set(doc.id, { id: doc.id, ...x });
-      if (!x.applicantUid) {
-       doc.ref.update({ applicantUid: user.uid, accountLinkedAt: new Date().toISOString() }).catch(() => {});
-      }
-     }
-    }
-   });
-  }
+  uidQuery.docs.forEach(doc=>map.set(doc.id,{id:doc.id,...doc.data()}));
 
   const applications = Array.from(map.values()).map(x => ({
    id: x.id,
@@ -63,7 +44,9 @@ export async function POST(req:NextRequest){
   sameOrigin(req);await requireAppCheck(req);await rateLimit(req,'student-claim',6,15);
   const user=await verifiedUser(req),body=await req.json();
   const reference=String(body?.reference||'').trim().toUpperCase();
+  const downloadToken=String(body?.downloadToken||'').trim().toLowerCase();
   if(!/^KASA-\d{4}-[A-F0-9]{8}$/.test(reference))throw new HttpError(400,'Enter a valid KASA application reference.');
+  if(!/^[a-f0-9]{64}$/.test(downloadToken))throw new HttpError(400,'Provide the private 64-character application token.');
   const result=await db.collection('submissions').where('reference','==',reference).limit(1).get();
   if(result.empty)throw new HttpError(404,'No matching application was found for the verified email.');
   const doc=result.docs[0];
@@ -74,6 +57,13 @@ export async function POST(req:NextRequest){
    const emailField=record.formSnapshot?.sections?.flatMap((s:{fields:{id:string;type:string}[]})=>s.fields).find((f:{type:string})=>f.type==='email');
    const email=emailField?String(record.answers?.[emailField.id]||'').trim().toLowerCase():'';
    if(email!==user.email?.toLowerCase())throw new HttpError(404,'No matching application was found for the verified email.');
+   // Reference numbers and matching email addresses are public/guessable.
+   // The opaque per-application token proves possession of the original receipt.
+   const expected=String(record.downloadToken||'').toLowerCase();
+   if(!/^[a-f0-9]{64}$/.test(expected) ||
+      !timingSafeEqual(Buffer.from(expected,'hex'),Buffer.from(downloadToken,'hex'))) {
+    throw new HttpError(404,'This application could not be linked with the supplied credentials.');
+   }
    if(record.applicantUid&&record.applicantUid!==user.uid)throw new HttpError(409,'This application is linked to another verified account.');
    if(!record.applicantUid)tx.update(doc.ref,{applicantUid:user.uid,accountLinkedAt:new Date().toISOString()});
   });
