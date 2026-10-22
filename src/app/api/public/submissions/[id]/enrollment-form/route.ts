@@ -73,7 +73,7 @@ export async function GET(req: Request, {params}: {params: Promise<{id: string}>
       agreedFees: 'Approved 2027 Tariff'
     };
 
-    const bytes = await generateEnrollmentFormPdf(formData, offsets);
+    const bytes = await generateEnrollmentFormPdf(formData);
     return new Response(new Uint8Array(bytes), {
       status: 200,
       headers: {
