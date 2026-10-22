@@ -47,3 +47,11 @@ test('Personal notifications cannot delete the globally read outbox',()=>{
  assert.match(route,/safeNotice/);
  assert.doesNotMatch(route,/\.where\('read', '==', true\)/);
 });
+
+test('Enrollment PDFs preserve configured positioning and do not fabricate identity or consent',()=>{
+ const route=source('src/app/api/public/submissions/[id]/enrollment-form/route.ts');
+ assert.match(route,/const offsets = letterSettingsDoc\.data\(\)\?\.enrollmentFormOffsets \|\| \{\}/);
+ assert.match(route,/generateEnrollmentFormPdf\(formData, offsets\)/);
+ assert.doesNotMatch(route,/2004-05-14|applicant@example\.com|photoPublicityConsent: true/);
+ assert.match(route,/answers\['photo-publicity-consent'\]/);
+});
