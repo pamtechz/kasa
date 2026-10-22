@@ -11,9 +11,20 @@ export async function POST(req: Request) {
     const user = await operator(req, ['super_admin', 'admin', 'reviewer']);
     const body = await req.json();
 
-    const submittedIds = Array.isArray(body?.ids) ? body.ids : [];
-    if(submittedIds.length > 300)throw new HttpError(400,'Select up to 300 applications at a time.');
-    const ids = [...new Set(submittedIds.map((id:unknown)=>safeText(id,60)))].filter(Boolean);
+    const submittedIds: unknown[] = Array.isArray(body?.ids) ? body.ids : [];
+    if (body?.ids !== undefined && !Array.isArray(body.ids)) {
+      throw new HttpError(400, 'Application IDs must be provided as a list.');
+    }
+    if (submittedIds.length > 300) throw new HttpError(400, 'Select up to 300 applications at a time.');
+    // Firestore document IDs must be validated and typed before passing to doc().
+    // An explicit empty selection must never fall through to the entire student list.
+    const ids: string[] = [...new Set<string>(submittedIds.map((id: unknown) => safeText(id, 60)))];
+    if (ids.some(id => !/^[a-zA-Z0-9_-]{8,60}$/.test(id))) {
+      throw new HttpError(400, 'One or more application IDs are invalid.');
+    }
+    if (body?.ids !== undefined && ids.length === 0) {
+      throw new HttpError(400, 'Select at least one application.');
+    }
 
     let submissions: ApplicantRecord[] = [];
 
