@@ -71,6 +71,9 @@ export function Portal({children}:{children:React.ReactNode}){
       router.replace('/my-applications');
       return;
      }
+     if(result.profile.role==='finance' && (path==='/dashboard'||path==='/dashboard/')){
+      router.replace('/dashboard/finance');
+     }
      setProfile(result.profile);
      setSessionError('');
     }
@@ -81,7 +84,7 @@ export function Portal({children}:{children:React.ReactNode}){
    if(active){setProfile(null);setSessionError('Unable to validate your Firebase session.');setLoading(false);}
   });
   return ()=>{active=false;unsubscribe();};
- },[router]);
+ },[router,path]);
  async function logOut(){
   try{await signOutClient();setProfile(null);router.replace('/login?reason=session-ended');}
   catch(e){setSessionError(e instanceof Error?e.message:'Unable to sign out. Please retry.');}

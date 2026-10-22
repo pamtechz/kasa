@@ -129,7 +129,7 @@ export function requiredPageCapability(path:string):Capability|undefined{
  if(path.startsWith('/dashboard/referrals'))return 'referrals.read';
  if(path.startsWith('/dashboard/notifications'))return 'notifications.read';
  if(path.startsWith('/dashboard/profile'))return 'profile.read';
- if(path==='/dashboard'||path==='/dashboard/')return 'profile.read';
+ if(path==='/dashboard'||path==='/dashboard/')return 'applications.read';
  if(path.startsWith('/agent-portal'))return 'referrals.read';
  if(path.startsWith('/student-portal')||path.startsWith('/student/')||path.startsWith('/my-applications'))return 'profile.read';
  return undefined;
