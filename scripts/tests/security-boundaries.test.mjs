@@ -229,3 +229,19 @@ test('Notification mutation replies never expose legacy password fragments',()=>
  assert.match(api,/REDACTED/);
  assert.match(api,/typeof notice\.title==='string'/);
 });
+
+test('Student identity documents never fabricate NRC numbers, intake or expiry dates',()=>{
+ const route=source('src/app/api/public/submissions/[id]/id-card/route.ts');
+ assert.doesNotMatch(route,/Student Applicant|On file|2027 Intake|31\/12\/2027/);
+ assert.match(route,/data\.idCardIssuedAt/);
+ assert.match(route,/data\.idCardExpiryDate/);
+});
+
+test('Phase 1 live audit is read-only and does not disclose identity data',()=>{
+ const script=source('scripts/audit-phase1-security.mjs');
+ assert.match(script,/confirm-read-only/);
+ assert.match(script,/FIREBASE_PROJECT_ID/);
+ assert.match(script,/aggregate counts|aggregate findings/i);
+ assert.match(script,/changedRecords:0/);
+ assert.doesNotMatch(script,/\.update\(|\.delete\(|\.set\(|console\.log\(doc\.data\(/);
+});

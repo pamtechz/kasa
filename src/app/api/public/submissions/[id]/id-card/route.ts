@@ -18,18 +18,18 @@ export async function GET(req: Request, {params}: {params: Promise<{id: string}>
     }
 
     const answers = data.answers || {};
-    const studentName = String(answers['full-name'] || answers['fullNames'] || 'Student Applicant');
-    const nrcNumber = String(answers['nrc-number'] || answers['nrcNumber'] || 'On file');
-    const programmeTitle = String(answers['programme-pathway'] || data.formTitle || 'General Agriculture');
+    const studentName = String(answers['full-name'] || answers['fullNames'] || '');
+    const nrcNumber = String(answers['nrc-number'] || answers['nrcNumber'] || '');
+    const programmeTitle = String(answers['programme-pathway'] || data.formTitle || '');
 
     const cardData: StudentIdCardData = {
       reference: data.reference,
       studentName,
       nrcNumber,
       programmeTitle,
-      intakeBatch: String(answers['intake'] || '2027 Intake'),
-      issueDate: new Date(data.submittedAt || Date.now()).toLocaleDateString('en-GB'),
-      expiryDate: '31/12/2027'
+      intakeBatch: String(answers['intake'] || ''),
+      issueDate: data.idCardIssuedAt ? new Date(data.idCardIssuedAt).toLocaleDateString('en-GB') : '',
+      expiryDate: data.idCardExpiryDate ? new Date(data.idCardExpiryDate).toLocaleDateString('en-GB') : ''
     };
 
     const pdfBytes = await generateStudentIdCardPdf(cardData);
