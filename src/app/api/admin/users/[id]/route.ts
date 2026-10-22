@@ -24,8 +24,13 @@ export async function PATCH(
     const currentData = snap.data() as Profile;
 
     // Super Admin protection
-    if (currentData.role === 'super_admin' && actor.role !== 'super_admin') {
-      throw new HttpError(403, 'Only Super Administrators can modify Super Admin accounts.');
+    const privilegedRoles = ['super_admin','admin','reviewer','finance'];
+    if (privilegedRoles.includes(currentData.role) && actor.role !== 'super_admin') {
+      throw new HttpError(403,'Only the Super Administrator can manage privileged accounts.');
+    }
+    if (uid === actor.uid &&
+        ('role' in body || 'active' in body || 'email' in body)) {
+      throw new HttpError(403,'You cannot change your own role, active status or verified email through this endpoint.');
     }
 
     const updates: Partial<Profile> & Record<string, unknown> = {
@@ -35,8 +40,7 @@ export async function PATCH(
     const authUpdates: {
       displayName?: string;
       email?: string;
-      emailVerified?: boolean;
-      password?: string;
+
     } = {};
 
     // 1. Update Full Name
@@ -47,24 +51,16 @@ export async function PATCH(
       authUpdates.displayName = name;
     }
 
-    // 2. Update Email Address
-    if (typeof body.email === 'string') {
-      const email = safeText(body.email, 240).toLowerCase().trim();
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        throw new HttpError(400, 'Invalid email address format.');
+    // Firebase Auth email verification must be completed by the owner using
+    // an emailed verification link, never asserted by an administrator.
+    if (body.email !== undefined) {
+      if (typeof body.email !== 'string' ||
+          body.email.trim().toLowerCase() !== String(currentData.email || '').toLowerCase()) {
+        throw new HttpError(409,'Email changes require the verified account-recovery workflow.');
       }
-      updates.email = email;
-      authUpdates.email = email;
-      authUpdates.emailVerified = true;
     }
-
-    // 3. Update Password
-    if (typeof body.password === 'string' && body.password.trim().length > 0) {
-      const pass = body.password.trim();
-      if (pass.length < 8) {
-        throw new HttpError(400, 'Password must be at least 8 characters long.');
-      }
-      authUpdates.password = pass;
+    if (body.password !== undefined) {
+      throw new HttpError(403,'Password changes must use verified account recovery. Admin-assigned passwords are disabled.');
     }
 
     // 4. Update Role
@@ -72,16 +68,31 @@ export async function PATCH(
       if (currentData.role === 'super_admin' && body.role !== 'super_admin') {
         throw new HttpError(403, 'Cannot demote Super Admin role.');
       }
+      if (actor.role !== 'super_admin') {
+        throw new HttpError(403,'Only a Super Administrator can assign account roles.');
+      }
+      if (body.role !== currentData.role) {
+        const authIdentity = await adminAuth.getUser(uid);
+        if (!authIdentity.emailVerified) {
+          throw new HttpError(403,'Verify the account email before changing roles.');
+        }
+      }
       updates.role = body.role as any;
     }
 
     // 5. Update Contact & Territory Fields
-    if ('phone' in body) updates.phone = safeText(body.phone, 40).trim() || undefined;
-    if ('district' in body) updates.district = safeText(body.district, 100).trim() || undefined;
-    if ('province' in body) updates.province = safeText(body.province, 100).trim() || undefined;
-    if ('address' in body) updates.address = safeText(body.address, 300).trim() || undefined;
-    if ('active' in body) updates.active = Boolean(body.active);
-    if ('mustChangePassword' in body) updates.mustChangePassword = Boolean(body.mustChangePassword);
+    if ('phone' in body) updates.phone = safeText(body.phone, 40).trim();
+    if ('district' in body) updates.district = safeText(body.district, 100).trim();
+    if ('province' in body) updates.province = safeText(body.province, 100).trim();
+    if ('address' in body) updates.address = safeText(body.address, 300).trim();
+    if ('active' in body) {
+      if (typeof body.active !== 'boolean') throw new HttpError(400,'Invalid active status.');
+      updates.active = body.active;
+    }
+    if ('mustChangePassword' in body) {
+      if (actor.role !== 'super_admin') throw new HttpError(403,'Only a Super Administrator can set account security flags.');
+      updates.mustChangePassword = Boolean(body.mustChangePassword);
+    }
 
     // Apply Firebase Auth updates if name, email, or password were changed
     if (Object.keys(authUpdates).length > 0) {
@@ -130,14 +141,20 @@ export async function DELETE(
     const userData = snap.data() as Profile;
 
     if (userData.role === 'super_admin') {
-      throw new HttpError(403, 'Super Admin accounts cannot be deleted.');
+      throw new HttpError(403, 'Super Administrator accounts cannot be deleted.');
+    }
+    if (['admin','reviewer','finance'].includes(userData.role) &&
+        actor.role !== 'super_admin') {
+      throw new HttpError(403, 'Only a Super Administrator can delete staff accounts.');
     }
 
     // 1. Delete from Firebase Auth
     try {
       await adminAuth.deleteUser(uid);
-    } catch (err) {
-      console.warn(`Auth deletion warning for ${uid}:`, err);
+    } catch {
+      // Preserve the Firestore profile if identity deletion did not succeed.
+      // It must be reconciled rather than leave a live identity without its record.
+      throw new HttpError(502,'Firebase Auth deletion failed. No profile was deleted.');
     }
 
     // 2. Delete Profile Document from Firestore
