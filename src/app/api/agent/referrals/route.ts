@@ -1,3 +1,8 @@
+import type {NextRequest} from 'next/server';
+import {rateLimit} from '@/lib/security';
+import {loadIntake} from '@/lib/intake-server';
+import {intakeWindow} from '@/lib/intake-policy';
+import {publicFeatureFlags,requireReferralsEnabled} from '@/lib/feature-policy';
 import {db} from '@/lib/firebase-admin';
 import {operator, newId, safeText, sameOrigin} from '@/lib/security';
 import {fail, json, HttpError} from '@/lib/errors';
@@ -11,9 +16,11 @@ export async function GET(req: Request) {
     const agent = await operator(req, ['agent', 'super_admin', 'admin']);
     const agentUid = agent.role === 'agent' ? agent.uid : new URL(req.url).searchParams.get('agentUid') || agent.uid;
 
-    const [records, forms] = await Promise.all([
+    const [records, forms, programmes, features] = await Promise.all([
       db.collection('submissions').where('agentId', '==', agentUid).limit(300).get(),
-      db.collection('forms').where('published', '==', true).limit(100).get()
+      db.collection('forms').where('published', '==', true).limit(100).get(),
+      db.collection('programmes').where('published', '==', true).limit(150).get(),
+      publicFeatureFlags()
     ]);
 
     const referrals = records.docs.map(d => {
@@ -51,13 +58,15 @@ export async function GET(req: Request) {
 
     return json({
       agent: {
-        agentCode: agent.agentCode || 'KASA-AGT',
+        agentCode: agent.agentCode || '',
         district: agent.district || 'Unassigned',
         active: agent.active
       },
       forms: forms.docs
         .filter(d => d.data().kind === 'student')
         .map(d => ({slug: String(d.data().slug), title: String(d.data().title)})),
+      programmes: programmes.docs.map(d=>String(d.data().title||'')).filter(Boolean).sort(),
+      referralsEnabled: features.referralsEnabled,
       referrals
     });
   } catch (e) {
@@ -65,10 +74,12 @@ export async function GET(req: Request) {
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     sameOrigin(req);
     const agent = await operator(req, ['agent', 'super_admin', 'admin']);
+    await rateLimit(req,'agent-direct-referral',6,15);
+    await requireReferralsEnabled();
     const body = await req.json();
 
     const candidateName = safeText(body.candidateName || body.name, 120);
@@ -83,6 +94,25 @@ export async function POST(req: Request) {
     if (!candidateName) throw new HttpError(400, 'Candidate full name is required.');
     if (!phone) throw new HttpError(400, 'Candidate phone number is required.');
     if (!programme) throw new HttpError(400, 'Selected training programme is required.');
+    // A direct referral may only be submitted for a published programme and
+    // while an actual student application form accepts registrations.
+    const [catalog,forms,policy,operations] = await Promise.all([
+      db.collection('programmes').where('published','==',true).limit(150).get(),
+      db.collection('forms').where('published','==',true).limit(100).get(),
+      loadIntake(),
+      db.collection('settings').doc('operations').get()
+    ]);
+    if(!catalog.docs.some(doc=>String(doc.data().title||'')===programme))
+      throw new HttpError(400,'Select a currently published programme.');
+    const studentForms=forms.docs.filter(doc=>doc.data().kind==='student');
+    if(!studentForms.some(doc=>intakeWindow(policy,String(doc.data().slug||'')).open))
+      throw new HttpError(403,'Student applications are currently closed.');
+    const op=operations.data()||{};
+    const configured=Number(fundingMethod==='cdf'
+      ? op.commissionAmountCdf??op.commissionAmount??0
+      : op.commissionAmountPaid??op.commissionAmount??0);
+    if(!Number.isFinite(configured)||configured<0||configured>50000)
+      throw new HttpError(500,'Referral commission settings require review.');
 
     const id = newId();
     const reference = `KASA-${new Date().getFullYear()}-${id.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
@@ -100,7 +130,7 @@ export async function POST(req: Request) {
         'student-name': candidateName,
         name: candidateName,
         phone,
-        email: email || `${phone.replace(/\D/g, '')}@kasa.referral.zm`,
+        email,
         nrc,
         program: programme,
         programme,
@@ -114,7 +144,7 @@ export async function POST(req: Request) {
       updatedAt: now,
       fundingMethod,
       commission: {
-        amount: 300,
+        amount: configured,
         currency: 'ZMW',
         trigger: fundingMethod === 'cdf' ? 'cdf_approval' : 'payment'
       },
