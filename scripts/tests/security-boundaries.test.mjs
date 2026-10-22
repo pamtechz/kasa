@@ -245,3 +245,22 @@ test('Phase 1 live audit is read-only and does not disclose identity data',()=>{
  assert.match(script,/changedRecords:0/);
  assert.doesNotMatch(script,/\.update\(|\.delete\(|\.set\(|console\.log\(doc\.data\(/);
 });
+
+test('Authenticated student document list and UI never leak bearer download tokens',()=>{
+ const api=source('src/app/api/student/applications/route.ts');
+ const portal=source('src/app/(portal)/student-portal/applications/page.tsx');
+ const my=source('src/app/(site)/my-applications/page.tsx');
+ const helper=source('src/lib/student-document-download.ts');
+ assert.doesNotMatch(api.split('export async function POST')[0],/downloadToken|\?token=|letterUrl:/);
+ for(const page of [portal,my]){
+  assert.doesNotMatch(page,/tokenQuery|\.downloadToken|href=\{letterUrl\}|href=\{formUrl\}/);
+  assert.match(page,/handleDownload/);
+ }
+ assert.match(helper,/authHeaders\(\)/);
+ assert.doesNotMatch(helper,/\?token=/);
+});
+test('Production CSRF origin is not derived from an untrusted request Host header',()=>{
+ const security=source('src/lib/security.ts');
+ assert.match(security,/\.\.\.\(process\.env\.NODE_ENV !== 'production' \?/);
+ assert.doesNotMatch(security,/\n\s*requestUrl\.origin/);
+});

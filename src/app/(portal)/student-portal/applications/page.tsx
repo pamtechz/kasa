@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import {authHeaders,appCheckToken} from '@/lib/firebase-client';
 import {StatusBadge} from '@/components/Portal';
+import {downloadStudentPdf} from '@/lib/student-document-download';
 
 type ApplicantItem = {
   id: string;
@@ -17,7 +18,6 @@ type ApplicantItem = {
   status: string;
   submittedAt: string;
   fundingMethod: string | null;
-  downloadToken?: string | null;
   documents?: Record<string, {fileName: string; url: string; uploadedAt: string; verifiedAt?: string}>;
 };
 
@@ -114,6 +114,12 @@ export default function StudentPortalApplicationsPage() {
     }catch(err){setError(err instanceof Error?err.message:'Document unavailable.');}
   }
 
+  async function handleDownload(id:string,kind:'letter'|'enrollment-form',reference:string){
+    setError('');
+    try{await downloadStudentPdf(id,kind,reference);}
+    catch(err){setError(err instanceof Error?err.message:'Unable to download document.');}
+  }
+
   return (
     <StudentPortal>
       <div className="page-heading">
@@ -168,9 +174,6 @@ export default function StudentPortalApplicationsPage() {
         ) : (
           items.map(app => {
             const isAccepted = ['accepted', 'letter_issued', 'cdf_submitted', 'cdf_approved', 'payment_verified', 'commission_paid'].includes(app.status);
-            const tokenQuery = app.downloadToken ? `?token=${encodeURIComponent(app.downloadToken)}` : '';
-            const letterUrl = `/api/public/submissions/${app.id}/letter${tokenQuery}`;
-            const formUrl = `/api/public/submissions/${app.id}/enrollment-form${tokenQuery}`;
 
             return (
               <div key={app.id} className="panel pad-panel" style={{borderLeft: '4px solid var(--green, #103f2c)'}}>
@@ -191,25 +194,17 @@ export default function StudentPortalApplicationsPage() {
                 <div style={{background: '#f8faf9', padding: 14, borderRadius: 10, border: '1px solid var(--border)', marginBottom: 20, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center'}}>
                   <strong style={{fontSize: 13, color: 'var(--ink)'}}>Official Documents:</strong>
                   {isAccepted && (
-                    <a
-                      href={letterUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn btn-outline"
+                    <button type="button" onClick={()=>void handleDownload(app.id,'letter',app.reference)} className="btn btn-outline"
                       style={{padding: '6px 14px', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--green)', borderColor: 'var(--green)'}}
                     >
                       <Download size={15} /> Download Official Acceptance Letter (PDF)
-                    </a>
+                    </button>
                   )}
-                  <a
-                    href={formUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn btn-outline"
+                  <button type="button" onClick={()=>void handleDownload(app.id,'enrollment-form',app.reference)} className="btn btn-outline"
                     style={{padding: '6px 14px', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6}}
                   >
                     <FileText size={15} /> Download Completed Enrollment Form (PDF)
-                  </a>
+                  </button>
                 </div>
 
                 {/* Upload Verification Documents */}

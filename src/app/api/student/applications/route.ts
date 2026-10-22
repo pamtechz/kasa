@@ -23,13 +23,12 @@ export async function GET(req:Request){
    submittedAt: x.submittedAt,
    status: x.status,
    fundingMethod: x.fundingMethod || null,
-   downloadToken: x.downloadToken || null,
+   // The verified owner can download PDFs with their ID token; never
+   // re-expose a legacy bearer token in a list or redirect URL.
    documents: Object.fromEntries(Object.entries(x.documents || {}).map(([kind,doc]) => {
     const item=doc as Record<string,unknown>;
     return [kind,{fileName:item.fileName,uploadedAt:item.uploadedAt,verifiedAt:item.verifiedAt}];
-   })),
-   letterUrl: ['accepted','letter_issued','cdf_submitted','cdf_approved','payment_verified','commission_paid'].includes(String(x.status)) && x.downloadToken ? `/api/public/submissions/${x.id}/letter?token=${x.downloadToken}` : null,
-   enrollmentFormUrl: x.downloadToken ? `/api/public/submissions/${x.id}/enrollment-form?token=${x.downloadToken}` : null
+   }))
   })).sort((a,b) => String(b.submittedAt).localeCompare(String(a.submittedAt)));
 
   const policy=await loadIntake();

@@ -10,6 +10,7 @@ import {
 import {authHeaders, firebaseConfigured, auth} from '@/lib/firebase-client';
 import {onAuthStateChanged} from 'firebase/auth';
 import {StatusBadge} from '@/components/Portal';
+import {downloadStudentPdf} from '@/lib/student-document-download';
 
 type ApplicantItem = {
   id: string;
@@ -18,7 +19,6 @@ type ApplicantItem = {
   status: string;
   submittedAt: string;
   fundingMethod: string | null;
-  downloadToken?: string | null;
 };
 
 type SessionState = 'checking' | 'guest' | 'ready' | 'unavailable';
@@ -60,6 +60,12 @@ export default function MyApplicationsPage() {
     });
     return () => unsubscribe();
   }, []);
+
+  async function handleDownload(id:string,kind:'letter'|'enrollment-form',reference:string){
+    setError('');
+    try{await downloadStudentPdf(id,kind,reference);}
+    catch(err){setError(err instanceof Error?err.message:'Unable to download document.');}
+  }
 
   return (
     <StudentPortal>
@@ -186,9 +192,6 @@ export default function MyApplicationsPage() {
                   ) : (
                     items.map(a => {
                       const isAccepted = ['accepted', 'letter_issued', 'cdf_submitted', 'cdf_approved', 'payment_verified', 'commission_paid'].includes(a.status);
-                      const tokenQuery = a.downloadToken ? `?token=${encodeURIComponent(a.downloadToken)}` : '';
-                      const letterUrl = `/api/public/submissions/${a.id}/letter${tokenQuery}`;
-                      const formUrl = `/api/public/submissions/${a.id}/enrollment-form${tokenQuery}`;
 
                       return (
                         <tr key={a.id}>
@@ -202,25 +205,17 @@ export default function MyApplicationsPage() {
                           <td>
                             <div style={{display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap'}}>
                               {isAccepted && (
-                                <a
-                                  href={letterUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="btn btn-outline"
+                                <button type="button" onClick={()=>void handleDownload(a.id,'letter',a.reference)} className="btn btn-outline"
                                   style={{padding: '5px 12px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--green)', borderColor: 'var(--green)'}}
                                 >
                                   <Download size={14} /> Acceptance Letter
-                                </a>
+                                </button>
                               )}
-                              <a
-                                href={formUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="btn btn-outline"
+                              <button type="button" onClick={()=>void handleDownload(a.id,'enrollment-form',a.reference)} className="btn btn-outline"
                                 style={{padding: '5px 12px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6}}
                               >
                                 <FileText size={14} /> Enrollment Form
-                              </a>
+                              </button>
                             </div>
                           </td>
                         </tr>
