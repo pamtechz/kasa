@@ -229,7 +229,7 @@ export default function UserAndStaffManagement() {
         <div className="panel-title" style={{flexWrap: 'wrap', gap: 12}}>
           <div>
             <h2>Registered System Accounts</h2>
-            <p>Edit permitted profile fields and account status. Verified email changes and password resets require the account owner's secure recovery flow.</p>
+            <p>Edit permitted profile fields and account status. Verified email changes and password resets require the account owner&apos;s secure recovery flow.</p>
           </div>
           <div className="table-controls" style={{margin: 0, padding: 0, background: 'transparent', border: 'none'}}>
             <label className="search-box">
