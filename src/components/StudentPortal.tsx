@@ -16,11 +16,25 @@ export function StudentPortal({children}: {children: React.ReactNode}) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [sessionError, setSessionError] = useState('');
+  const [referralsEnabled,setReferralsEnabled]=useState(false);
+  const [featuresReady,setFeaturesReady]=useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [mobile, setMobile] = useState(false);
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const path = usePathname();
+
+  useEffect(()=>{
+    let active=true;
+    fetch('/api/public/features',{cache:'no-store'}).then(async response=>{
+      if(!response.ok)throw new Error('Unable to load feature policy');
+      return response.json();
+    }).then(data=>{
+      if(active)setReferralsEnabled(data?.features?.referralsEnabled===true);
+    }).catch(()=>{if(active)setReferralsEnabled(false);})
+    .finally(()=>{if(active)setFeaturesReady(true);});
+    return ()=>{active=false;};
+  },[]);
 
   useEffect(() => {
     setMounted(true);
@@ -96,11 +110,13 @@ export function StudentPortal({children}: {children: React.ReactNode}) {
   const links = [
     {name: 'Portal Overview', href: '/student-portal', icon: ClipboardList},
     {name: 'Applications & Documents', href: '/student-portal/applications', icon: FileText},
-    {name: 'Refer & Earn Program', href: '/student-portal/referrals', icon: Share2},
+    ...(referralsEnabled?[{name: 'Refer & Earn Program', href: '/student-portal/referrals', icon: Share2},]:[]),
     {name: 'Announcements', href: '/student-portal/notifications', icon: Bell},
     {name: 'My Profile & Security', href: '/student-portal/profile', icon: User}
   ];
 
+  if(path.startsWith('/student-portal/referrals') && !featuresReady) return <main className="page-loader" role="status">Loading available services…</main>;
+  if(path.startsWith('/student-portal/referrals') && !referralsEnabled) return <main role="alert" className="portal-error-state"><h1>Referral programme paused</h1><p>This feature is unavailable at present. Your existing applications remain accessible.</p><Link href="/student-portal">Back to student portal</Link></main>;
   if (loading) return <main className="page-loader" role="status">Loading student portal…</main>;
 
   if (sessionError || !profile) {

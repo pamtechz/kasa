@@ -16,11 +16,25 @@ export function AgentPortal({children}: {children: React.ReactNode}) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [sessionError, setSessionError] = useState('');
+  const [referralsEnabled,setReferralsEnabled]=useState(false);
+  const [featuresReady,setFeaturesReady]=useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [mobile, setMobile] = useState(false);
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const path = usePathname();
+
+  useEffect(()=>{
+    let active=true;
+    fetch('/api/public/features',{cache:'no-store'}).then(async response=>{
+      if(!response.ok)throw new Error('Unable to load feature policy');
+      return response.json();
+    }).then(data=>{
+      if(active)setReferralsEnabled(data?.features?.referralsEnabled===true);
+    }).catch(()=>{if(active)setReferralsEnabled(false);})
+    .finally(()=>{if(active)setFeaturesReady(true);});
+    return ()=>{active=false;};
+  },[]);
 
   useEffect(() => {
     setMounted(true);
@@ -98,12 +112,13 @@ export function AgentPortal({children}: {children: React.ReactNode}) {
 
   const links = [
     {name: 'Agent Portal Overview', href: '/agent-portal', icon: LayoutDashboard},
-    {name: 'Register Candidate', href: '/dashboard/applications/new', icon: PlusCircle},
+    ...(referralsEnabled?[{name: 'Register Candidate', href: '/dashboard/referrals', icon: PlusCircle}]:[]),
     {name: 'Referred Candidates', href: '/dashboard/referrals', icon: Users},
     {name: 'Commission Ledger', href: '/dashboard/commissions', icon: Wallet},
     {name: 'Agent Profile', href: '/dashboard/profile', icon: User}
   ];
 
+  if(!featuresReady && path.startsWith('/dashboard/referrals'))return <main className="page-loader" role="status">Loading services…</main>;
   if (loading) return <main className="page-loader" role="status">Loading agent portal…</main>;
 
   if (sessionError || !profile) {

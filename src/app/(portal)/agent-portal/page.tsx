@@ -21,6 +21,7 @@ type ReferralData = {
   agentCode: string;
   referralLink: string;
   referralsCount: number;
+  referralsEnabled?: boolean;
   successfulCount: number;
   totalEarned: number;
 };
@@ -99,9 +100,11 @@ export default function AgentPortalDashboard() {
           <p>Welcome back, <strong>{profile?.displayName || profile?.email || 'District Agent'}</strong>. Manage recruitment across your assigned district territory, register candidates, and track verified commissions.</p>
         </div>
         <div style={{display: 'flex', gap: 10}}>
-          <Link href="/dashboard/applications/new" className="btn btn-primary" style={{display: 'inline-flex', alignItems: 'center', gap: 6}}>
+          {referralData?.referralsEnabled && (
+          <Link href="/dashboard/referrals" className="btn btn-primary" style={{display: 'inline-flex', alignItems: 'center', gap: 6}}>
             <PlusCircle size={16} /> Register Candidate
           </Link>
+          )}
           <button className="btn btn-outline" onClick={() => void loadData()} disabled={loading}>
             <RefreshCw size={15} className={loading ? 'spin' : ''} /> Refresh
           </button>
