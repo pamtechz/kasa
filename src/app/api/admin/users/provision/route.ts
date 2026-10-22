@@ -2,6 +2,7 @@ import {adminAuth, db} from '@/lib/firebase-admin';
 import {fail, json, HttpError} from '@/lib/errors';
 import {operator, newId, sameOrigin, safeText, audit} from '@/lib/security';
 import type {Profile} from '@/lib/types';
+import {FieldValue} from 'firebase-admin/firestore';
 
 export const runtime = 'nodejs';
 
@@ -50,13 +51,12 @@ export async function POST(req: Request) {
       displayName,
       role: role as any,
       active: true,
-      phone: phone || undefined,
-      district: district || undefined,
+      ...(phone ? {phone} : {}),
+      ...(district ? {district} : {}),
+      agentCode: agentCode || FieldValue.delete(),
+      studentCode: studentCode || FieldValue.delete(),
       updatedAt: now
     };
-
-    if (agentCode) profileData.agentCode = agentCode;
-    if (studentCode) profileData.agentCode = studentCode;
 
     await db.collection('profiles').doc(uid).set(profileData, {merge: true});
 

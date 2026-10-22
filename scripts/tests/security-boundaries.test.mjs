@@ -75,3 +75,28 @@ test('Manual OCR transcription cannot automatically verify documents or advance 
  assert.doesNotMatch(route,/\x60\x24\{claimedName\} \x24\{claimedNrc\}\x60/);
  assert.doesNotMatch(route,/status: result\.needsReview/);
 });
+
+test('Finance records receipts atomically without granting verified enrollment',()=>{
+ const route=source('src/app/api/admin/finance/route.ts');
+ assert.match(route,/db\.runTransaction\(/);
+ assert.match(route,/tx\.create\(verificationRef/);
+ assert.match(route,/payment_recorded_pending_enrollment_verification/);
+ assert.match(route,/verificationPending:/);
+ assert.doesNotMatch(route,/status: 'payment_verified'/);
+ assert.match(route,/if \(prior\.exists\) throw new HttpError\(409/);
+});
+test('Commission mutation cannot bypass the canonical approval and payout ledger',()=>{
+ const route=source('src/app/api/admin/commissions/route.ts');
+ const page=source('src/app/(portal)/dashboard/commissions/page.tsx');
+ assert.match(route,/updateApplicationStatus\(transitionRequest/);
+ assert.match(route,/status:'commission_paid'/);
+ assert.doesNotMatch(route,/manual_adjustment|Direct Transfer|Number\(body\.amount\)\|\|300/);
+ assert.doesNotMatch(page,/Manual commission|Void All|Void Selected/);
+});
+test('Provisioning does not assign referral codes to students or store undefined properties',()=>{
+ const route=source('src/app/api/admin/users/provision/route.ts');
+ assert.match(route,/studentCode: studentCode \|\| FieldValue\.delete\(\)/);
+ assert.match(route,/agentCode: agentCode \|\| FieldValue\.delete\(\)/);
+ assert.doesNotMatch(route,/phone: phone \|\| undefined/);
+ assert.doesNotMatch(route,/if \(studentCode\) profileData\.agentCode/);
+});

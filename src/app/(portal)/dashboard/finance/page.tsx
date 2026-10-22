@@ -114,7 +114,7 @@ export default function FinanceDashboardPage() {
     <>
       <PageHeader
         title="Financial Management & Tuition Ledger"
-        subtitle="Manage self-funded tuition payments, record bank deposits, verify CDF bursary allocations, and monitor revenue ledgers."
+        subtitle="Manage self-funded tuition payments, record tuition receipts, and monitor revenue ledgers. Enrollment funding approval remains a separate review."
         action={
           <button className="btn btn-outline" onClick={() => void loadFinanceData()} disabled={loading} style={{display: 'inline-flex', alignItems: 'center', gap: 6}}>
             <RefreshCw size={15} className={loading ? 'spin' : ''} /> Refresh Ledger
@@ -135,7 +135,7 @@ export default function FinanceDashboardPage() {
         </div>
         <div className="metric-card">
           <div className="metric-icon green"><Wallet /></div>
-          <span>Verified Payments</span>
+          <span>Recorded Payments</span>
           <strong>{loading ? '—' : `ZMW ${(summary?.totalPaymentsReceived || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`}</strong>
           <small>Bank & Mobile Money received</small>
         </div>

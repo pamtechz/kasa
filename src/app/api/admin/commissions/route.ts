@@ -30,7 +30,7 @@ export async function GET(req:Request){
 export async function PATCH(req:Request){
  try{
   sameOrigin(req);
-  const actor=await operator(req,['super_admin','admin']);
+  await operator(req,['super_admin','admin']);
   const body=await req.json();
   const submissionId=safeText(body?.submissionId,60);
   const paymentReference=safeText(body?.paymentReference,160);
