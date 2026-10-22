@@ -60,8 +60,8 @@ test('Unknown endpoints, unsupported methods and ungranted actions fail closed',
  assert.equal(permitted('finance',policy.requiredApiCapability('/api/admin/finance','POST')),true);
 });
 test('Navigation denies privileged pages and uses the same permission matrix',()=>{
- assert.equal(policy.canAccessPage('reviewer','/dashboard/forms'),true);
- assert.equal(policy.canAccessPage('reviewer','/dashboard/settings'),true);
+ assert.equal(policy.canAccessPage('reviewer','/dashboard/forms'),false);
+ assert.equal(policy.canAccessPage('reviewer','/dashboard/settings'),false);
  assert.equal(policy.canAccessPage('agent','/dashboard/applications/new'),true);
  assert.equal(policy.canAccessPage('agent','/dashboard/staff'),false);
  assert.equal(policy.canAccessPage('student','/dashboard/finance'),false);
