@@ -1,5 +1,6 @@
 'use client';
 import {useEffect, useState, useMemo} from 'react';
+import {hasCapability} from '@/lib/access-policy';
 import {
   Bell, Plus, Search, Trash2, CheckCircle2, AlertTriangle, Info,
   Filter, X, ArrowLeft, Save, ExternalLink, RefreshCw, Eye, EyeOff, Edit
@@ -23,6 +24,9 @@ type Notice = {
 };
 
 export default function Notifications() {
+  const [userRole,setUserRole]=useState<import('@/lib/types').Role|null>(null);
+  const canBroadcast=hasCapability(userRole,'notifications.broadcast');
+  const canDelete=hasCapability(userRole,'notifications.delete');
   const [items, setItems] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -73,7 +77,10 @@ export default function Notifications() {
     return () => window.removeEventListener('keydown', handleKey);
   }, [modalOpen]);
 
+  useEffect(()=>{void api<{profile:{role:import('@/lib/types').Role}}>('/api/me')
+    .then(data=>setUserRole(data.profile.role)).catch(()=>setUserRole(null));},[]);
   function openCreateModal() {
+    if(!canBroadcast)return;
     setEditingNotice(null);
     setTitle('');
     setMessage('');
@@ -154,6 +161,7 @@ export default function Notifications() {
   }
 
   async function confirmDeleteNotice() {
+    if(!canDelete)return;
     if (!deletingNotice) return;
     setBusy(true);
     try {
@@ -169,6 +177,7 @@ export default function Notifications() {
   }
 
   async function confirmBulkDeleteNotices() {
+    if(!canDelete)return;
     if (!bulkDeleteTarget) return;
     setBusy(true);
     try {
@@ -242,24 +251,24 @@ export default function Notifications() {
             <button className="btn btn-outline" onClick={() => void load()} disabled={loading}>
               <RefreshCw size={15} /> Refresh
             </button>
-            {selectedNoticeIds.size > 0 && (
+            {canDelete && selectedNoticeIds.size > 0 && (
               <button className="btn btn-outline" onClick={() => setBulkDeleteTarget('selected')} disabled={busy} style={{color: '#ef4444', borderColor: 'rgba(239,68,68,0.4)'}}>
                 <Trash2 size={15} /> Delete Selected ({selectedNoticeIds.size})
               </button>
             )}
-            {filtered.length > 0 && (
+            {canDelete && filtered.length > 0 && (
               <button className="btn btn-outline" onClick={() => setBulkDeleteTarget('all')} disabled={busy} style={{color: '#ef4444', borderColor: 'rgba(239,68,68,0.4)'}}>
                 <Trash2 size={15} /> Delete All ({filtered.length})
               </button>
             )}
-            {stats.total > 0 && (
+            {canDelete && stats.total > 0 && (
               <button className="btn btn-outline" onClick={() => setConfirmingClearRead(true)} disabled={busy}>
                 <Trash2 size={15} /> Clear read
               </button>
             )}
-            <button className="btn btn-primary" onClick={openCreateModal}>
+            {canBroadcast && <button className="btn btn-primary" onClick={openCreateModal}>
               <Plus size={16} /> Broadcast notice
-            </button>
+            </button>}
           </div>
         }
       />
@@ -449,15 +458,15 @@ export default function Notifications() {
                     >
                       {n.read ? <EyeOff size={16} /> : <Eye size={16} style={{color: 'var(--green)'}} />}
                     </button>
-                    <button
+                    {canBroadcast && <button
                       className="icon-btn"
                       title="Edit notification"
                       onClick={() => openEditModal(n)}
                       aria-label="Edit notification"
                     >
                       <Edit size={16} />
-                    </button>
-                    <button
+                    </button>}
+                    {canDelete && <button
                       className="icon-btn"
                       style={{color: '#ef4444'}}
                       title="Delete notification"
@@ -465,7 +474,7 @@ export default function Notifications() {
                       aria-label="Delete notification"
                     >
                       <Trash2 size={16} />
-                    </button>
+                    </button>}
                   </div>
                 </div>
               );
@@ -475,7 +484,7 @@ export default function Notifications() {
       </div>
 
       {/* Full Modal Page for Broadcast / Edit Notification */}
-      {modalOpen && (
+      {canBroadcast && modalOpen && (
         <div className="modal-page-overlay" role="dialog" aria-modal="true">
           <div className="modal-page">
             <header className="modal-page-header">
@@ -597,7 +606,7 @@ export default function Notifications() {
       )}
 
       <ConfirmModal
-        isOpen={Boolean(deletingNotice)}
+        isOpen={canDelete&&Boolean(deletingNotice)}
         title="Delete Notification"
         message={`Are you sure you want to delete notice "${deletingNotice?.title}"?`}
         kind="danger"
@@ -609,7 +618,7 @@ export default function Notifications() {
       />
 
       <ConfirmModal
-        isOpen={Boolean(bulkDeleteTarget)}
+        isOpen={canDelete&&Boolean(bulkDeleteTarget)}
         title="Delete Multiple Notifications"
         message={`Are you sure you want to delete ${bulkDeleteTarget === 'selected' ? `${selectedNoticeIds.size} selected` : `all ${filtered.length}`} notification(s)?`}
         kind="danger"
@@ -621,7 +630,7 @@ export default function Notifications() {
       />
 
       <ConfirmModal
-        isOpen={confirmingClearRead}
+        isOpen={canDelete&&confirmingClearRead}
         title="Clear Read Notifications"
         message="Are you sure you want to clear all notifications marked as read?"
         kind="danger"

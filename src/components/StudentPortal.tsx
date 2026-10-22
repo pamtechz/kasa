@@ -67,6 +67,11 @@ export function StudentPortal({children}: {children: React.ReactNode}) {
         const data = await res.json();
         if (active) {
           if (res.ok && data.profile) {
+            if(data.profile.role!=='student' || data.profile.active!==true){
+              setProfile(null);
+              setSessionError('An active student account is required. Staff and agents must use their own portals.');
+              return;
+            }
             setProfile(data.profile);
             setSessionError('');
           } else {

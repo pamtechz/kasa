@@ -1,6 +1,6 @@
 import {adminAuth,db} from '@/lib/firebase-admin';
 import {fail,HttpError,json} from '@/lib/errors';
-import {audit,rateLimit} from '@/lib/security';
+import {audit,rateLimit,sameOrigin} from '@/lib/security';
 import type {NextRequest} from 'next/server';
 import type {Profile} from '@/lib/types';
 
@@ -15,6 +15,7 @@ async function authenticatedUser(req: Request) {
   } catch {
     throw new HttpError(401, 'Your session has expired. Sign in again.');
   }
+  if(token.email_verified!==true)throw new HttpError(403,'Verify your email before accessing your private profile.');
   return token;
 }
 
@@ -35,6 +36,8 @@ export async function GET(req: Request) {
     const profileSnap = await profileRef.get();
     
     let profileData = profileSnap.data() as Profile | undefined;
+    if(profileData && profileData.active!==true)
+      throw new HttpError(403,'This account is disabled.');
     if (!profileData) {
       const isStudent = true;
       profileData = {
@@ -78,8 +81,13 @@ export async function GET(req: Request) {
 
 export async function PATCH(req: NextRequest) {
   try {
+    sameOrigin(req);
     await rateLimit(req, 'profile-update', 30, 10);
     const user = await authenticatedUser(req);
+    if(user.email_verified!==true)throw new HttpError(403,'Verify your email before modifying your profile.');
+    const existing=await db.collection('profiles').doc(user.uid).get();
+    if(existing.exists&&existing.data()?.active!==true)
+      throw new HttpError(403,'This account is disabled.');
     const body = await req.json().catch(() => ({}));
 
     const updates: Partial<Profile> = {
@@ -121,7 +129,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     if ('mustChangePassword' in body) {
-      updates.mustChangePassword = Boolean(body.mustChangePassword);
+      throw new HttpError(403,'Account security flags can only be managed through approved administrator workflows.');
     }
 
     if ('photoUrl' in body) {

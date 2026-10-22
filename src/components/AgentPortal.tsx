@@ -67,7 +67,7 @@ export function AgentPortal({children}: {children: React.ReactNode}) {
         const data = await res.json();
         if (active) {
           if (res.ok && data.profile) {
-            if (data.profile.role !== 'agent' && data.profile.role !== 'super_admin' && data.profile.role !== 'admin') {
+            if (!['agent','admin','super_admin'].includes(data.profile.role)) {
               setSessionError('District Agent access required. Sign in with an active agent account.');
             } else {
               setProfile(data.profile);

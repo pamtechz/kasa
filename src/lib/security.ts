@@ -4,6 +4,7 @@ import type {NextRequest} from 'next/server';
 import {adminAuth,appCheck,db} from './firebase-admin';
 import {HttpError} from './errors';
 import type {Profile,Role} from './types';
+import {hasCapability,isControlledApi,requiredApiCapability} from './access-policy';
 const operatorRoles:Role[]=['super_admin','admin','reviewer'];
 export async function operator(req:Request, allowed:Role[]=operatorRoles):Promise<Profile>{
  const value=req.headers.get('authorization')||'';
@@ -13,7 +14,14 @@ export async function operator(req:Request, allowed:Role[]=operatorRoles):Promis
  catch {throw new HttpError(401,'Session expired. Sign in again.');}
  const snapshot=await db.collection('profiles').doc(uid).get();
  const p=snapshot.data() as Profile|undefined;
- if(!p || !p.active || !allowed.includes(p.role)) throw new HttpError(403,'Access denied.');
+ if(!p || p.active!==true || !allowed.includes(p.role)) throw new HttpError(403,'Access denied.');
+ // Firebase Admin SDK ignores Firestore rules. Every privileged route must
+ // be explicitly listed here; unknown routes and verbs fail closed.
+ const path=new URL(req.url).pathname;
+ if(isControlledApi(path)){
+  const cap=requiredApiCapability(path,req.method);
+  if(!cap || !hasCapability(p.role,cap))throw new HttpError(403,'This role is not permitted to perform that operation.');
+ }
  return {...p,uid};
 }
 export function sameOrigin(req: Request) {

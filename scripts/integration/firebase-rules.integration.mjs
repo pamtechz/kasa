@@ -20,6 +20,9 @@ before(async()=>{
  await env.withSecurityRulesDisabled(async ctx=>{
   const db=ctx.firestore();
   await setDoc(doc(db,'profiles/alice'),{role:'student',active:true});
+  await setDoc(doc(db,'profiles/staff'),{role:'reviewer',active:true});
+  await setDoc(doc(db,'profiles/disabled'),{role:'admin',active:false});
+  await setDoc(doc(db,'profiles/agent'),{role:'agent',active:true});
   await setDoc(doc(db,'forms/published'),{published:true,title:'Public form'});
   await setDoc(doc(db,'forms/draft'),{published:false,title:'Draft form'});
   await setDoc(doc(db,'programmes/open'),{published:true});
@@ -40,7 +43,7 @@ after(async()=>{if(env)await env.cleanup();});
 
 test('only owners can read profiles, and browser writes and collection listing are denied',async()=>{
  const guest=env.unauthenticatedContext().firestore();
- const alice=env.authenticatedContext('alice').firestore();
+ const alice=env.authenticatedContext('alice',{email_verified:true}).firestore();
  const bob=env.authenticatedContext('bob').firestore();
  const staff=env.authenticatedContext('staff',{role:'super_admin'}).firestore();
  await assertFails(getDoc(doc(guest,'profiles/alice')));
@@ -54,7 +57,16 @@ test('only owners can read profiles, and browser writes and collection listing a
 
 test('only published programmes/forms and active campaigns are public; no browser writes',async()=>{
  const guest=env.unauthenticatedContext().firestore();
+ const staff=env.authenticatedContext('staff',{email_verified:true}).firestore();
+ const agent=env.authenticatedContext('agent',{email_verified:true}).firestore();
+ const forged=env.authenticatedContext('outsider',{email_verified:true,role:'super_admin'}).firestore();
+ const disabled=env.authenticatedContext('disabled',{email_verified:true}).firestore();
  await assertSucceeds(getDoc(doc(guest,'forms/published')));
+ await assertSucceeds(getDoc(doc(staff,'forms/draft')));
+ await assertSucceeds(getDocs(collection(staff,'forms')));
+ await assertFails(getDoc(doc(agent,'forms/draft')));
+ await assertFails(getDoc(doc(forged,'forms/draft')));
+ await assertFails(getDoc(doc(disabled,'forms/draft')));
  await assertFails(getDoc(doc(guest,'forms/draft')));
  await assertSucceeds(getDoc(doc(guest,'programmes/open')));
  await assertFails(getDoc(doc(guest,'announcements/closed')));
@@ -66,8 +78,10 @@ test('only published programmes/forms and active campaigns are public; no browse
 });
 
 test('applicants, guests, and claimed administrators cannot read or forge internal records',async()=>{
- for(const ctx of [env.unauthenticatedContext(),env.authenticatedContext('alice'),
-                   env.authenticatedContext('staff',{role:'super_admin'})]){
+ for(const ctx of [env.unauthenticatedContext(),env.authenticatedContext('alice',{email_verified:true}),
+                   env.authenticatedContext('staff',{email_verified:true}),
+                   env.authenticatedContext('agent',{email_verified:true}),
+                   env.authenticatedContext('outsider',{email_verified:true,role:'super_admin'})]){
   const db=ctx.firestore();
   for(const path of ['submissions/app1','notificationOutbox/private1','settings/intake',
                      'fundingVerifications/private1','commissionPayments/private1']){

@@ -4,6 +4,8 @@ import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import {Banknote,Clock,CheckCircle2,ExternalLink,X,Save} from 'lucide-react';
 import {api,PageHeader} from '@/components/Portal';
+import {hasCapability} from '@/lib/access-policy';
+import type {Role} from '@/lib/types';
 
 type Commission={
  submissionId:string;reference:string;agentId:string;trigger:string;
@@ -13,6 +15,9 @@ type Commission={
 type Totals={eligible:number;paid:number;pending:number};
 
 export default function Commissions(){
+ const [userRole,setUserRole]=useState<Role|null>(null);
+ const canSettle=hasCapability(userRole,'commissions.settle');
+ const canConfigure=hasCapability(userRole,'settings.manage');
  const [items,setItems]=useState<Commission[]>([]);
  const [totals,setTotals]=useState<Totals>({eligible:0,paid:0,pending:0});
  const [filter,setFilter]=useState('all');
@@ -29,12 +34,12 @@ export default function Commissions(){
    setTotals(data.totals);
   }catch(err){setError(err instanceof Error?err.message:'Unable to load commissions.');}
  }
- useEffect(()=>{void load();},[]);
+ useEffect(()=>{void load();void api<{profile:{role:Role}}>('/api/me').then(x=>setUserRole(x.profile.role)).catch(()=>setUserRole(null));},[]);
 
  const visible=items.filter(x=>filter==='all'||(filter==='paid'?!!x.paidAt:!x.paidAt));
  async function recordPayout(event:React.FormEvent){
   event.preventDefault();
-  if(!editing||!paymentReference.trim())return;
+  if(!canSettle||!editing||!paymentReference.trim())return;
   setBusy(true);setError('');setNotice('');
   try{
    await api('/api/admin/commissions',{
@@ -54,7 +59,7 @@ export default function Commissions(){
  return <>
   <PageHeader title="Commissions and referrals"
    subtitle="Commissions are created only after independently verified tuition payment or CDF approval."
-   action={<Link href="/dashboard/settings" className="btn btn-outline">Configure rates <ExternalLink size={16}/></Link>}/>
+   action={canConfigure?<Link href="/dashboard/settings" className="btn btn-outline">Configure rates <ExternalLink size={16}/></Link>:undefined}/>
   {error&&<div className="alert-error" role="alert">{error}</div>}
   {notice&&<div className="notice" role="status">{notice}</div>}
   <div className="metric-grid">
@@ -76,12 +81,12 @@ export default function Commissions(){
      <td>{item.trigger==='payment'?'Tuition payment':'CDF approval'}</td>
      <td>K{item.amount.toFixed(2)}</td>
      <td><span className={'tag '+(item.paidAt?'tag-green':'tag-amber')}>{item.paidAt?'Paid':'Pending'}</span></td>
-     <td>{item.paymentReference||item.fundingEvidence||'—'}</td>
-     <td>{item.paidAt?<span className="muted">Recorded</span>:<button className="text-link" onClick={()=>{setEditing(item);setPaymentReference('');}}>Record verified payout</button>}</td>
+     <td>{canSettle?(item.paymentReference||item.fundingEvidence||'—'):'—'}</td>
+     <td>{item.paidAt||!canSettle?<span className="muted">{item.paidAt?'Recorded':'Awaiting approval'}</span>:<button className="text-link" onClick={()=>{setEditing(item);setPaymentReference('');}}>Record verified payout</button>}</td>
     </tr>)}{visible.length===0&&<tr><td colSpan={7} className="empty-state">No verified commissions match this filter.</td></tr>}</tbody>
    </table></div>
   </div>
-  {editing&&<div className="modal-page-overlay" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)setEditing(null);}}>
+  {canSettle&&editing&&<div className="modal-page-overlay" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)setEditing(null);}}>
    <div className="modal-page" style={{maxWidth:600}} role="dialog" aria-modal="true" aria-label="Record verified commission payout">
     <div className="modal-page-header">
      <div className="modal-page-header-left"><span className="modal-page-badge">VERIFIED PAYOUT</span><h2>Record commission payout</h2></div>

@@ -16,7 +16,7 @@ export async function GET(req:Request){
   }
   const q=user.role==='agent'?db.collection('submissions').where('agentId','==',user.uid):db.collection('submissions');
   const result=await q.limit(300).get();
-  const items:ApplicantRecord[]=result.docs.map(x=>{const item=x.data() as ApplicantRecord;return {...item,id:x.id,...(user.role==='agent'?{answers:{},formSnapshot:undefined,history:undefined,documents:undefined,internalNotes:undefined,cdfVerification:undefined,paymentVerification:undefined}:{})};}).sort((a,b)=>String(b.submittedAt).localeCompare(String(a.submittedAt)));
+  const items:ApplicantRecord[]=result.docs.map(x=>{const item=x.data() as ApplicantRecord;const safe={...item};delete safe.downloadToken;return {...safe,id:x.id,...(user.role==='agent'?{answers:{},formSnapshot:undefined,history:undefined,documents:undefined,internalNotes:undefined,cdfVerification:undefined,paymentVerification:undefined}:{})} as ApplicantRecord;}).sort((a,b)=>String(b.submittedAt).localeCompare(String(a.submittedAt)));
   submissionsCache.set(cacheKey, {items, timestamp: Date.now()});
   return json({submissions:items});
  }catch(e){return fail(e);}
@@ -25,7 +25,7 @@ export async function GET(req:Request){
 export async function POST(req:Request){
  try{
   sameOrigin(req);
-  const actor=await operator(req,['super_admin','admin','reviewer']);
+  const actor=await operator(req,['super_admin','admin','reviewer','agent']);
   const body=await req.json();
   const studentName=safeText(body.name||body.studentName,120);
   const email=safeText(body.email,160).toLowerCase();
@@ -34,11 +34,12 @@ export async function POST(req:Request){
   const programme=safeText(body.programme,150);
   const fundingMethod:( 'cdf' | 'self_funded' )=(body.fundingMethod==='self_funded'?'self_funded':'cdf');
   const district=safeText(body.district,80);
-  const initialStatus:SubmissionStatus=(['submitted','under_review','accepted'].includes(body.status)?body.status:'submitted');
+  const initialStatus:SubmissionStatus=actor.role==='agent'||actor.role==='reviewer'?'submitted':(['submitted','under_review','accepted'].includes(body.status)?body.status:'submitted');
   const noteText=safeText(body.note,500);
 
   if(!studentName) throw new HttpError(400,'Student full name is required.');
   if(!programme) throw new HttpError(400,'Programme is required.');
+  if(actor.role==='agent' && !/^\\S+@\\S+\\.\\S+$/.test(email) && phone.length<7)throw new HttpError(400,'A student email or valid phone number is required for agent registration.');
 
   const id=newId();
   const reference=`KASA-${new Date().getFullYear()}-${id.replace(/-/g,'').slice(0,8).toUpperCase()}`;
