@@ -55,3 +55,23 @@ test('Enrollment PDFs preserve configured positioning and do not fabricate ident
  assert.doesNotMatch(route,/2004-05-14|applicant@example\.com|photoPublicityConsent: true/);
  assert.match(route,/answers\['photo-publicity-consent'\]/);
 });
+
+test('WhatsApp webhook validates signed Meta messages before accessing application data',()=>{
+ const route=source('src/app/api/public/whatsapp/webhook/route.ts');
+ assert.match(route,/x-hub-signature-256/);
+ assert.match(route,/createHmac\('sha256'/);
+ assert.match(route,/timingSafeEqual/);
+ assert.match(route,/WHATSAPP_APP_SECRET/);
+ assert.match(route,/registeredPhones\.includes\(phone\)/);
+ assert.match(route,/whatsappWebhookDeliveries/);
+ assert.doesNotMatch(route,/kasa_whatsapp_verify_token_2027|app\.downloadToken/);
+ assert.doesNotMatch(route,/replyMessage.*letterUrl/);
+});
+test('Manual OCR transcription cannot automatically verify documents or advance status',()=>{
+ const route=source('src/app/api/admin/submissions/[id]/ocr/route.ts');
+ assert.match(route,/automatedVerified: false/);
+ assert.match(route,/source: 'manual_transcription'/);
+ assert.match(route,/needsReview: true/);
+ assert.doesNotMatch(route,/\x60\x24\{claimedName\} \x24\{claimedNrc\}\x60/);
+ assert.doesNotMatch(route,/status: result\.needsReview/);
+});
