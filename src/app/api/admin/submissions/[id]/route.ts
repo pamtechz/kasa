@@ -1,6 +1,6 @@
 import {db} from '@/lib/firebase-admin';
 import {fail,json,HttpError} from '@/lib/errors';
-import {requirePermission,operator,audit,safeText,sameOrigin,digest} from '@/lib/security';
+import {requirePermission,audit,safeText,sameOrigin,digest} from '@/lib/security';
 import {normalizedIntake} from '@/lib/intake-policy';
 import type {SubmissionStatus} from '@/lib/types';
 import {automationSchema,defaultAutomations,formatNotification} from '@/lib/automations';

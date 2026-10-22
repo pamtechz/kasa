@@ -1,5 +1,5 @@
 import {db} from '@/lib/firebase-admin';
-import {requirePermission,operator,sameOrigin,safeText} from '@/lib/security';
+import {requirePermission,sameOrigin,safeText} from '@/lib/security';
 import {PATCH as updateApplicationStatus} from '@/app/api/admin/submissions/[id]/route';
 import {fail,json,HttpError} from '@/lib/errors';
 export const runtime='nodejs';

@@ -1,6 +1,6 @@
 import {db} from '@/lib/firebase-admin';
 import {defaultAutomations,automationSchema} from '@/lib/automations';
-import {requirePermission,operator,audit,sameOrigin} from '@/lib/security';
+import {requirePermission,audit,sameOrigin} from '@/lib/security';
 import {fail,json,HttpError} from '@/lib/errors';
 export const runtime='nodejs';
 export async function GET(req:Request){

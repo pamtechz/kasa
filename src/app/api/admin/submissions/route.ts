@@ -1,6 +1,6 @@
 import {db} from '@/lib/firebase-admin';
 import {fail,json,HttpError} from '@/lib/errors';
-import {requirePermission,operator,sameOrigin,audit,newId,safeText} from '@/lib/security';
+import {requirePermission,sameOrigin,audit,newId,safeText} from '@/lib/security';
 import type {ApplicantRecord,SubmissionStatus} from '@/lib/types';
 import {submissionsCache, SUBMISSIONS_CACHE_TTL, invalidateSubmissionsCache} from '@/lib/server-cache';
 

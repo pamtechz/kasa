@@ -1,5 +1,5 @@
 import {adminAuth,db} from '@/lib/firebase-admin';
-import {requirePermission,audit,operator,safeText,sameOrigin} from '@/lib/security';
+import {requirePermission,audit,safeText,sameOrigin} from '@/lib/security';
 import {fail,HttpError,json} from '@/lib/errors';
 export const runtime='nodejs';
 export async function GET(req:Request){
