@@ -9,8 +9,8 @@ function csvEscape(text: unknown): string {
   if (text === null || text === undefined) return '""';
   // Neutralize formulas (including leading whitespace and spreadsheet
   // controls) before fields are opened in Excel or other CSV applications.
-  const plain = String(text).replace(/[\\u0000-\\u001f\\u007f]/g, ' ');
-  const protectedValue = /^\\s*[=+\\-@]/.test(plain) ? "'" + plain : plain;
+  const plain = String(text).replace(/[\u0000-\u001f\u007f]/g, ' ');
+  const protectedValue = /^\s*[=+\-@]/.test(plain) ? "'" + plain : plain;
   return `"${protectedValue.replace(/"/g, '""')}"`;
 }
 
