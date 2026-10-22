@@ -1,0 +1,44 @@
+name: Firebase rules integration
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kasa-firebase-rules-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  firebase-rules:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Set up Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Provision Java 21 for Firestore emulator
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install locked application dependencies
+        timeout-minutes: 25
+        run: npm ci --no-audit --no-fund --prefer-offline --fetch-retries=1 --fetch-timeout=60000
+      - name: Install pinned rules testing package
+        run: npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund @firebase/rules-unit-testing@6.0.0
+      - name: Run Firestore and Storage authorization tests
+        timeout-minutes: 25
+        run: npx --yes firebase-tools@15.34.0 emulators:exec --project demo-kasa-security-ci --only firestore,storage "node --test scripts/tests/firebase-rules.integration.test.mjs"
