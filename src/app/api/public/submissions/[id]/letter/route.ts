@@ -1,5 +1,6 @@
+import {loadCustomAcceptancePdf} from '@/lib/custom-acceptance-pdf';
 import {authorizeSubmissionDocument} from '@/lib/submission-access';
-import {db, storage} from '@/lib/firebase-admin';
+import {db} from '@/lib/firebase-admin';
 import {fail, HttpError} from '@/lib/errors';
 import {generateAcceptancePackPdf, type AcceptancePackData} from '@/lib/pdf-acceptance-pack';
 import {
@@ -29,41 +30,25 @@ export async function GET(req: Request, {params}: {params: Promise<{id: string}>
       const cfgSnap = await db.collection('settings').doc('acceptanceLetter').get();
       if (cfgSnap.exists) {
         const parsed = acceptanceLetterConfigSchema.safeParse(cfgSnap.data());
-        if (parsed.success) letterConfig = parsed.data;
-      }
-    } catch {}
-
-    // If custom PDF mode is active, deliver the uploaded file or link
+        if (parsed.s    // PDF sources are restricted to KASA uploads or explicitly allowed HTTPS
+    // hosts, with redirects disabled and a strict download size limit.
     if (letterConfig.packSource === 'custom' && letterConfig.customPdf?.url) {
       try {
-        const {type, url: pdfUrl} = letterConfig.customPdf;
-        if (type === 'link' || pdfUrl.startsWith('http://') || pdfUrl.startsWith('https://')) {
-          const fetchRes = await fetch(pdfUrl, {signal: AbortSignal.timeout(8000)});
-          if (fetchRes.ok) {
-            const arrBuf = await fetchRes.arrayBuffer();
-            return new Response(new Uint8Array(arrBuf), {
-              status: 200,
-              headers: {
-                'Content-Type': 'application/pdf',
-                'Content-Disposition': `attachment; filename="KASA-Acceptance-${data.reference}.pdf"`,
-                'Cache-Control': 'private, no-store'
-              }
-            });
+        const bytes = await loadCustomAcceptancePdf(letterConfig.customPdf);
+        return new Response(new Uint8Array(bytes),{
+          status:200,
+          headers:{
+            'Content-Type':'application/pdf',
+            'Content-Disposition':`attachment; filename="KASA-Acceptance-${data.reference}.pdf"`,
+            'Cache-Control':'private, no-store'
           }
-          return Response.redirect(pdfUrl, 302);
-        } else {
-          const [fileBytes] = await storage.bucket().file(pdfUrl).download();
-          return new Response(new Uint8Array(fileBytes), {
-            status: 200,
-            headers: {
-              'Content-Type': 'application/pdf',
-              'Content-Disposition': `attachment; filename="KASA-Acceptance-${data.reference}.pdf"`,
-              'Cache-Control': 'private, no-store'
-            }
-          });
-        }
-      } catch (err) {
-        console.error('Error reading custom acceptance pack, falling back to template:', err);
+        });
+      } catch (error) {
+        console.error('Unable to deliver custom acceptance PDF:',error instanceof Error ? error.message:'Unknown error');
+      }
+    }
+
+ance pack, falling back to template:', err);
       }
     }
 

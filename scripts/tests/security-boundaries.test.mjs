@@ -100,3 +100,23 @@ test('Provisioning does not assign referral codes to students or store undefined
  assert.doesNotMatch(route,/phone: phone \|\| undefined/);
  assert.doesNotMatch(route,/if \(studentCode\) profileData\.agentCode/);
 });
+
+test('Custom acceptance PDFs reject internal servers, redirects, and oversized files',()=>{
+ const loader=source('src/lib/custom-acceptance-pdf.ts');
+ assert.match(loader,/KASA_ALLOWED_PDF_HOSTS/);
+ assert.match(loader,/isIP\(hostname\)/);
+ assert.match(loader,/target\.protocol!=='https:'/);
+ assert.match(loader,/redirect:'error'/);
+ assert.match(loader,/MAX_PDF_BYTES/);
+ assert.match(loader,/checkPdf\(Buffer\.concat/);
+ for(const route of [
+  'src/app/api/admin/submissions/[id]/letter/route.ts',
+  'src/app/api/public/submissions/[id]/letter/route.ts',
+  'src/app/api/admin/settings/acceptance-letter/preview/route.ts'
+ ]){
+  const content=source(route);
+  assert.match(content,/loadCustomAcceptancePdf\(/);
+  assert.doesNotMatch(content,/Response\.redirect\(/);
+  assert.doesNotMatch(content,/fetch\(pdfUrl|fetch\(url/);
+ }
+});
