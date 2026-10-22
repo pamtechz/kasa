@@ -1,7 +1,7 @@
 import {NextRequest,NextResponse} from 'next/server';
 import {db} from '@/lib/firebase-admin';
 import {fail,HttpError} from '@/lib/errors';
-import {requirePermission,operator,sameOrigin} from '@/lib/security';
+import {requirePermission,sameOrigin} from '@/lib/security';
 
 export const runtime='nodejs';
 

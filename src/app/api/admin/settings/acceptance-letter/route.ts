@@ -1,7 +1,7 @@
 import {NextRequest} from 'next/server';
 import {db} from '@/lib/firebase-admin';
 import {fail, json} from '@/lib/errors';
-import {requirePermission,operator} from '@/lib/security';
+import {requirePermission} from '@/lib/security';
 import {
   acceptanceLetterConfigSchema,
   defaultAcceptanceLetterConfig

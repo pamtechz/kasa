@@ -1,6 +1,6 @@
 import {adminAuth, db} from '@/lib/firebase-admin';
 import {fail, json, HttpError} from '@/lib/errors';
-import {requirePermission,operator, safeText, sameOrigin, audit} from '@/lib/security';
+import {requirePermission,safeText,sameOrigin,audit} from '@/lib/security';
 import type {Profile} from '@/lib/types';
 
 export const runtime = 'nodejs';
