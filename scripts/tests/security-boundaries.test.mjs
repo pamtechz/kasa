@@ -135,7 +135,8 @@ test('Bulk acceptance notices go only to linked applicants; no fake email send c
 test('Spreadsheet export guards formula-prefixed applicant input',()=>{
  const endpoint=source('src/app/api/admin/submissions/batch-download/route.ts');
  assert.match(endpoint,/protectedValue/);
- assert.match(endpoint,/\[=\+\\-@\]/);
+ assert.match(endpoint,/protectedValue =/);
+ assert.match(endpoint,/test\(plain\)/);
  assert.match(endpoint,/protectedValue\.replace/);
 });
 test('Legacy application notices are not broadcast to unrelated learners or agents',()=>{
