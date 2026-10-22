@@ -15,25 +15,24 @@ export async function POST(req: NextRequest) {
     try {
       const body = await req.json();
       const parsed = acceptanceLetterConfigSchema.safeParse(body?.config || body);
-      if (parsed.success) customConfig = parsed    // Custom preview uses only the uploaded bucket object or an approved
+      if (parsed.success) customConfig = parsed.data;
+    } catch {}
+
+    // Custom preview uses only the uploaded bucket object or an approved
     // external HTTPS host. Failed/unapproved links fall back to sample preview.
     if (customConfig?.packSource === 'custom' && customConfig?.customPdf?.url) {
       try {
         const bytes = await loadCustomAcceptancePdf(customConfig.customPdf);
-        return new Response(new Uint8Array(bytes),{
-          status:200,
-          headers:{
-            'Content-Type':'application/pdf',
-            'Content-Disposition':'inline; filename="KASA-Custom-Acceptance-Preview.pdf"',
-            'Cache-Control':'private, no-store'
+        return new Response(new Uint8Array(bytes), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': 'inline; filename="KASA-Custom-Acceptance-Preview.pdf"',
+            'Cache-Control': 'private, no-store'
           }
         });
       } catch (error) {
-        console.error('Unable to preview custom acceptance PDF:',error instanceof Error ? error.message:'Unknown error');
-      }
-    }
-
-, err);
+        console.error('Unable to preview custom acceptance PDF:', error instanceof Error ? error.message : 'Unknown error');
       }
     }
 

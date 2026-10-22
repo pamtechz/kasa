@@ -30,25 +30,25 @@ export async function GET(req: Request, {params}: {params: Promise<{id: string}>
       const cfgSnap = await db.collection('settings').doc('acceptanceLetter').get();
       if (cfgSnap.exists) {
         const parsed = acceptanceLetterConfigSchema.safeParse(cfgSnap.data());
-        if (parsed.s    // PDF sources are restricted to KASA uploads or explicitly allowed HTTPS
-    // hosts, with redirects disabled and a strict download size limit.
+        if (parsed.success) letterConfig = parsed.data;
+      }
+    } catch {}
+
+    // Load only KASA uploads or explicitly approved HTTPS hosts; never
+    // follow redirects or allow unbounded external PDF responses.
     if (letterConfig.packSource === 'custom' && letterConfig.customPdf?.url) {
       try {
         const bytes = await loadCustomAcceptancePdf(letterConfig.customPdf);
-        return new Response(new Uint8Array(bytes),{
-          status:200,
-          headers:{
-            'Content-Type':'application/pdf',
-            'Content-Disposition':`attachment; filename="KASA-Acceptance-${data.reference}.pdf"`,
-            'Cache-Control':'private, no-store'
+        return new Response(new Uint8Array(bytes), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `attachment; filename="KASA-Acceptance-${data.reference}.pdf"`,
+            'Cache-Control': 'private, no-store'
           }
         });
       } catch (error) {
-        console.error('Unable to deliver custom acceptance PDF:',error instanceof Error ? error.message:'Unknown error');
-      }
-    }
-
-ance pack, falling back to template:', err);
+        console.error('Unable to deliver custom acceptance PDF:', error instanceof Error ? error.message : 'Unknown error');
       }
     }
 
