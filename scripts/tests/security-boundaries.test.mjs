@@ -160,3 +160,22 @@ test('Origin validation does not trust attacker-controlled localhost subdomains'
  assert.doesNotMatch(security,/requestOrigin\.includes\('localhost'\)/);
  assert.doesNotMatch(security,/hostHeader \? \x60http:/);
 });
+
+test('Administrators cannot assert email verification or directly set passwords',()=>{
+ const route=source('src/app/api/admin/users/[id]/route.ts');
+ const page=source('src/app/(portal)/dashboard/staff/page.tsx');
+ assert.match(route,/privilegedRoles\.includes\(currentData\.role\)/);
+ assert.match(route,/actor\.role !== 'super_admin'/);
+ assert.match(route,/email changes require/i);
+ assert.match(route,/Password changes must use verified account recovery/);
+ assert.match(route,/authIdentity\.emailVerified/);
+ assert.doesNotMatch(route,/authUpdates\.emailVerified\s*=\s*true/);
+ assert.doesNotMatch(route,/authUpdates\.password\s*=/);
+ assert.doesNotMatch(page,/editPassword|setEditPassword|Generated Temporary Password/);
+ assert.match(page,/readOnly aria-readonly="true"/);
+});
+test('Staff delete rejects a failed Firebase Auth deletion',()=>{
+ const route=source('src/app/api/admin/users/[id]/route.ts');
+ assert.match(route,/Firebase Auth deletion failed\. No profile was deleted/);
+ assert.match(route,/\['admin','reviewer','finance'\]\.includes\(userData\.role\)/);
+});
