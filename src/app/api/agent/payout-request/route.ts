@@ -1,13 +1,13 @@
 import {db} from '@/lib/firebase-admin';
 import {fail, json, HttpError} from '@/lib/errors';
-import {operator, newId, sameOrigin, safeText} from '@/lib/security';
+import {requirePermission, newId, sameOrigin, safeText} from '@/lib/security';
 
 export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
   try {
     sameOrigin(req);
-    const user = await operator(req, ['super_admin', 'admin', 'agent']);
+    const user = await requirePermission(req,'payouts.request');
     const body = await req.json();
 
     const amount = Number(body.amount) || 0;
@@ -68,7 +68,7 @@ export async function POST(req: Request) {
 
 export async function GET(req: Request) {
   try {
-    const user = await operator(req, ['super_admin', 'admin', 'reviewer', 'agent']);
+    const user = await requirePermission(req,'payouts.read');
     let snap;
     if (user.role === 'agent') {
       snap = await db.collection('payoutRequests').where('agentUid', '==', user.uid).limit(100).get();

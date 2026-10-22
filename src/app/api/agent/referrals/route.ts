@@ -1,5 +1,5 @@
 import type {NextRequest} from 'next/server';
-import {rateLimit} from '@/lib/security';
+import {requirePermission,rateLimit} from '@/lib/security';
 import {loadIntake} from '@/lib/intake-server';
 import {intakeWindow} from '@/lib/intake-policy';
 import {publicFeatureFlags,requireReferralsEnabled} from '@/lib/feature-policy';
@@ -13,7 +13,7 @@ export const runtime = 'nodejs';
 
 export async function GET(req: Request) {
   try {
-    const agent = await operator(req, ['agent', 'super_admin', 'admin']);
+    const agent = await requirePermission(req,'referrals.read');
     const agentUid = agent.role === 'agent' ? agent.uid : new URL(req.url).searchParams.get('agentUid') || agent.uid;
 
     const [records, forms, programmes, features] = await Promise.all([
@@ -77,7 +77,7 @@ export async function GET(req: Request) {
 export async function POST(req: NextRequest) {
   try {
     sameOrigin(req);
-    const agent = await operator(req, ['agent', 'super_admin', 'admin']);
+    const agent = await requirePermission(req,'referrals.manage');
     await rateLimit(req,'agent-direct-referral',6,15);
     await requireReferralsEnabled();
     const body = await req.json();
@@ -169,7 +169,7 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: Request) {
   try {
     sameOrigin(req);
-    const agent = await operator(req, ['agent', 'super_admin', 'admin']);
+    const agent = await requirePermission(req,'referrals.manage');
     const body = await req.json();
     const id = safeText(body.id, 64);
     if (!id) throw new HttpError(400, 'Referral ID is required.');
@@ -215,7 +215,7 @@ export async function PATCH(req: Request) {
 export async function DELETE(req: Request) {
   try {
     sameOrigin(req);
-    const agent = await operator(req, ['agent', 'super_admin', 'admin']);
+    const agent = await requirePermission(req,'referrals.manage');
     const url = new URL(req.url);
     const id = url.searchParams.get('id');
     if (!id) throw new HttpError(400, 'Referral ID is required.');

@@ -1,6 +1,6 @@
 import {db} from '@/lib/firebase-admin';
 import {fail, json} from '@/lib/errors';
-import {operator} from '@/lib/security';
+import {requirePermission} from '@/lib/security';
 
 export const runtime = 'nodejs';
 
@@ -46,7 +46,7 @@ function calculateAgentTier(enrollmentsCount: number): {
 
 export async function GET(req: Request) {
   try {
-    await operator(req, ['super_admin', 'admin', 'reviewer', 'agent']);
+    await requirePermission(req,'agent.analytics');
 
     const url = new URL(req.url);
     const monthKey = url.searchParams.get('month') || new Date().toISOString().slice(0, 7); // e.g. 2026-10

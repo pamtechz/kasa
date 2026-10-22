@@ -1,5 +1,5 @@
 import {db} from '@/lib/firebase-admin';
-import {operator, newId, safeText, sameOrigin} from '@/lib/security';
+import {requirePermission, newId, safeText, sameOrigin} from '@/lib/security';
 import {fail, json, HttpError} from '@/lib/errors';
 import {getGeneralCache, setGeneralCache, invalidateGeneralCache} from '@/lib/server-cache';
 
@@ -21,7 +21,7 @@ export const runtime = 'nodejs';
 
 export async function GET(req: Request) {
   try {
-    const user = await operator(req, ['super_admin', 'admin', 'reviewer', 'agent', 'student']);
+    const user = await requirePermission(req,'notifications.read');
     const cacheKey = `notifications-${user.role}-${user.uid}`;
     const cached = getGeneralCache<{notifications: any[]}>(cacheKey);
     if (cached) return json(cached);
@@ -45,7 +45,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     sameOrigin(req);
-    const user = await operator(req, ['super_admin', 'admin', 'reviewer']);
+    const user = await requirePermission(req,'notifications.create');
     const body = await req.json();
 
     const title = safeText(body.title, 120);
@@ -86,7 +86,7 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   try {
     sameOrigin(req);
-    const user = await operator(req, ['super_admin', 'admin', 'reviewer', 'agent']);
+    const user = await requirePermission(req,'notifications.manage');
     const body = await req.json();
     const id = safeText(body.id, 64);
     if (!id) throw new HttpError(400, 'Notification ID is required.');
@@ -137,7 +137,7 @@ export async function PATCH(req: Request) {
 export async function DELETE(req: Request) {
   try {
     sameOrigin(req);
-    const user = await operator(req, ['super_admin', 'admin', 'reviewer', 'agent']);
+    const user = await requirePermission(req,'notifications.manage');
     const url = new URL(req.url);
     const id = url.searchParams.get('id');
     const action = url.searchParams.get('action');
