@@ -74,3 +74,15 @@ test('Admin API enforces the permission matrix after identity verification',()=>
  assert.match(src,/requiredApiCapability\(path,req\.method\)/);
  assert.match(src,/!hasCapability\(p\.role,cap\)/);
 });
+
+test('Provisioning cannot manufacture privileged profiles or bypass email verification',()=>{
+ const agent=readFileSync('src/app/api/admin/agents/route.ts','utf8');
+ const profile=readFileSync('src/app/api/profile/route.ts','utf8');
+ assert.match(agent,/user\.emailVerified/);
+ assert.match(agent,/auth\/user-not-found/);
+ assert.doesNotMatch(agent,/user \? user\.uid : newId\(\)/);
+ assert.match(profile,/existing\.data\(\)\?\.active!==true/);
+ assert.match(profile,/user\.email_verified!==true/);
+ assert.match(profile,/sameOrigin\(req\)/);
+ assert.match(profile,/Account security flags/);
+});

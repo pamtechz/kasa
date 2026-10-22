@@ -1,6 +1,6 @@
 import {db,adminAuth} from '@/lib/firebase-admin';
 import {fail,json,HttpError} from '@/lib/errors';
-import {operator,audit,sameOrigin,safeText,newId} from '@/lib/security';
+import {operator,audit,sameOrigin,safeText} from '@/lib/security';
 import {getGeneralCache,setGeneralCache,invalidateGeneralCache} from '@/lib/server-cache';
 export const runtime='nodejs';
 
@@ -29,12 +29,17 @@ export async function POST(req:Request){
    throw new HttpError(400,'A valid email address and district (at least 2 characters) are required.');
   }
 
+  // Assignment requires an existing Firebase identity verified by its owner.
+  // Never create a privileged profile attached to a made-up Auth UID.
   let user;
-  try{user=await adminAuth.getUserByEmail(email);}catch{
-   user=null;
+  try{user=await adminAuth.getUserByEmail(email);}
+  catch(error){
+   if((error as {code?:string})?.code==='auth/user-not-found')
+    throw new HttpError(409,'The agent must register and verify their email before role assignment.');
+   throw error;
   }
-
-  const uid = user ? user.uid : newId();
+  if(!user.emailVerified)throw new HttpError(403,'The agent must verify their email first.');
+  const uid=user.uid;
   const ref=db.collection('profiles').doc(uid);
   const snap=await ref.get();
   if(snap.exists&&snap.data()?.role&&snap.data()?.role!=='agent') {
