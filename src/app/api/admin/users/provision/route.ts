@@ -13,8 +13,10 @@ export async function POST(req: Request) {
 
     const email = safeText(body.email, 240).toLowerCase().trim();
     const displayName = safeText(body.displayName || body.name, 120).trim();
-    const role = ['student', 'agent', 'admin', 'reviewer'].includes(body.role) ? body.role : 'student';
-    if (actor.role !== 'super_admin' && ['admin','reviewer'].includes(role)) {
+    const permittedRoles=['student','agent','admin','reviewer','finance'];
+    if(!permittedRoles.includes(body.role))throw new HttpError(400,'Select a valid account role.');
+    const role = String(body.role);
+    if (actor.role !== 'super_admin' && ['admin','reviewer','finance'].includes(role)) {
       throw new HttpError(403, 'Only a super administrator can assign staff roles.');
     }
     const district = safeText(body.district, 100).trim();
@@ -35,7 +37,7 @@ export async function POST(req: Request) {
     const existing = await db.collection('profiles').doc(authUser.uid).get();
     const previousRole = String(existing.data()?.role || '');
     if (previousRole === 'super_admin') throw new HttpError(403, 'Super administrator accounts cannot be provisioned here.');
-    if (actor.role !== 'super_admin' && ['admin','reviewer'].includes(previousRole)) {
+    if (actor.role !== 'super_admin' && ['admin','reviewer','finance'].includes(previousRole)) {
       throw new HttpError(403, 'Only a super administrator can modify staff accounts.');
     }
 
@@ -49,7 +51,7 @@ export async function POST(req: Request) {
       uid,
       email,
       displayName,
-      role: role as any,
+      role,
       active: true,
       ...(phone ? {phone} : {}),
       ...(district ? {district} : {}),

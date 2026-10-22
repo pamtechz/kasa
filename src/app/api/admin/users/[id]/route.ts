@@ -60,7 +60,7 @@ export async function PATCH(
     }
 
     // 4. Update Role
-    if (typeof body.role === 'string' && ['student', 'agent', 'admin', 'reviewer'].includes(body.role)) {
+    if (typeof body.role === 'string' && ['student', 'agent', 'admin', 'reviewer', 'finance'].includes(body.role)) {
       if (currentData.role === 'super_admin' && body.role !== 'super_admin') {
         throw new HttpError(403, 'Cannot demote Super Admin role.');
       }

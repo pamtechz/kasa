@@ -66,11 +66,12 @@ export function StudentPortal({children}: {children: React.ReactNode}) {
         const res = await fetch('/api/me', {headers, cache: 'no-store'});
         const data = await res.json();
         if (active) {
-          if (res.ok && data.profile) {
+          if (res.ok && data.profile?.role === 'student' && data.profile.active === true) {
             setProfile(data.profile);
             setSessionError('');
           } else {
-            setSessionError('Unable to load your student profile.');
+            setProfile(null);
+            setSessionError('An active student account is required for this portal.');
           }
         }
       } catch (e) {
