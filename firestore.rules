@@ -1,39 +1,61 @@
 rules_version = '2';
 service cloud.firestore {
-  match /databases/{database}/documents {
-    // The KASA Next.js server uses the Firebase Admin SDK. Admin SDK calls
-    // bypass security rules and must authenticate and authorize every request.
-    // Browsers must not create admissions, approvals, invoices or notifications.
-    function ownAccount(uid) {
-      return request.auth != null && request.auth.uid == uid;
-    }
-
-    match /profiles/{uid} {
-      allow get: if ownAccount(uid);
-      allow list, create, update, delete: if false;
-    }
-
-    match /forms/{id} {
-      allow read: if resource.data.published == true;
-      allow write: if false;
-    }
-    match /programmes/{id} {
-      allow read: if resource.data.published == true;
-      allow write: if false;
-    }
-    match /announcements/{id} {
-      allow read: if resource.data.published == true;
-      allow write: if false;
-    }
-    match /adCampaigns/{id} {
-      allow read: if resource.data.active == true;
-      allow write: if false;
-    }
-
-    // Covers submissions, settings, fileClaims, applicationDedupe,
-    // notificationOutbox, finances, rateLimits, audit logs and future paths.
-    match /{document=**} {
-      allow read, write: if false;
-    }
+ match /databases/{database}/documents {
+  // Next.js uses Firebase Admin SDK. Admin SDK bypasses these rules, so
+  // every server route must authenticate, authorize role and verify ownership.
+  function signedIn(){return request.auth != null;}
+  function verified(){return signedIn() && request.auth.token.email_verified == true;}
+  function ownActiveProfile(uid){
+   return verified() && request.auth.uid == uid && resource.data.active == true;
   }
+  function published(){return resource.data.published == true;}
+
+  // Browser may read its own active verified profile, but may never edit role,
+  // active status, payouts, identity flags or any other profile field directly.
+  match /profiles/{uid} {
+   allow get: if ownActiveProfile(uid);
+   allow list, create, update, delete: if false;
+  }
+
+  // These catalogues contain public-approved material only. Drafts cannot be
+  // fetched or listed, and only the trusted server may publish or mutate them.
+  match /forms/{id} {
+   allow get, list: if published();
+   allow create, update, delete: if false;
+  }
+  match /programmes/{id} {
+   allow get, list: if published();
+   allow create, update, delete: if false;
+  }
+  match /announcements/{id} {
+   allow get, list: if published();
+   allow create, update, delete: if false;
+  }
+  match /adCampaigns/{id} {
+   allow get, list: if resource.data.active == true;
+   allow create, update, delete: if false;
+  }
+
+  // Explicit boundaries document every critical private collection.
+  // An Auth custom role claim, including "super_admin", has NO effect here.
+  match /submissions/{id} { allow read, write: if false; }
+  match /applicationDedupe/{id} { allow read, write: if false; }
+  match /fileClaims/{id} { allow read, write: if false; }
+  match /notificationOutbox/{id} { allow read, write: if false; }
+  match /settings/{id} { allow read, write: if false; }
+  match /fundingVerifications/{id} { allow read, write: if false; }
+  match /commissionPayments/{id} { allow read, write: if false; }
+  match /payoutRequests/{id} { allow read, write: if false; }
+  match /auditLogs/{id} { allow read, write: if false; }
+  match /rateLimits/{id} { allow read, write: if false; }
+  match /financeLedger/{id} { allow read, write: if false; }
+  match /payments/{id} { allow read, write: if false; }
+  match /userInvitations/{id} { allow read, write: if false; }
+  match /enrollmentDocuments/{id} { allow read, write: if false; }
+
+  // All unlisted collections AND nested subcollections fail closed.
+  match /{document=**} {
+   allow read, write: if false;
+  }
+ }
 }

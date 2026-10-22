@@ -1,11 +1,11 @@
 import {db,adminAuth} from '@/lib/firebase-admin';
 import {fail,json,HttpError} from '@/lib/errors';
-import {operator,audit,sameOrigin,safeText,newId} from '@/lib/security';
+import {requirePermission,audit,sameOrigin,safeText,newId} from '@/lib/security';
 import {getGeneralCache,setGeneralCache,invalidateGeneralCache} from '@/lib/server-cache';
 export const runtime='nodejs';
 
 export async function GET(req:Request){
- try{await operator(req,['super_admin','admin','reviewer']);
+ try{await requirePermission(req,'agents.read');
   const cached = getGeneralCache<{agents: any[]}>('agents');
   if (cached) return json(cached);
   const q=await db.collection('profiles').where('role','==','agent').limit(300).get();
@@ -18,7 +18,7 @@ export async function GET(req:Request){
 export async function POST(req:Request){
  try{
   sameOrigin(req);
-  const actor=await operator(req,['super_admin','admin']);
+  const actor=await requirePermission(req,'agents.manage');
   const body=await req.json();
   const email=safeText(body.email,250).toLowerCase();
   const displayName=safeText(body.displayName||body.name,120);

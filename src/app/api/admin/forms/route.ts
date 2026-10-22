@@ -1,6 +1,6 @@
 import {db} from '@/lib/firebase-admin';
 import {fail,json,HttpError} from '@/lib/errors';
-import {operator,audit,newId,sameOrigin} from '@/lib/security';
+import {requirePermission,audit,newId,sameOrigin} from '@/lib/security';
 import {parseForm} from '@/lib/schema';
 export const runtime='nodejs';
 
@@ -8,7 +8,7 @@ let formsCache: {forms: any[]; timestamp: number} | null = null;
 const FORMS_CACHE_TTL = 45_000;
 
 export async function GET(req:Request){
- try{await operator(req,['super_admin','admin','reviewer']);
+ try{await requirePermission(req,'forms.read');
   if(formsCache && Date.now() - formsCache.timestamp < FORMS_CACHE_TTL){
    return json({forms: formsCache.forms});
   }
@@ -20,7 +20,7 @@ export async function GET(req:Request){
 }
 export async function POST(req:Request){
  try{
-  sameOrigin(req);const user=await operator(req,['super_admin','admin']);
+  sameOrigin(req);const user=await requirePermission(req,'forms.manage');
   const data=parseForm(await req.json());
   const same=await db.collection('forms').where('slug','==',data.slug).limit(1).get();
   if(!same.empty)throw new HttpError(409,'This form URL is already used.');

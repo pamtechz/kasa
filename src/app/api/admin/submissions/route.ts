@@ -1,6 +1,6 @@
 import {db} from '@/lib/firebase-admin';
 import {fail,json,HttpError} from '@/lib/errors';
-import {operator,sameOrigin,audit,newId,safeText} from '@/lib/security';
+import {requirePermission,sameOrigin,audit,newId,safeText} from '@/lib/security';
 import type {ApplicantRecord,SubmissionStatus} from '@/lib/types';
 import {submissionsCache, SUBMISSIONS_CACHE_TTL, invalidateSubmissionsCache} from '@/lib/server-cache';
 
@@ -8,7 +8,7 @@ export const runtime='nodejs';
 
 export async function GET(req:Request){
  try{
-  const user=await operator(req,['super_admin','admin','reviewer','agent']);
+  const user=await requirePermission(req,'applications.read');
   const cacheKey = user.role === 'agent' ? `agent-${user.uid}` : 'all';
   const cached = submissionsCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < SUBMISSIONS_CACHE_TTL) {
@@ -25,7 +25,7 @@ export async function GET(req:Request){
 export async function POST(req:Request){
  try{
   sameOrigin(req);
-  const actor=await operator(req,['super_admin','admin','reviewer']);
+  const actor=await requirePermission(req,'applications.review');
   const body=await req.json();
   const studentName=safeText(body.name||body.studentName,120);
   const email=safeText(body.email,160).toLowerCase();

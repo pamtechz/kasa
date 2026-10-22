@@ -6,6 +6,7 @@ import Link from 'next/link';
 import {BarChart3,ChevronLeft,ChevronRight,ClipboardList,FilePlus2,FileCheck,LayoutDashboard,LogOut,Menu,Settings,Users,X,Bell,BookOpen,Newspaper,CalendarDays,Database,User,Wallet} from 'lucide-react';
 import {auth,authHeaders,firebaseConfigured,signOutClient} from '@/lib/firebase-client';
 import type {Profile} from '@/lib/types';
+import {can,canViewDashboard} from '@/lib/permissions';
 import {BrandLogo} from '@/components/BrandLogo';
 import {invalidateAdminCache, fetchWithSwr, getAdminCache} from '@/lib/admin-cache';
 
@@ -66,8 +67,17 @@ export function Portal({children}:{children:React.ReactNode}){
    try{
     const result=await api<{profile:Profile}>('/api/me');
     if(active){
+     if(result.profile.role === 'finance' && path === '/dashboard'){
+      router.replace('/dashboard/finance');
+      return;
+     }
      if(result.profile.role === 'student'){
       router.replace('/my-applications');
+      return;
+     }
+     if(!canViewDashboard(result.profile.role,path)) {
+      setProfile(null);
+      setSessionError('Your role cannot access this workspace page.');
       return;
      }
      setProfile(result.profile);
@@ -80,14 +90,16 @@ export function Portal({children}:{children:React.ReactNode}){
    if(active){setProfile(null);setSessionError('Unable to validate your Firebase session.');setLoading(false);}
   });
   return ()=>{active=false;unsubscribe();};
- },[router]);
+ },[router,path]);
  async function logOut(){
   try{await signOutClient();setProfile(null);router.replace('/login?reason=session-ended');}
   catch(e){setSessionError(e instanceof Error?e.message:'Unable to sign out. Please retry.');}
  }
- const links=[{name:'Overview',href:'/dashboard',icon:LayoutDashboard},{name:'Notifications',href:'/dashboard/notifications',icon:Bell},
+ const baseLinks=[{name:'Overview',href:'/dashboard',icon:LayoutDashboard},{name:'Notifications',href:'/dashboard/notifications',icon:Bell},
   ...(profile?.role==='agent'?[{name:'My referrals',href:'/dashboard/referrals',icon:Users}]:[{name:'Applications',href:'/dashboard/applications',icon:ClipboardList}]),
-  ...(!['super_admin','admin'].includes(profile?.role||'')?[]:[{name:'Website',href:'/dashboard/website',icon:Settings},{name:'Programmes',href:'/dashboard/programmes',icon:BookOpen},{name:'Announcements',href:'/dashboard/announcements',icon:Newspaper},{name:'Intake windows',href:'/dashboard/intake',icon:CalendarDays},{name:'Form builder',href:'/dashboard/forms',icon:FilePlus2},{name:'Acceptance Pack',href:'/dashboard/settings/acceptance-letter',icon:FileCheck},{name:'District agents',href:'/dashboard/agents',icon:Users},{name:'Finance Ledger',href:'/dashboard/finance',icon:Wallet},{name:'Commissions',href:'/dashboard/commissions',icon:BarChart3},{name:'Automations',href:'/dashboard/automations',icon:Bell},{name:'Settings',href:'/dashboard/settings',icon:Settings}]),...(profile?.role==='super_admin'?[{name:'Staff roles',href:'/dashboard/staff',icon:Users},{name:'Data setup',href:'/dashboard/setup',icon:Database}]:[]),{name:'My profile',href:'/dashboard/profile',icon:User}];
+  ...(!['super_admin','admin'].includes(profile?.role||'')?[]:[{name:'Website',href:'/dashboard/website',icon:Settings},{name:'Programmes',href:'/dashboard/programmes',icon:BookOpen},{name:'Announcements',href:'/dashboard/announcements',icon:Newspaper},{name:'Intake windows',href:'/dashboard/intake',icon:CalendarDays},{name:'Form builder',href:'/dashboard/forms',icon:FilePlus2},{name:'Acceptance Pack',href:'/dashboard/settings/acceptance-letter',icon:FileCheck},{name:'District agents',href:'/dashboard/agents',icon:Users},...(can(profile?.role,'finance.read')?[{name:'Finance Ledger',href:'/dashboard/finance',icon:Wallet}]:[]),{name:'Commissions',href:'/dashboard/commissions',icon:BarChart3},{name:'Automations',href:'/dashboard/automations',icon:Bell},{name:'Settings',href:'/dashboard/settings',icon:Settings}]),...(profile?.role==='super_admin'?[{name:'Staff roles',href:'/dashboard/staff',icon:Users},{name:'Data setup',href:'/dashboard/setup',icon:Database}]:[]),{name:'My profile',href:'/dashboard/profile',icon:User},...(profile?.role==='finance'?[{name:'Finance Ledger',href:'/dashboard/finance',icon:Wallet}]:[])];
+ const links=baseLinks.filter(link=>canViewDashboard(profile?.role||null,link.href));
+ if(profile&&!canViewDashboard(profile.role,path))return <main role="alert" className="portal-error-state"><h1>Access denied</h1><p>This role cannot view the requested page.</p><Link href="/dashboard">Back to dashboard</Link></main>;
  if(loading)return <main className="page-loader" role="status">Loading your secure workspace…</main>;
  if(sessionError||!profile)return <main className="portal-error-state" role="alert"><h1>Workspace access needs attention</h1><p>{sessionError||'Sign in with an authorized KASA staff or agent account to continue.'}</p><Link className="btn btn-primary" href="/login">Go to sign in</Link></main>;
  return <div className="portal-shell"><aside id="kasa-admin-navigation" className={`sidebar ${collapsed?'collapsed':''} ${mobile?'mobile-open':''}`}>

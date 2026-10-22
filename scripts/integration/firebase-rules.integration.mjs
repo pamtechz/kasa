@@ -20,6 +20,7 @@ before(async()=>{
  await env.withSecurityRulesDisabled(async ctx=>{
   const db=ctx.firestore();
   await setDoc(doc(db,'profiles/alice'),{role:'student',active:true});
+  await setDoc(doc(db,'profiles/inactive'),{role:'student',active:false});
   await setDoc(doc(db,'forms/published'),{published:true,title:'Public form'});
   await setDoc(doc(db,'forms/draft'),{published:false,title:'Draft form'});
   await setDoc(doc(db,'programmes/open'),{published:true});
@@ -40,11 +41,13 @@ after(async()=>{if(env)await env.cleanup();});
 
 test('only owners can read profiles, and browser writes and collection listing are denied',async()=>{
  const guest=env.unauthenticatedContext().firestore();
- const alice=env.authenticatedContext('alice').firestore();
+ const alice=env.authenticatedContext('alice',{email_verified:true}).firestore();
  const bob=env.authenticatedContext('bob').firestore();
- const staff=env.authenticatedContext('staff',{role:'super_admin'}).firestore();
+ const staff=env.authenticatedContext('staff',{role:'super_admin',email_verified:true}).firestore();
  await assertFails(getDoc(doc(guest,'profiles/alice')));
  await assertSucceeds(getDoc(doc(alice,'profiles/alice')));
+ await assertFails(getDoc(doc(env.authenticatedContext('alice',{email_verified:false}).firestore(),'profiles/alice')));
+ await assertFails(getDoc(doc(env.authenticatedContext('inactive',{email_verified:true}).firestore(),'profiles/inactive')));
  await assertFails(getDoc(doc(bob,'profiles/alice')));
  await assertFails(getDocs(collection(alice,'profiles')));
  await assertFails(setDoc(doc(alice,'profiles/alice'),{role:'super_admin'}));
@@ -97,5 +100,13 @@ test('private CDF evidence and acceptance packs never expose directly through St
    await assertFails(getMetadata(ref(storage,path)));
    await assertFails(uploadBytes(ref(storage,path),new Uint8Array([9])));
   }
+ }
+});
+
+test('a forged staff role claim never authorizes private finance or submissions',async()=>{
+ const attacker=env.authenticatedContext('attacker',{role:'super_admin',email_verified:true}).firestore();
+ for(const id of ['submissions/app1','fundingVerifications/private1','commissionPayments/private1','payoutRequests/unknown','settings/intake']){
+  await assertFails(getDoc(doc(attacker,id)));
+  await assertFails(setDoc(doc(attacker,id),{approved:true}));
  }
 });

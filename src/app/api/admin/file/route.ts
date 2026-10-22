@@ -1,9 +1,9 @@
 import {storage,db} from '@/lib/firebase-admin';
 import {fail,json,HttpError} from '@/lib/errors';
-import {operator} from '@/lib/security';
+import {requirePermission} from '@/lib/security';
 export const runtime='nodejs';
 export async function GET(req:Request){try{
- await operator(req,['super_admin','admin','reviewer']);
+ await requirePermission(req,'applications.review');
  const u=new URL(req.url);const id=u.searchParams.get('submissionId')||'';
  const field=u.searchParams.get('fieldId')||'';
  if(!/^[a-z0-9-]{36}$/i.test(id)||!/^[a-zA-Z0-9_-]{2,90}$/.test(field))throw new HttpError(400,'Invalid file request.');

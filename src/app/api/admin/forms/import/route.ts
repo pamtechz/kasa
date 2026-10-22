@@ -1,10 +1,10 @@
 import {db} from '@/lib/firebase-admin';
 import {fail,json,HttpError} from '@/lib/errors';
-import {operator,audit,newId,sameOrigin} from '@/lib/security';
+import {requirePermission,audit,newId,sameOrigin} from '@/lib/security';
 import {parseForm} from '@/lib/schema';
 export const runtime='nodejs';
 export async function POST(req:Request){try{
- sameOrigin(req);const user=await operator(req,['super_admin','admin']);
+ sameOrigin(req);const user=await requirePermission(req,'forms.manage');
  const text=await req.text();if(text.length>150000)throw new HttpError(413,'Template exceeds 150 KB.');
  let raw:unknown;try{raw=JSON.parse(text);}catch{throw new HttpError(400,'Invalid JSON template.');}
  const data=parseForm(raw);

@@ -1,6 +1,6 @@
 import {adminAuth, db} from '@/lib/firebase-admin';
 import {fail, json, HttpError} from '@/lib/errors';
-import {operator, safeText, sameOrigin, audit} from '@/lib/security';
+import {requirePermission,safeText,sameOrigin,audit} from '@/lib/security';
 import type {Profile} from '@/lib/types';
 
 export const runtime = 'nodejs';
@@ -11,7 +11,7 @@ export async function PATCH(
 ) {
   try {
     sameOrigin(req);
-    const actor = await operator(req, ['super_admin', 'admin']);
+    const actor = await requirePermission(req,'users.manage');
     const {id: uid} = await params;
     const body = await req.json().catch(() => ({}));
 
@@ -60,7 +60,7 @@ export async function PATCH(
     }
 
     // 4. Update Role
-    if (typeof body.role === 'string' && ['student', 'agent', 'admin', 'reviewer'].includes(body.role)) {
+    if (typeof body.role === 'string' && ['student', 'agent', 'admin', 'reviewer', 'finance'].includes(body.role)) {
       if (currentData.role === 'super_admin' && body.role !== 'super_admin') {
         throw new HttpError(403, 'Cannot demote Super Admin role.');
       }
@@ -125,7 +125,7 @@ export async function DELETE(
 ) {
   try {
     sameOrigin(req);
-    const actor = await operator(req, ['super_admin', 'admin']);
+    const actor = await requirePermission(req,'users.manage');
     const {id: uid} = await params;
 
     if (!uid) throw new HttpError(400, 'User ID is required.');

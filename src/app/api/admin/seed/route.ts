@@ -1,5 +1,5 @@
 import {db} from '@/lib/firebase-admin';
-import {operator,sameOrigin,audit} from '@/lib/security';
+import {requirePermission,sameOrigin,audit} from '@/lib/security';
 import {fail,json} from '@/lib/errors';
 import {programmeSchema,announcementSchema} from '@/lib/content';
 import {initialIntake} from '@/lib/intake-policy';
@@ -10,7 +10,7 @@ export const runtime='nodejs';
 /** Explicit, non-destructive Firestore initialization. Never overwrites edited admin content. */
 export async function POST(req:Request){
  try{
-  sameOrigin(req);const actor=await operator(req,['super_admin']);
+  sameOrigin(req);const actor=await requirePermission(req,'setup.manage');
   const results={programmes:0,announcements:0,forms:0,settings:0,skipped:0};
   for(const candidate of catalog.programmes){
    const item=programmeSchema.parse(candidate),ref=db.collection('programmes').doc(item.id);

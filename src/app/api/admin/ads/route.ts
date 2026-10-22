@@ -1,6 +1,6 @@
 import {db} from '@/lib/firebase-admin';
 import {fail, json, HttpError} from '@/lib/errors';
-import {operator, newId, sameOrigin, safeText} from '@/lib/security';
+import {requirePermission,newId,sameOrigin,safeText} from '@/lib/security';
 
 export const runtime = 'nodejs';
 
@@ -21,7 +21,7 @@ export type AdCampaign = {
 
 export async function GET(req: Request) {
   try {
-    await operator(req, ['super_admin', 'admin']);
+    await requirePermission(req,'content.manage');
     const snap = await db.collection('adCampaigns').limit(100).get();
     const ads = snap.docs.map(d => ({id: d.id, ...d.data()}));
     return json({ads});
@@ -33,7 +33,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     sameOrigin(req);
-    const user = await operator(req, ['super_admin', 'admin']);
+    const user = await requirePermission(req,'content.manage');
     const body = await req.json();
 
     const headline = safeText(body.headline, 120);
@@ -73,7 +73,7 @@ export async function POST(req: Request) {
 export async function PUT(req: Request) {
   try {
     sameOrigin(req);
-    await operator(req, ['super_admin', 'admin']);
+    await requirePermission(req,'content.manage');
     const body = await req.json();
     const id = safeText(body.id, 64);
 
@@ -104,7 +104,7 @@ export async function PUT(req: Request) {
 export async function DELETE(req: Request) {
   try {
     sameOrigin(req);
-    await operator(req, ['super_admin', 'admin']);
+    await requirePermission(req,'content.manage');
     const url = new URL(req.url);
     const id = url.searchParams.get('id');
 

@@ -1,14 +1,14 @@
 import type {NextRequest} from 'next/server';
 import {storage, db} from '@/lib/firebase-admin';
 import {fail, HttpError, json} from '@/lib/errors';
-import {operator, sameOrigin, audit, newId} from '@/lib/security';
+import {requirePermission, sameOrigin, audit, newId} from '@/lib/security';
 
 export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
   try {
     sameOrigin(req);
-    const user = await operator(req, ['super_admin', 'admin']);
+    const user = await requirePermission(req,'acceptance.manage');
 
     const form = await req.formData();
     const file = form.get('file');

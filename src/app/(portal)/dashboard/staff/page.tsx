@@ -9,7 +9,7 @@ type UserItem = {
   uid: string;
   email: string;
   displayName: string;
-  role: 'super_admin' | 'admin' | 'reviewer' | 'agent' | 'student';
+  role: 'super_admin' | 'admin' | 'reviewer' | 'finance' | 'agent' | 'student';
   active: boolean;
   phone?: string;
   district?: string;
@@ -29,7 +29,7 @@ export default function UserAndStaffManagement() {
   // User Provisioning States
   const [provEmail, setProvEmail] = useState('');
   const [provName, setProvName] = useState('');
-  const [provRole, setProvRole] = useState<'student' | 'agent' | 'admin' | 'reviewer'>('student');
+  const [provRole, setProvRole] = useState<'student' | 'agent' | 'admin' | 'reviewer' | 'finance'>('student');
   const [provDistrict, setProvDistrict] = useState('');
   const [provPhone, setProvPhone] = useState('');
   const [provResult, setProvResult] = useState<{email: string; displayName: string; role: string; agentCode?: string} | null>(null);
@@ -37,7 +37,7 @@ export default function UserAndStaffManagement() {
   // Editing User Modal States
   const [editingUser, setEditingUser] = useState<UserItem | null>(null);
   const [editName, setEditName] = useState('');
-  const [editRole, setEditRole] = useState<'student' | 'agent' | 'admin' | 'reviewer'>('student');
+  const [editRole, setEditRole] = useState<'student' | 'agent' | 'admin' | 'reviewer' | 'finance'>('student');
   const [editDistrict, setEditDistrict] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editActive, setEditActive] = useState(true);
@@ -189,6 +189,7 @@ export default function UserAndStaffManagement() {
                 <option value="student">Student (Student Portal)</option>
                 <option value="agent">District Agent (Agent Portal)</option>
                 <option value="reviewer">Application Reviewer</option>
+                <option value="finance">Finance Officer</option>
                 <option value="admin">Administrator</option>
               </select>
             </div>
@@ -244,6 +245,7 @@ export default function UserAndStaffManagement() {
                 <option value="agent">District Agents</option>
                 <option value="reviewer">Reviewers</option>
                 <option value="admin">Administrators</option>
+                <option value="finance">Finance Officers</option>
                 <option value="super_admin">Super Admins</option>
               </select>
             </label>
@@ -360,6 +362,7 @@ export default function UserAndStaffManagement() {
                         <option value="student">Student (Student Portal)</option>
                         <option value="agent">District Agent (Agent Portal)</option>
                         <option value="reviewer">Application Reviewer</option>
+                <option value="finance">Finance Officer</option>
                         <option value="admin">Administrator</option>
                       </select>
                     </div>

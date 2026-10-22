@@ -1,17 +1,21 @@
 rules_version = '2';
 service firebase.storage {
-  match /b/{bucket}/o {
-    // Public branding assets may be read by anyone. Uploads still go through
-    // authenticated server routes using the Firebase Admin SDK.
-    match /public/{allPaths=**} {
-      allow read: if true;
-      allow write: if false;
-    }
-
-    // Private staging documents, CDF evidence and submission attachments
-    // are accessible only through authorized backend endpoints.
-    match /{allPaths=**} {
-      allow read, write: if false;
-    }
+ match /b/{bucket}/o {
+  // Only approved public branding assets are directly visible.
+  match /public/{allPaths=**} {
+   allow get: if true;
+   allow list, create, update, delete: if false;
   }
+
+  // Sensitive student/agent documents use authenticated server endpoints;
+  // roles and ownership are checked there. No direct browser SDK access.
+  match /staging/{allPaths=**} { allow read, write: if false; }
+  match /cdf-documents/{allPaths=**} { allow read, write: if false; }
+  match /acceptance-pack/{allPaths=**} { allow read, write: if false; }
+  match /submissions/{allPaths=**} { allow read, write: if false; }
+
+  match /{allPaths=**} {
+   allow read, write: if false;
+  }
+ }
 }

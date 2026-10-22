@@ -1,12 +1,12 @@
 import {db} from '@/lib/firebase-admin';
-import {operator,sameOrigin,safeText} from '@/lib/security';
+import {requirePermission,sameOrigin,safeText} from '@/lib/security';
 import {PATCH as updateApplicationStatus} from '@/app/api/admin/submissions/[id]/route';
 import {fail,json,HttpError} from '@/lib/errors';
 export const runtime='nodejs';
 
 export async function GET(req:Request){
  try{
-  await operator(req,['super_admin','admin','reviewer']);
+  await requirePermission(req,'commissions.read');
   const result=await db.collection('submissions').where('formKind','==','student').limit(500).get();
   const commissions=result.docs.flatMap(doc=>{
    const x=doc.data();
@@ -30,7 +30,7 @@ export async function GET(req:Request){
 export async function PATCH(req:Request){
  try{
   sameOrigin(req);
-  await operator(req,['super_admin','admin']);
+  await requirePermission(req,'commissions.manage');
   const body=await req.json();
   const submissionId=safeText(body?.submissionId,60);
   const paymentReference=safeText(body?.paymentReference,160);
@@ -61,7 +61,7 @@ export async function PATCH(req:Request){
 export async function POST(req:Request){
  try{
   sameOrigin(req);
-  await operator(req,['super_admin','admin']);
+  await requirePermission(req,'commissions.manage');
   throw new HttpError(403,'Manual commissions cannot be allocated without verified enrollment. Use the application review workflow.');
  }catch(e){return fail(e);}
 }
@@ -69,7 +69,7 @@ export async function POST(req:Request){
 export async function DELETE(req:Request){
  try{
   sameOrigin(req);
-  await operator(req,['super_admin','admin']);
+  await requirePermission(req,'commissions.manage');
   throw new HttpError(403,'Deleting commission evidence is disabled. Request a separately audited reconciliation.');
  }catch(e){return fail(e);}
 }

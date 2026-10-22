@@ -1,13 +1,13 @@
 import {db} from '@/lib/firebase-admin';
 import {fail, json, HttpError} from '@/lib/errors';
-import {operator, newId, safeText, sameOrigin, audit, digest} from '@/lib/security';
+import {requirePermission,newId,safeText,sameOrigin,audit,digest} from '@/lib/security';
 import {invalidateSubmissionsCache} from '@/lib/server-cache';
 
 export const runtime = 'nodejs';
 
 export async function GET(req: Request) {
   try {
-    await operator(req, ['super_admin', 'admin', 'reviewer', 'finance']);
+    await requirePermission(req,'finance.read');
 
     const snap = await db.collection('submissions').where('formKind', '==', 'student').limit(500).get();
     const docs = snap.docs.map(d => ({id: d.id, ...d.data()}));
@@ -71,7 +71,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     sameOrigin(req);
-    const actor = await operator(req, ['super_admin', 'admin', 'finance']);
+    const actor = await requirePermission(req,'finance.manage');
     const body = await req.json();
 
     const submissionId = safeText(body.submissionId, 60);

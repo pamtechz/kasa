@@ -31,19 +31,11 @@ type FormInfo = {slug: string; title: string};
 type ReferralResponse = {
   agent: {agentCode: string; district: string; active?: boolean};
   forms: FormInfo[];
+  programmes: string[];
+  referralsEnabled: boolean;
   referrals: Referral[];
 };
 
-const defaultProgrammes = [
-  'Heavy Equipment Operations & Plant Maintenance',
-  'Commercial Agribusiness & Irrigation Systems',
-  'Automotive Mechanics & Heavy Vehicle Repair',
-  'Industrial Electrical & Solar Systems Installation',
-  'Construction & Bricklaying Technology',
-  'Metal Fabrication & Arc Welding',
-  'Carpentry & Joinery',
-  'Information & Communications Technology'
-];
 
 export default function MyReferrals() {
   const [data, setData] = useState<ReferralResponse | null>(null);
@@ -64,7 +56,7 @@ export default function MyReferrals() {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [nrc, setNrc] = useState('');
-  const [programme, setProgramme] = useState(defaultProgrammes[0]);
+  const [programme, setProgramme] = useState('');
   const [fundingMethod, setFundingMethod] = useState<'cdf' | 'self_funded'>('cdf');
   const [district, setDistrict] = useState('');
   const [note, setNote] = useState('');
@@ -74,6 +66,7 @@ export default function MyReferrals() {
     try {
       const res = await api<ReferralResponse>('/api/agent/referrals');
       setData(res);
+      setProgramme(current=>res.programmes.includes(current)?current:(res.programmes[0]||''));
       setError('');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unable to load referrals.');
@@ -102,7 +95,7 @@ export default function MyReferrals() {
     setPhone('');
     setEmail('');
     setNrc('');
-    setProgramme(defaultProgrammes[0]);
+    setProgramme(data?.programmes?.[0] || '');
     setFundingMethod('cdf');
     setDistrict(data?.agent.district || '');
     setNote('');
@@ -115,7 +108,7 @@ export default function MyReferrals() {
     setPhone(ref.phone || '');
     setEmail('');
     setNrc('');
-    setProgramme(ref.programme || defaultProgrammes[0]);
+    setProgramme(ref.programme || data?.programmes?.[0] || '');
     setFundingMethod((ref.fundingMethod as 'cdf' | 'self_funded') || 'cdf');
     setDistrict(data?.agent.district || '');
     setNote(ref.note || '');
@@ -130,6 +123,7 @@ export default function MyReferrals() {
   async function handleSaveCandidate(e: React.FormEvent) {
     e.preventDefault();
     if (!candidateName.trim() || !phone.trim()) return;
+    if (!editingReferral && !data?.referralsEnabled) {setError('Referrals are currently paused.');return;}
     setBusy(true);
     setError('');
     setNotice('');
@@ -256,9 +250,11 @@ export default function MyReferrals() {
             <button className="btn btn-outline" onClick={() => void load()} disabled={loading}>
               <RefreshCw size={15} /> Refresh
             </button>
+            {data?.referralsEnabled && (data?.programmes?.length || 0)>0 && (
             <button className="btn btn-primary" onClick={openRegisterModal}>
               <Plus size={16} /> Register candidate
             </button>
+            )}
           </div>
         }
       />
@@ -550,7 +546,7 @@ export default function MyReferrals() {
                         onChange={e => setProgramme(e.target.value)}
                         disabled={Boolean(editingReferral)}
                       >
-                        {defaultProgrammes.map(p => (
+                        {(data?.programmes || []).map(p => (
                           <option key={p} value={p}>{p}</option>
                         ))}
                       </select>

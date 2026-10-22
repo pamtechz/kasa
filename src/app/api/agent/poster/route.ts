@@ -1,13 +1,13 @@
 import {db} from '@/lib/firebase-admin';
 import {fail, HttpError} from '@/lib/errors';
-import {operator} from '@/lib/security';
+import {requirePermission} from '@/lib/security';
 import {generateAgentPosterPdf, type AgentPosterData} from '@/lib/pdf-agent-poster';
 
 export const runtime = 'nodejs';
 
 export async function GET(req: Request) {
   try {
-    const user = await operator(req, ['super_admin', 'admin', 'reviewer', 'agent']);
+    const user = await requirePermission(req,'agent.analytics');
     const agentCode = user.agentCode || `KASA-AGT-${user.uid.slice(0, 6).toUpperCase()}`;
     const referralLink = `https://kasaschool.vercel.app/apply/student-enrollment?ref=${agentCode}`;
 

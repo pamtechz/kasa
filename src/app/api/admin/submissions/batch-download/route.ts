@@ -1,7 +1,7 @@
 import {NextRequest,NextResponse} from 'next/server';
 import {db} from '@/lib/firebase-admin';
 import {fail,HttpError} from '@/lib/errors';
-import {operator,sameOrigin} from '@/lib/security';
+import {requirePermission,sameOrigin} from '@/lib/security';
 
 export const runtime='nodejs';
 
@@ -17,7 +17,7 @@ function csvEscape(text: unknown): string {
 export async function POST(req: NextRequest) {
   try {
     sameOrigin(req);
-    await operator(req, ['super_admin', 'admin', 'reviewer']);
+    await requirePermission(req,'applications.review');
     const body = await req.json().catch(() => ({}));
     const ids = Array.isArray(body?.ids) ? (body.ids as string[]) : [];
 

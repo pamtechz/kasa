@@ -1,11 +1,11 @@
 import {db} from '@/lib/firebase-admin';
 import {defaultAutomations,automationSchema} from '@/lib/automations';
-import {operator,audit,sameOrigin} from '@/lib/security';
+import {requirePermission,audit,sameOrigin} from '@/lib/security';
 import {fail,json,HttpError} from '@/lib/errors';
 export const runtime='nodejs';
 export async function GET(req:Request){
  try{
-  await operator(req,['super_admin','admin']);
+  await requirePermission(req,'automations.manage');
   const doc=await db.collection('settings').doc('automations').get();
   const value=automationSchema.safeParse(doc.data()?.config);
   return json({config:value.success?value.data:defaultAutomations});
@@ -14,7 +14,7 @@ export async function GET(req:Request){
 export async function PUT(req:Request){
  try{
   sameOrigin(req);
-  const who=await operator(req,['super_admin','admin']);
+  const who=await requirePermission(req,'automations.manage');
   const parsed=automationSchema.safeParse(await req.json());
   if(!parsed.success)throw new HttpError(400,parsed.error.issues.map(x=>x.message).join('; '));
   await db.collection('settings').doc('automations').set({config:parsed.data,updatedBy:who.uid,updatedAt:new Date().toISOString()},{merge:true});
