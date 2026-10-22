@@ -1,7 +1,7 @@
 import {NextRequest} from 'next/server';
 import {db} from '@/lib/firebase-admin';
 import {fail, json} from '@/lib/errors';
-import {operator} from '@/lib/security';
+import {requirePermission,operator} from '@/lib/security';
 import {
   acceptanceLetterConfigSchema,
   defaultAcceptanceLetterConfig
@@ -15,7 +15,7 @@ const CONFIG_CACHE_TTL = 45_000;
 
 export async function GET(req: NextRequest) {
   try {
-    await operator(req, ['super_admin', 'admin']);
+    await requirePermission(req,'acceptance.manage');
     if (cachedConfig && Date.now() - cachedConfig.timestamp < CONFIG_CACHE_TTL) {
       return json({
         config: cachedConfig.config,
@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
-    const user = await operator(req, ['super_admin', 'admin']);
+    const user = await requirePermission(req,'acceptance.manage');
     const body = await req.json();
     const parsed = acceptanceLetterConfigSchema.safeParse(body?.config || body);
     if (!parsed.success) {

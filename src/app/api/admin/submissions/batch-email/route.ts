@@ -1,6 +1,6 @@
 import {db} from '@/lib/firebase-admin';
 import {fail, json, HttpError} from '@/lib/errors';
-import {operator, newId, sameOrigin, safeText} from '@/lib/security';
+import {requirePermission,operator, newId, sameOrigin, safeText} from '@/lib/security';
 import type {ApplicantRecord} from '@/lib/types';
 
 export const runtime = 'nodejs';
@@ -8,7 +8,7 @@ export const runtime = 'nodejs';
 export async function POST(req: Request) {
   try {
     sameOrigin(req);
-    const user = await operator(req, ['super_admin', 'admin', 'reviewer']);
+    const user = await requirePermission(req,'batch.notify');
     const body = await req.json();
 
     const submittedIds: unknown[] = Array.isArray(body?.ids) ? body.ids : [];

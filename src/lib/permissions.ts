@@ -1,5 +1,5 @@
 import type {Role} from './types';
-export type Permission='applications.read'|'applications.review'|'applications.delete'|'content.read'|'content.manage'|'forms.read'|'forms.manage'|'intake.read'|'intake.manage'|'agents.read'|'agents.manage'|'finance.read'|'finance.manage'|'commissions.read'|'commissions.manage'|'settings.read'|'settings.manage'|'automations.manage'|'staff.manage'|'setup.manage'|'referrals.read'|'notifications.read'|'profile.read';
+export type Permission='applications.read'|'applications.review'|'applications.delete'|'content.read'|'content.manage'|'forms.read'|'forms.manage'|'intake.read'|'intake.manage'|'agents.read'|'agents.manage'|'finance.read'|'finance.manage'|'commissions.read'|'commissions.manage'|'settings.read'|'settings.manage'|'automations.manage'|'staff.manage'|'setup.manage'|'referrals.read'|'notifications.read'|'profile.read'|'users.read'|'users.manage'|'acceptance.manage'|'batch.notify';
 const admins:Role[]=['super_admin','admin'];
 const reviewers:Role[]=[...admins,'reviewer'];
 const financing:Role[]=[...admins,'finance'];
@@ -13,7 +13,7 @@ export const grants:Readonly<Record<Permission,readonly Role[]>>={
  'commissions.read':reviewers,'commissions.manage':admins,
  'settings.read':reviewers,'settings.manage':admins,
  'automations.manage':admins,'staff.manage':['super_admin'],'setup.manage':['super_admin'],
- 'referrals.read':[...admins,'agent'],
+ 'referrals.read':[...admins,'agent'],'users.read':reviewers,'users.manage':admins,'acceptance.manage':admins,'batch.notify':reviewers,
  'notifications.read':[...reviewers,'agent','finance','student'],
  'profile.read':['super_admin','admin','reviewer','finance','agent','student']
 };
@@ -25,6 +25,7 @@ const paths:readonly {prefix:string;permission:Permission}[]=[
  {prefix:'/dashboard/programmes',permission:'content.read'},{prefix:'/dashboard/website',permission:'content.read'},
  {prefix:'/dashboard/announcements',permission:'content.read'},
  {prefix:'/dashboard/automations',permission:'automations.manage'},
+ {prefix:'/dashboard/settings/acceptance-letter',permission:'acceptance.manage'},
  {prefix:'/dashboard/settings',permission:'settings.read'},{prefix:'/dashboard/agents',permission:'agents.read'},
  {prefix:'/dashboard/applications',permission:'applications.read'},
  {prefix:'/dashboard/referrals',permission:'referrals.read'},{prefix:'/dashboard/notifications',permission:'notifications.read'},
