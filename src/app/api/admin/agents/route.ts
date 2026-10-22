@@ -1,6 +1,6 @@
 import {db,adminAuth} from '@/lib/firebase-admin';
 import {fail,json,HttpError} from '@/lib/errors';
-import {requirePermission,operator,audit,sameOrigin,safeText,newId} from '@/lib/security';
+import {requirePermission,audit,sameOrigin,safeText,newId} from '@/lib/security';
 import {getGeneralCache,setGeneralCache,invalidateGeneralCache} from '@/lib/server-cache';
 export const runtime='nodejs';
 

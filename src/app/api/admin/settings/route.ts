@@ -1,6 +1,6 @@
 import {db} from '@/lib/firebase-admin';
 import {fail,json,HttpError} from '@/lib/errors';
-import {requirePermission,operator,audit,sameOrigin} from '@/lib/security';
+import {requirePermission,audit,sameOrigin} from '@/lib/security';
 export const runtime='nodejs';
 export async function GET(req:Request){try{await requirePermission(req,'settings.read');
  const doc=await db.collection('settings').doc('operations').get();return json({settings:doc.data()||{commissionAmount:0,organization:'KASA'}});

@@ -1,6 +1,6 @@
 import {db} from '@/lib/firebase-admin';
 import {fail, json, HttpError} from '@/lib/errors';
-import {requirePermission,operator, newId, safeText, sameOrigin, audit, digest} from '@/lib/security';
+import {requirePermission,newId,safeText,sameOrigin,audit,digest} from '@/lib/security';
 import {invalidateSubmissionsCache} from '@/lib/server-cache';
 
 export const runtime = 'nodejs';

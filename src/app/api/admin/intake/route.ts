@@ -1,4 +1,4 @@
-import {requirePermission,operator,audit,sameOrigin} from '@/lib/security';
+import {requirePermission,audit,sameOrigin} from '@/lib/security';
 import {db} from '@/lib/firebase-admin';
 import {fail,json,HttpError} from '@/lib/errors';
 import {policySchema} from '@/lib/intake-policy';

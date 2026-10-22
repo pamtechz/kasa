@@ -1,6 +1,6 @@
 import {db} from '@/lib/firebase-admin';
 import {fail,json,HttpError} from '@/lib/errors';
-import {requirePermission,operator,sameOrigin,audit} from '@/lib/security';
+import {requirePermission,sameOrigin,audit} from '@/lib/security';
 import {programmeSchema,announcementSchema,contentCollection} from '@/lib/content';
 export const runtime='nodejs';
 
