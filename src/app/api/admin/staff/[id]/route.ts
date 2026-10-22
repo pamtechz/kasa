@@ -1,10 +1,10 @@
 import {db} from '@/lib/firebase-admin';
-import {audit,operator,sameOrigin} from '@/lib/security';
+import {requirePermission,audit,sameOrigin} from '@/lib/security';
 import {fail,HttpError,json} from '@/lib/errors';
 export const runtime='nodejs';
 export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
  try{
-  sameOrigin(req);const actor=await operator(req,['super_admin']);
+  sameOrigin(req);const actor=await requirePermission(req,'staff.manage');
   const {id}=await params;const body=await req.json();
   if(id===actor.uid)throw new HttpError(403,'You cannot edit your own administrator account here.');
   const doc=db.collection('profiles').doc(id),current=await doc.get();
@@ -25,7 +25,7 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
 export async function DELETE(req:Request,{params}:{params:Promise<{id:string}>}){
  try{
   sameOrigin(req);
-  const actor=await operator(req,['super_admin']);
+  const actor=await requirePermission(req,'staff.manage');
   const {id}=await params;
   if(id===actor.uid)throw new HttpError(403,'You cannot delete your own administrator account.');
   const doc=db.collection('profiles').doc(id);

@@ -1,6 +1,6 @@
 import {NextRequest} from 'next/server';
 import {fail} from '@/lib/errors';
-import {operator} from '@/lib/security';
+import {requirePermission} from '@/lib/security';
 import {loadCustomAcceptancePdf} from '@/lib/custom-acceptance-pdf';
 import {generateAcceptancePackPdf, type AcceptancePackData} from '@/lib/pdf-acceptance-pack';
 import {acceptanceLetterConfigSchema} from '@/lib/acceptance-letter-config';
@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   try {
-    await operator(req, ['super_admin', 'admin', 'reviewer']);
+    await requirePermission(req,'acceptance.preview');
     let customConfig: any = null;
     try {
       const body = await req.json();

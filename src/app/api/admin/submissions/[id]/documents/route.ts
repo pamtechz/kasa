@@ -1,6 +1,6 @@
 import type {NextRequest} from 'next/server';
 import {db,storage} from '@/lib/firebase-admin';
-import {operator,sameOrigin,audit,newId} from '@/lib/security';
+import {requirePermission,sameOrigin,audit,newId} from '@/lib/security';
 import {loadIntake} from '@/lib/intake-server';
 import {fail,json,HttpError} from '@/lib/errors';
 export const runtime='nodejs';
@@ -12,7 +12,7 @@ function validMime(bytes:Buffer,mime:string){
 }
 export async function POST(req:NextRequest,{params}:{params:Promise<{id:string}>}){
  try{
-  sameOrigin(req);const actor=await operator(req,['super_admin','admin','reviewer']);
+  sameOrigin(req);const actor=await requirePermission(req,'applications.review');
   const {id}=await params,policy=await loadIntake();
   if(Number(req.headers.get('content-length')||0)>4.5*1024*1024)throw new HttpError(413,'Maximum document size is 4 MB.');
   const form=await req.formData(),kind=String(form.get('kind')||'');
@@ -45,7 +45,7 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{id:string}>
 }
 export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
  try{
-  sameOrigin(req);const actor=await operator(req,['super_admin','admin','reviewer']);
+  sameOrigin(req);const actor=await requirePermission(req,'applications.review');
   const {id}=await params,body=await req.json(),kind=String(body?.kind||'');
   if(!/^[a-z][a-z0-9-]{1,60}$/.test(kind))throw new HttpError(400,'Invalid document type.');
   const ref=db.collection('submissions').doc(id),now=new Date().toISOString();
@@ -61,7 +61,7 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
 }
 export async function GET(req:Request,{params}:{params:Promise<{id:string}>}){
  try{
-  await operator(req,['super_admin','admin','reviewer']);
+  await requirePermission(req,'applications.review');
   const {id}=await params,kind=new URL(req.url).searchParams.get('kind')||'';
   const doc=await db.collection('submissions').doc(id).get();
   const file=doc.data()?.documents?.[kind];

@@ -1,7 +1,7 @@
 import {loadCustomAcceptancePdf} from '@/lib/custom-acceptance-pdf';
 import {db} from '@/lib/firebase-admin';
 import {fail, HttpError} from '@/lib/errors';
-import {operator} from '@/lib/security';
+import {requirePermission} from '@/lib/security';
 import {generateAcceptancePackPdf, type AcceptancePackData} from '@/lib/pdf-acceptance-pack';
 import {
   type AcceptanceLetterConfig,
@@ -13,7 +13,7 @@ export const runtime = 'nodejs';
 
 export async function GET(req: Request, {params}: {params: Promise<{id: string}>}) {
   try {
-    await operator(req, ['super_admin', 'admin', 'reviewer']);
+    await requirePermission(req,'applications.review');
     const {id} = await params;
     const snap = await db.collection('submissions').doc(id).get();
     if (!snap.exists) throw new HttpError(404, 'Application not found.');
