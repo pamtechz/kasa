@@ -37,11 +37,7 @@ export async function PATCH(
       updatedAt: new Date().toISOString()
     };
 
-    const authUpdates: {
-      displayName?: string;
-      email?: string;
-
-    } = {};
+    const authUpdates: {displayName?: string} = {};
 
     // 1. Update Full Name
     if (typeof body.displayName === 'string') {
@@ -68,16 +64,16 @@ export async function PATCH(
       if (currentData.role === 'super_admin' && body.role !== 'super_admin') {
         throw new HttpError(403, 'Cannot demote Super Admin role.');
       }
-      if (actor.role !== 'super_admin') {
-        throw new HttpError(403,'Only a Super Administrator can assign account roles.');
-      }
       if (body.role !== currentData.role) {
+        if (actor.role !== 'super_admin') {
+          throw new HttpError(403,'Only a Super Administrator can assign account roles.');
+        }
         const authIdentity = await adminAuth.getUser(uid);
         if (!authIdentity.emailVerified) {
           throw new HttpError(403,'Verify the account email before changing roles.');
         }
+        updates.role = body.role as any;
       }
-      updates.role = body.role as any;
     }
 
     // 5. Update Contact & Territory Fields
@@ -89,7 +85,8 @@ export async function PATCH(
       if (typeof body.active !== 'boolean') throw new HttpError(400,'Invalid active status.');
       updates.active = body.active;
     }
-    if ('mustChangePassword' in body) {
+    if ('mustChangePassword' in body &&
+        Boolean(body.mustChangePassword) !== Boolean(currentData.mustChangePassword)) {
       if (actor.role !== 'super_admin') throw new HttpError(403,'Only a Super Administrator can set account security flags.');
       updates.mustChangePassword = Boolean(body.mustChangePassword);
     }
