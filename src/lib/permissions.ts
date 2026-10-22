@@ -27,6 +27,7 @@ const paths:readonly {prefix:string;permission:Permission}[]=[
  {prefix:'/dashboard/automations',permission:'automations.manage'},
  {prefix:'/dashboard/settings/acceptance-letter',permission:'acceptance.manage'},
  {prefix:'/dashboard/settings',permission:'settings.read'},{prefix:'/dashboard/agents',permission:'agents.read'},
+ {prefix:'/dashboard/applications/new',permission:'applications.review'},
  {prefix:'/dashboard/applications',permission:'applications.read'},
  {prefix:'/dashboard/referrals',permission:'referrals.read'},{prefix:'/dashboard/notifications',permission:'notifications.read'},
  {prefix:'/dashboard/profile',permission:'profile.read'}
@@ -34,7 +35,7 @@ const paths:readonly {prefix:string;permission:Permission}[]=[
 export function canViewDashboard(role:Role|null|undefined,path:string):boolean{
  if(!role||role==='student')return false;
  const entry=paths.find(p=>path===p.prefix||path.startsWith(p.prefix+'/'));
- return entry?can(role,entry.permission):path==='/dashboard';
+ return entry?can(role,entry.permission):(path==='/dashboard'&&role!=='agent');
 }
 
 export function landingForRole(role:Role):string{

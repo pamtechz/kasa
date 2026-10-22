@@ -17,7 +17,7 @@ function csvEscape(text: unknown): string {
 export async function POST(req: NextRequest) {
   try {
     sameOrigin(req);
-    await requirePermission(req,'applications.read');
+    await requirePermission(req,'applications.review');
     const body = await req.json().catch(() => ({}));
     const ids = Array.isArray(body?.ids) ? (body.ids as string[]) : [];
 

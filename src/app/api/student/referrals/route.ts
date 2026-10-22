@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
     const totalEarned = referrals.reduce((sum, r) => sum + r.commissionEarned, 0);
     const successfulCount = referrals.filter(r => r.commissionEarned > 0).length;
 
-    const origin = req.headers.get('origin') || process.env.APP_URL || 'http://localhost:3001';
+    const origin = process.env.APP_URL ? new URL(process.env.APP_URL).origin : new URL(req.url).origin;
     const referralLink = `${origin}/apply/student-enrollment?ref=${agentCode}`;
 
     return json({
