@@ -1,7 +1,6 @@
 import {adminAuth, db} from '@/lib/firebase-admin';
 import {fail, json, HttpError} from '@/lib/errors';
 import {operator, newId, sameOrigin, safeText, audit} from '@/lib/security';
-import type {Profile} from '@/lib/types';
 import {FieldValue} from 'firebase-admin/firestore';
 
 export const runtime = 'nodejs';
@@ -45,7 +44,8 @@ export async function POST(req: Request) {
     const agentCode = role === 'agent' ? `KASA-AGT-${uid.slice(0, 6).toUpperCase()}` : undefined;
     const studentCode = role === 'student' ? `KASA-STU-${uid.slice(0, 6).toUpperCase()}` : undefined;
 
-    const profileData: Partial<Profile> & Record<string, unknown> = {
+    // Firestore sentinels are valid writes but not Profile string fields.
+    const profileData: Record<string, unknown> = {
       uid,
       email,
       displayName,
