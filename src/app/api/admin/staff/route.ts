@@ -1,10 +1,10 @@
 import {adminAuth,db} from '@/lib/firebase-admin';
-import {audit,operator,safeText,sameOrigin} from '@/lib/security';
+import {requirePermission,audit,operator,safeText,sameOrigin} from '@/lib/security';
 import {fail,HttpError,json} from '@/lib/errors';
 export const runtime='nodejs';
 export async function GET(req:Request){
  try{
-  await operator(req,['super_admin']);
+  await requirePermission(req,'staff.manage');
   const result=await db.collection('profiles').limit(300).get();
   return json({staff:result.docs.filter(d=>['super_admin','admin','reviewer'].includes(String(d.data().role))).map(d=>{
    const x=d.data();return {uid:d.id,email:x.email,displayName:x.displayName,role:x.role,active:x.active};
@@ -13,7 +13,7 @@ export async function GET(req:Request){
 }
 export async function POST(req:Request){
  try{
-  sameOrigin(req);const actor=await operator(req,['super_admin']);
+  sameOrigin(req);const actor=await requirePermission(req,'staff.manage');
   const body=await req.json();
   const email=safeText(body.email,240).toLowerCase();
   const role=body.role;

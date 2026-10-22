@@ -1,6 +1,6 @@
 import {db} from '@/lib/firebase-admin';
 import {fail,json,HttpError} from '@/lib/errors';
-import {operator,sameOrigin,audit} from '@/lib/security';
+import {requirePermission,operator,sameOrigin,audit} from '@/lib/security';
 import {programmeSchema,announcementSchema,contentCollection} from '@/lib/content';
 export const runtime='nodejs';
 
@@ -9,7 +9,7 @@ const CONTENT_CACHE_TTL = 30_000;
 
 export async function GET(req:Request){
  try{
-  await operator(req,['super_admin','admin','reviewer']);
+  await requirePermission(req,'content.read');
   const kind=new URL(req.url).searchParams.get('kind')||'',collection=contentCollection(kind);
   if(!collection)throw new HttpError(400,'Select programmes or announcements.');
   const cached = serverContentCache[collection];
@@ -24,7 +24,7 @@ export async function GET(req:Request){
 }
 export async function POST(req:Request){
  try{
-  sameOrigin(req);const who=await operator(req,['super_admin','admin']);
+  sameOrigin(req);const who=await requirePermission(req,'content.manage');
   const body=await req.json(),collection=contentCollection(body?.kind);
   if(!collection)throw new HttpError(400,'Invalid content type.');
   const schema=collection==='programmes'?programmeSchema:announcementSchema;
@@ -44,7 +44,7 @@ export async function POST(req:Request){
 }
 export async function PUT(req:Request){
  try{
-  sameOrigin(req);const who=await operator(req,['super_admin','admin']);
+  sameOrigin(req);const who=await requirePermission(req,'content.manage');
   const body=await req.json(),collection=contentCollection(body?.kind);
   if(!collection)throw new HttpError(400,'Invalid content type.');
   const schema=collection==='programmes'?programmeSchema:announcementSchema;
@@ -63,7 +63,7 @@ export async function PUT(req:Request){
 }
 export async function DELETE(req:Request){
  try{
-  sameOrigin(req);const who=await operator(req,['super_admin','admin']);
+  sameOrigin(req);const who=await requirePermission(req,'content.manage');
   const body=await req.json(),collection=contentCollection(body?.kind),id=String(body?.id||'');
   if(!collection||!/^[a-z0-9-]{3,90}$/.test(id))throw new HttpError(400,'Invalid item.');
   const ref=db.collection(collection).doc(id),snap=await ref.get();

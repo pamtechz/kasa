@@ -1,6 +1,6 @@
 import {db} from '@/lib/firebase-admin';
 import {fail,json,HttpError} from '@/lib/errors';
-import {operator,audit,safeText,sameOrigin,digest} from '@/lib/security';
+import {requirePermission,operator,audit,safeText,sameOrigin,digest} from '@/lib/security';
 import {normalizedIntake} from '@/lib/intake-policy';
 import type {SubmissionStatus} from '@/lib/types';
 import {automationSchema,defaultAutomations,formatNotification} from '@/lib/automations';
@@ -19,7 +19,7 @@ const stages:Record<SubmissionStatus,SubmissionStatus[]>={
 export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
  try{
   sameOrigin(req);
-  const actor=await operator(req,['super_admin','admin','reviewer']);
+  const actor=await requirePermission(req,'applications.review');
   const {id}=await params;
   const body=await req.json();
   const status=body?.status as SubmissionStatus;
@@ -128,7 +128,7 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
 export async function DELETE(req:Request,{params}:{params:Promise<{id:string}>}){
  try{
   sameOrigin(req);
-  const actor=await operator(req,['super_admin','admin']);
+  const actor=await requirePermission(req,'applications.delete');
   const {id}=await params;
   const ref=db.collection('submissions').doc(id);
   const snap=await ref.get();

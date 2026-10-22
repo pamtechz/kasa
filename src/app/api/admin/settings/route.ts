@@ -1,12 +1,12 @@
 import {db} from '@/lib/firebase-admin';
 import {fail,json,HttpError} from '@/lib/errors';
-import {operator,audit,sameOrigin} from '@/lib/security';
+import {requirePermission,operator,audit,sameOrigin} from '@/lib/security';
 export const runtime='nodejs';
-export async function GET(req:Request){try{await operator(req,['super_admin','admin','reviewer']);
+export async function GET(req:Request){try{await requirePermission(req,'settings.read');
  const doc=await db.collection('settings').doc('operations').get();return json({settings:doc.data()||{commissionAmount:0,organization:'KASA'}});
 }catch(e){return fail(e);}}
 export async function PUT(req:Request){try{
- sameOrigin(req);const who=await operator(req,['super_admin','admin']);const body=await req.json();
+ sameOrigin(req);const who=await requirePermission(req,'settings.manage');const body=await req.json();
  const amount=Number(body?.commissionAmount);
  if(!Number.isFinite(amount)||amount<0||amount>50000)throw new HttpError(400,'Commission must be between K0 and K50,000.');
  const minimumEnrollmentPayment=Number(body?.minimumEnrollmentPayment??0);
