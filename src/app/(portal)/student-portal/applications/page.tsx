@@ -23,6 +23,7 @@ type ApplicantItem = {
 
 export default function StudentPortalApplicationsPage() {
   const [items, setItems] = useState<ApplicantItem[]>([]);
+  const [requiredDocuments,setRequiredDocuments]=useState<{id:string;label:string}[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const [claimReference,setClaimReference]=useState('');
@@ -39,6 +40,7 @@ export default function StudentPortalApplicationsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to load applications.');
       setItems(Array.isArray(data.applications) ? data.applications : []);
+      setRequiredDocuments(Array.isArray(data.requiredDocuments) ? data.requiredDocuments : []);
       setError('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load applications.');
@@ -81,10 +83,11 @@ export default function StudentPortalApplicationsPage() {
       const body = new FormData();
       body.append('kind', kind);
       body.append('file', file);
-      const res = await fetch(`/api/admin/submissions/${submissionId}/documents`, {
-        method: 'POST',
-        headers,
-        body
+      const check=await appCheckToken();
+      const uploadHeaders:Record<string,string>={...headers};
+      if(check)uploadHeaders['x-firebase-appcheck']=check;
+      const res = await fetch(`/api/student/applications/${submissionId}/documents`, {
+        method: 'POST',headers:uploadHeaders,body
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Document upload failed.');
@@ -95,6 +98,20 @@ export default function StudentPortalApplicationsPage() {
     } finally {
       setUploadingDoc(false);
     }
+  }
+
+  async function viewDocument(submissionId:string,kind:string){
+    setError('');
+    try{
+      const headers=await authHeaders();
+      const res=await fetch(
+        `/api/student/applications/${encodeURIComponent(submissionId)}/documents?kind=${encodeURIComponent(kind)}`,
+        {headers,cache:'no-store'}
+      );
+      const data=await res.json();
+      if(!res.ok||typeof data.url!=='string')throw new Error(data.error||'Unable to open the document.');
+      window.location.assign(data.url);
+    }catch(err){setError(err instanceof Error?err.message:'Document unavailable.');}
   }
 
   return (
@@ -201,15 +218,12 @@ export default function StudentPortalApplicationsPage() {
                     <UploadCloud size={18} style={{color: 'var(--green)'}} /> Required Document Uploads
                   </h3>
                   <p className="muted" style={{fontSize: 12, margin: '0 0 16px'}}>
-                    Upload copies of your NRC/ID, Grade 9/12 Certificate, and WDC/CDF Recommendation Form for verification.
+                    Upload the documents required for your application. Files remain unverified until an admissions reviewer checks the originals.
                   </p>
 
+                  {requiredDocuments.length===0 && <p className="muted">No document requirements are currently configured for this intake.</p>}
                   <div className="form-grid">
-                    {[
-                      {id: 'nrc_copy', label: '1. NRC / National ID Copy'},
-                      {id: 'results_slip', label: '2. School Results / Grade 12 Certificate'},
-                      {id: 'cdf_form', label: '3. WDC / CDF Recommendation Form'}
-                    ].map(doc => {
+                    {requiredDocuments.map(doc => {
                       const uploaded = app.documents?.[doc.id];
                       return (
                         <div key={doc.id} className="field" style={{background: '#f8faf9', padding: 12, borderRadius: 8, border: '1px solid var(--border)'}}>
@@ -219,9 +233,10 @@ export default function StudentPortalApplicationsPage() {
                               <span style={{color: 'var(--green)', fontWeight: 600}}>
                                 ✓ {uploaded.fileName} {uploaded.verifiedAt ? '(Verified)' : '(Awaiting Review)'}
                               </span>
-                              <a href={uploaded.url} target="_blank" rel="noopener noreferrer" className="text-link" style={{fontSize: 11}}>
+                              <button type="button" className="text-link"
+                                onClick={()=>void viewDocument(app.id,doc.id)} style={{fontSize:11}}>
                                 View
-                              </a>
+                              </button>
                             </div>
                           ) : (
                             <input

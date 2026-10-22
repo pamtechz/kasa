@@ -207,3 +207,18 @@ test('Enrollment forms do not invent school records, health declarations or spon
  assert.match(route,/sponsorName: String\(answers\['sponsorName'\]/);
  assert.match(route,/learningSupport: String\(answers\['learningSupport'\]/);
 });
+
+test('Student uploads use owner-authorized API and preserve staff-only verification',()=>{
+ const endpoint=source('src/app/api/student/applications/[id]/documents/route.ts');
+ const page=source('src/app/(portal)/student-portal/applications/page.tsx');
+ const identity=source('src/lib/student-access.ts');
+ assert.match(endpoint,/current\.data\(\)\?\.applicantUid!==identity\.uid/);
+ assert.match(endpoint,/loadIntake\(\)/);
+ assert.match(endpoint,/verifiedAt:null,verifiedBy:null/);
+ assert.match(endpoint,/matchesMime\(bytes,file\.type\)/);
+ assert.match(endpoint,/requireAppCheck\(req\)/);
+ assert.match(page,/api\/student\/applications\/\$\{submissionId\}\/documents/);
+ assert.doesNotMatch(page,/api\/admin\/submissions\/\$\{submissionId\}\/documents/);
+ assert.match(page,/requiredDocuments\.map/);
+ assert.match(identity,/profile\.data\(\)\?\.active!==true/);
+});
