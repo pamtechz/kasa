@@ -7,8 +7,9 @@ import {
   ClipboardList, CheckCircle2, Download, FileText, UploadCloud,
   FileCheck, Clock, ShieldCheck, RefreshCw, AlertCircle
 } from 'lucide-react';
-import {authHeaders} from '@/lib/firebase-client';
+import {authHeaders,appCheckToken} from '@/lib/firebase-client';
 import {StatusBadge} from '@/components/Portal';
+import {downloadStudentPdf} from '@/lib/student-document-download';
 
 type ApplicantItem = {
   id: string;
@@ -17,14 +18,17 @@ type ApplicantItem = {
   status: string;
   submittedAt: string;
   fundingMethod: string | null;
-  downloadToken?: string | null;
   documents?: Record<string, {fileName: string; url: string; uploadedAt: string; verifiedAt?: string}>;
 };
 
 export default function StudentPortalApplicationsPage() {
   const [items, setItems] = useState<ApplicantItem[]>([]);
+  const [requiredDocuments,setRequiredDocuments]=useState<{id:string;label:string}[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [claimReference,setClaimReference]=useState('');
+  const [claimToken,setClaimToken]=useState('');
+  const [claimBusy,setClaimBusy]=useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
@@ -36,6 +40,7 @@ export default function StudentPortalApplicationsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to load applications.');
       setItems(Array.isArray(data.applications) ? data.applications : []);
+      setRequiredDocuments(Array.isArray(data.requiredDocuments) ? data.requiredDocuments : []);
       setError('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load applications.');
@@ -48,6 +53,26 @@ export default function StudentPortalApplicationsPage() {
     void loadApplications();
   }, []);
 
+  async function claimExistingApplication(event:React.FormEvent){
+    event.preventDefault();
+    setClaimBusy(true);setMessage('');setError('');
+    try{
+      const headers:Record<string,string>={...(await authHeaders()),'Content-Type':'application/json'};
+      const check=await appCheckToken();
+      if(check)headers['x-firebase-appcheck']=check;
+      const response=await fetch('/api/student/applications',{
+        method:'POST',headers,
+        body:JSON.stringify({reference:claimReference.trim(),downloadToken:claimToken.trim()})
+      });
+      const data=await response.json();
+      if(!response.ok)throw new Error(data.error||'Application could not be linked.');
+      setClaimReference('');setClaimToken('');
+      await loadApplications();
+      setMessage('Your application was securely linked to your verified student account.');
+    }catch(err){setError(err instanceof Error?err.message:'Application could not be linked.');}
+    finally{setClaimBusy(false);}
+  }
+
   async function uploadDocument(submissionId: string, kind: string, file?: File) {
     if (!file) return;
     setUploadingDoc(true);
@@ -58,10 +83,11 @@ export default function StudentPortalApplicationsPage() {
       const body = new FormData();
       body.append('kind', kind);
       body.append('file', file);
-      const res = await fetch(`/api/admin/submissions/${submissionId}/documents`, {
-        method: 'POST',
-        headers,
-        body
+      const check=await appCheckToken();
+      const uploadHeaders:Record<string,string>={...headers};
+      if(check)uploadHeaders['x-firebase-appcheck']=check;
+      const res = await fetch(`/api/student/applications/${submissionId}/documents`, {
+        method: 'POST',headers:uploadHeaders,body
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Document upload failed.');
@@ -72,6 +98,26 @@ export default function StudentPortalApplicationsPage() {
     } finally {
       setUploadingDoc(false);
     }
+  }
+
+  async function viewDocument(submissionId:string,kind:string){
+    setError('');
+    try{
+      const headers=await authHeaders();
+      const res=await fetch(
+        `/api/student/applications/${encodeURIComponent(submissionId)}/documents?kind=${encodeURIComponent(kind)}`,
+        {headers,cache:'no-store'}
+      );
+      const data=await res.json();
+      if(!res.ok||typeof data.url!=='string')throw new Error(data.error||'Unable to open the document.');
+      window.location.assign(data.url);
+    }catch(err){setError(err instanceof Error?err.message:'Document unavailable.');}
+  }
+
+  async function handleDownload(id:string,kind:'letter'|'enrollment-form',reference:string){
+    setError('');
+    try{await downloadStudentPdf(id,kind,reference);}
+    catch(err){setError(err instanceof Error?err.message:'Unable to download document.');}
   }
 
   return (
@@ -89,6 +135,31 @@ export default function StudentPortalApplicationsPage() {
       {error && <div className="alert-error" style={{marginBottom: 16}}>{error}</div>}
       {message && <div className="notice" style={{marginBottom: 16}}><CheckCircle2 size={16} /> {message}</div>}
 
+      <section className="panel pad-panel" aria-label="Claim existing application" style={{marginBottom:20}}>
+        <h2 style={{fontSize:18,marginBottom:6}}>Claim an existing application</h2>
+        <p className="muted" style={{fontSize:13}}>
+          If you applied without signing in, link the application to your verified account using its reference and
+          the private 64-character download token issued on your submission receipt. An email address alone cannot establish ownership.
+        </p>
+        <form onSubmit={event=>void claimExistingApplication(event)} className="form-grid">
+          <div className="field">
+            <label htmlFor="claim-reference">Application reference</label>
+            <input id="claim-reference" required maxLength={40} value={claimReference}
+              placeholder="KASA-2027-XXXXXXXX" onChange={event=>setClaimReference(event.target.value)}/>
+          </div>
+          <div className="field">
+            <label htmlFor="claim-token">Private application token</label>
+            <input id="claim-token" required minLength={64} maxLength={64} autoComplete="off"
+              type="password" value={claimToken} onChange={event=>setClaimToken(event.target.value)}/>
+          </div>
+          <div className="field full">
+            <button type="submit" className="btn btn-primary" disabled={claimBusy||!claimReference.trim()||claimToken.trim().length!==64}>
+              {claimBusy?'Linking…':'Securely link application'}
+            </button>
+          </div>
+        </form>
+      </section>
+
       <div style={{display: 'flex', flexDirection: 'column', gap: 20}}>
         {loading ? (
           <div className="panel pad-panel" style={{textAlign: 'center', padding: 40}}>
@@ -103,9 +174,6 @@ export default function StudentPortalApplicationsPage() {
         ) : (
           items.map(app => {
             const isAccepted = ['accepted', 'letter_issued', 'cdf_submitted', 'cdf_approved', 'payment_verified', 'commission_paid'].includes(app.status);
-            const tokenQuery = app.downloadToken ? `?token=${encodeURIComponent(app.downloadToken)}` : '';
-            const letterUrl = `/api/public/submissions/${app.id}/letter${tokenQuery}`;
-            const formUrl = `/api/public/submissions/${app.id}/enrollment-form${tokenQuery}`;
 
             return (
               <div key={app.id} className="panel pad-panel" style={{borderLeft: '4px solid var(--green, #103f2c)'}}>
@@ -126,25 +194,17 @@ export default function StudentPortalApplicationsPage() {
                 <div style={{background: '#f8faf9', padding: 14, borderRadius: 10, border: '1px solid var(--border)', marginBottom: 20, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center'}}>
                   <strong style={{fontSize: 13, color: 'var(--ink)'}}>Official Documents:</strong>
                   {isAccepted && (
-                    <a
-                      href={letterUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn btn-outline"
+                    <button type="button" onClick={()=>void handleDownload(app.id,'letter',app.reference)} className="btn btn-outline"
                       style={{padding: '6px 14px', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--green)', borderColor: 'var(--green)'}}
                     >
                       <Download size={15} /> Download Official Acceptance Letter (PDF)
-                    </a>
+                    </button>
                   )}
-                  <a
-                    href={formUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn btn-outline"
+                  <button type="button" onClick={()=>void handleDownload(app.id,'enrollment-form',app.reference)} className="btn btn-outline"
                     style={{padding: '6px 14px', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6}}
                   >
                     <FileText size={15} /> Download Completed Enrollment Form (PDF)
-                  </a>
+                  </button>
                 </div>
 
                 {/* Upload Verification Documents */}
@@ -153,15 +213,12 @@ export default function StudentPortalApplicationsPage() {
                     <UploadCloud size={18} style={{color: 'var(--green)'}} /> Required Document Uploads
                   </h3>
                   <p className="muted" style={{fontSize: 12, margin: '0 0 16px'}}>
-                    Upload copies of your NRC/ID, Grade 9/12 Certificate, and WDC/CDF Recommendation Form for verification.
+                    Upload the documents required for your application. Files remain unverified until an admissions reviewer checks the originals.
                   </p>
 
+                  {requiredDocuments.length===0 && <p className="muted">No document requirements are currently configured for this intake.</p>}
                   <div className="form-grid">
-                    {[
-                      {id: 'nrc_copy', label: '1. NRC / National ID Copy'},
-                      {id: 'results_slip', label: '2. School Results / Grade 12 Certificate'},
-                      {id: 'cdf_form', label: '3. WDC / CDF Recommendation Form'}
-                    ].map(doc => {
+                    {requiredDocuments.map(doc => {
                       const uploaded = app.documents?.[doc.id];
                       return (
                         <div key={doc.id} className="field" style={{background: '#f8faf9', padding: 12, borderRadius: 8, border: '1px solid var(--border)'}}>
@@ -171,9 +228,10 @@ export default function StudentPortalApplicationsPage() {
                               <span style={{color: 'var(--green)', fontWeight: 600}}>
                                 ✓ {uploaded.fileName} {uploaded.verifiedAt ? '(Verified)' : '(Awaiting Review)'}
                               </span>
-                              <a href={uploaded.url} target="_blank" rel="noopener noreferrer" className="text-link" style={{fontSize: 11}}>
+                              <button type="button" className="text-link"
+                                onClick={()=>void viewDocument(app.id,doc.id)} style={{fontSize:11}}>
                                 View
-                              </a>
+                              </button>
                             </div>
                           ) : (
                             <input

@@ -81,57 +81,74 @@ export async function POST(req: Request) {
     const note = safeText(body.note, 500);
 
     if (!submissionId) throw new HttpError(400, 'Submission ID is required.');
-    if (amountPaid <= 0) throw new HttpError(400, 'Amount paid must be greater than 0 ZMW.');
+    if (!Number.isFinite(amountPaid) || amountPaid <= 0 || amountPaid > 10000000 || Math.abs(Math.round(amountPaid * 100) - amountPaid * 100) > 0.000001) throw new HttpError(400, 'Enter a valid positive payment amount in ZMW with no more than two decimal places.');
     if (!receiptReference || receiptReference.length < 4) throw new HttpError(400, 'Valid receipt or bank reference is required.');
 
     const ref = db.collection('submissions').doc(submissionId);
-    const snap = await ref.get();
-    if (!snap.exists) throw new HttpError(404, 'Student application record not found.');
-
-    const app = snap.data()!;
     const now = new Date().toISOString();
+    // Recording a receipt never promotes an application to payment_verified.
+    // Successful enrollment and commission eligibility must be confirmed by
+    // the guarded application status transition API.
+    const verificationRef = db.collection('fundingVerifications')
+      .doc(digest('payment:' + receiptReference.toLowerCase()));
+    let newPaidTotal = 0;
+    let reference = '';
 
-    // Verify duplicate receipt reference across applications
-    const verificationRef = db.collection('fundingVerifications').doc(digest('payment:' + receiptReference.toLowerCase()));
-    const prior = await verificationRef.get();
-    if (prior.exists && prior.data()?.submissionId !== submissionId) {
-      throw new HttpError(409, 'This bank receipt/reference has already been recorded for another student.');
-    }
+    await db.runTransaction(async tx => {
+      const [snap, prior] = await Promise.all([tx.get(ref), tx.get(verificationRef)]);
+      if (!snap.exists) throw new HttpError(404, 'Student application record not found.');
+      const app = snap.data()!;
+      if (app.formKind !== 'student') throw new HttpError(400, 'Tuition receipts require a student application.');
+      if (!['letter_issued', 'payment_verified'].includes(String(app.status))) {
+        throw new HttpError(409, 'The application must have an issued acceptance letter before tuition receipts are recorded.');
+      }
+      if (app.fundingMethod === 'cdf') throw new HttpError(409, 'CDF-sponsored applications cannot use the self-funded tuition receipt workflow.');
+      if (prior.exists) throw new HttpError(409, 'This receipt/reference has already been recorded.');
 
-    const currentPaid = Number(app.paymentVerification?.amount) || 0;
-    const newPaidTotal = currentPaid + amountPaid;
+      const existingPaid = Number(app.paymentVerification?.amount || 0);
+      if (!Number.isFinite(existingPaid) || existingPaid < 0) {
+        throw new HttpError(409, 'Existing student ledger requires reconciliation.');
+      }
+      newPaidTotal = existingPaid + amountPaid;
+      reference = String(app.reference || '');
+      const updates: Record<string, unknown> = {
+        updatedAt: now,
+        paymentVerification: {
+          ...(app.paymentVerification || {}),
+          reference: receiptReference,
+          amount: newPaidTotal,
+          currency: 'ZMW',
+          paymentMethod,
+          recordedBy: actor.uid,
+          recordedAt: now,
+          verificationPending: app.status !== 'payment_verified'
+        }
+      };
+      if (note) {
+        updates.internalNotes = [...(app.internalNotes || []).slice(-79), {
+          body: `[FINANCE RECORD] Paid ZMW ${amountPaid.toFixed(2)} via ${paymentMethod} (Receipt: ${receiptReference}). ${note}`,
+          at: now,
+          by: actor.uid
+        }];
+      }
+      // Preserve the current admissions state and associated funding method.
+      // A separate privileged review must advance the enrollment status.
+      if (app.status !== 'payment_verified') {
+        updates.fundingStatus = 'payment_recorded_pending_enrollment_verification';
+      }
 
-    const updates: Record<string, unknown> = {
-      updatedAt: now,
-      paymentVerification: {
+      tx.create(verificationRef, {
+        submissionId,
+        kind: 'payment_receipt',
         reference: receiptReference,
-        amount: newPaidTotal,
-        currency: 'ZMW',
+        amount: amountPaid,
+        totalPaidToDate: newPaidTotal,
         paymentMethod,
-        verifiedBy: actor.uid,
-        verifiedAt: now
-      },
-      fundingMethod: 'self_funded',
-      fundingStatus: 'enrollment_payment_verified',
-      status: 'payment_verified'
-    };
-
-    if (note) {
-      updates.internalNotes = [...(app.internalNotes || []).slice(-79), {body: `[FINANCE RECORD] Paid ZMW ${amountPaid.toFixed(2)} via ${paymentMethod} (Receipt: ${receiptReference}). ${note}`, at: now, by: actor.uid}];
-    }
-
-    await ref.update(updates);
-
-    // Save transaction verification record
-    await verificationRef.set({
-      submissionId,
-      kind: 'payment',
-      reference: receiptReference,
-      amount: amountPaid,
-      totalPaidToDate: newPaidTotal,
-      paymentMethod,
-      verifiedBy: actor.uid,
-      verifiedAt: now
+        recordedBy: actor.uid,
+        recordedAt: now,
+        verificationPending: app.status !== 'payment_verified'
+      });
+      tx.update(ref, updates);
     });
 
     invalidateSubmissionsCache();
@@ -141,7 +158,7 @@ export async function POST(req: Request) {
       ok: true,
       submissionId,
       totalPaidToDate: newPaidTotal,
-      message: `Tuition payment of ZMW ${amountPaid.toFixed(2)} recorded successfully for ${app.reference}.`
+      message: `Tuition receipt of ZMW ${amountPaid.toFixed(2)} recorded for ${reference}. Enrollment verification remains a separate approval step.`
     }, 201);
   } catch (e) {
     return fail(e);

@@ -3,6 +3,20 @@ import {operator, newId, safeText, sameOrigin} from '@/lib/security';
 import {fail, json, HttpError} from '@/lib/errors';
 import {getGeneralCache, setGeneralCache, invalidateGeneralCache} from '@/lib/server-cache';
 
+function canReadNotice(user:{uid:string;role:string},notice:Record<string,unknown>):boolean{
+  if(['super_admin','admin'].includes(user.role)) return true;
+  if(typeof notice.recipientUid==='string' && notice.recipientUid) return notice.recipientUid===user.uid;
+  // Legacy broadcast notices sometimes contain applicants' names, references
+  // and funding details. Never expose these to an unrelated learner/agent.
+  if((notice.reference || notice.submissionId) && ['student','agent'].includes(user.role))return false;
+  return notice.recipient==='all' || notice.recipient===user.role;
+}
+function safeNotice<T extends Record<string,unknown>>(notice:T):T{
+  if(typeof notice.message!=='string')return notice;
+  const redact = (text: string) => text.replace(/(\b(?:temporary|temp|initial|one[- ]time)?\s*password\s*[:=\-]\s*)\S+/gi, '$1[REDACTED]');
+  return {...notice,message:redact(notice.message),...(typeof notice.title==='string'?{title:redact(notice.title)}:{})} as T;
+}
+
 export const runtime = 'nodejs';
 
 export async function GET(req: Request) {
@@ -15,12 +29,8 @@ export async function GET(req: Request) {
     const items = await db.collection('notificationOutbox').limit(300).get();
     const notifications = items.docs
       .map(d => ({id: d.id, ...d.data()}))
-      .filter((x: any) => {
-        if (user.role === 'student') return x.recipient === 'all' || x.recipient === 'student' || x.recipientUid === user.uid;
-        if (user.role === 'agent') return x.recipient === 'all' || x.recipient === 'agent' || x.recipientUid === user.uid;
-        if (user.role === 'reviewer') return x.recipient === 'all' || x.recipient === 'reviewer' || x.recipient === 'admin';
-        return true;
-      })
+      .filter((x: any) => canReadNotice(user,x))
+      .map((x: any) => safeNotice(x))
       .sort((a: any, b: any) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
       .slice(0, 150);
 
@@ -85,6 +95,7 @@ export async function PATCH(req: Request) {
     const snap = await ref.get();
     if (!snap.exists) throw new HttpError(404, 'Notification not found.');
     const data = snap.data() || {};
+    if (!canReadNotice(user,data)) throw new HttpError(403,'Notification access denied.');
 
     const updates: Record<string, unknown> = {
       updatedAt: new Date().toISOString()
@@ -117,7 +128,7 @@ export async function PATCH(req: Request) {
 
     await ref.update(updates);
     invalidateGeneralCache('notifications');
-    return json({ok: true, notification: {id, ...data, ...updates}});
+    return json({ok: true, notification: safeNotice({id, ...data, ...updates})});
   } catch (e) {
     return fail(e);
   }
@@ -132,12 +143,7 @@ export async function DELETE(req: Request) {
     const action = url.searchParams.get('action');
 
     if (action === 'clear_read') {
-      const snap = await db.collection('notificationOutbox').where('read', '==', true).limit(100).get();
-      const batch = db.batch();
-      snap.docs.forEach(d => batch.delete(d.ref));
-      await batch.commit();
-      invalidateGeneralCache('notifications');
-      return json({ok: true, cleared: snap.size});
+      throw new HttpError(403,'Bulk deletion of shared notifications is disabled.');
     }
 
     if (!id) throw new HttpError(400, 'Notification ID is required.');

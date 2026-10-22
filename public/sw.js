@@ -1,69 +1,49 @@
-const CACHE_NAME = 'kasa-pwa-v1';
-const ASSETS_TO_CACHE = [
-  '/',
+const CACHE_NAME = 'kasa-pwa-static-v2';
+const PUBLIC_STATIC_FILES = [
   '/manifest.json',
   '/kasa-logo-white.png',
   '/icon.png'
 ];
 
-self.addEventListener('install', (event) => {
+self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE).catch(() => {});
-    })
+    caches.open(CACHE_NAME).then(cache => cache.addAll(PUBLIC_STATIC_FILES).catch(() => {}))
   );
   self.skipWaiting();
 });
 
-self.addEventListener('activate', (event) => {
+self.addEventListener('activate', event => {
+  // Remove all old versions, which may have cached private portal HTML.
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cache) => {
-          if (cache !== CACHE_NAME) {
-            return caches.delete(cache);
-          }
-        })
-      );
-    })
+    caches.keys().then(names =>
+      Promise.all(names.filter(name => name.startsWith('kasa-pwa-') && name !== CACHE_NAME)
+        .map(name => caches.delete(name)))
+    )
   );
   self.clients.claim();
 });
 
-self.addEventListener('fetch', (event) => {
-  // Only handle GET requests for static assets or HTML pages
-  if (event.request.method !== 'GET') return;
+self.addEventListener('fetch', event => {
+  if (event.request.method !== 'GET' || event.request.mode === 'navigate') return;
   const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin || url.search) return;
+  if (url.pathname.startsWith('/api/')) return;
 
-  // Strictly bypass API routes, Firebase Auth, and external services
-  if (
-    url.pathname.startsWith('/api/') ||
-    url.hostname.includes('identitytoolkit') ||
-    url.hostname.includes('firebase') ||
-    url.hostname.includes('googleapis') ||
-    url.hostname.includes('cloudinary')
-  ) {
-    return;
-  }
+  // Cache only immutable Next.js build assets and explicitly public images.
+  // NEVER cache personalized routes, dashboard HTML, RSC payloads or PDFs.
+  const allowed = PUBLIC_STATIC_FILES.includes(url.pathname)
+    || url.pathname.startsWith('/_next/static/');
+  if (!allowed) return;
 
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) return cachedResponse;
-
-      return fetch(event.request).then((networkResponse) => {
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-          return networkResponse;
-        }
-
-        const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache).catch(() => {});
-        });
-
-        return networkResponse;
-      }).catch(() => {
-        return cachedResponse || fetch(event.request);
-      });
+    caches.match(event.request).then(async cached => {
+      if (cached) return cached;
+      const response = await fetch(event.request);
+      if (response.status === 200 && response.type === 'basic') {
+        const cache = await caches.open(CACHE_NAME);
+        await cache.put(event.request, response.clone()).catch(() => {});
+      }
+      return response;
     })
   );
 });

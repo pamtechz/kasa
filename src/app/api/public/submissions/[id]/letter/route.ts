@@ -1,4 +1,6 @@
-import {db, storage} from '@/lib/firebase-admin';
+import {loadCustomAcceptancePdf} from '@/lib/custom-acceptance-pdf';
+import {authorizeSubmissionDocument} from '@/lib/submission-access';
+import {db} from '@/lib/firebase-admin';
 import {fail, HttpError} from '@/lib/errors';
 import {generateAcceptancePackPdf, type AcceptancePackData} from '@/lib/pdf-acceptance-pack';
 import {
@@ -12,19 +14,13 @@ export const runtime = 'nodejs';
 export async function GET(req: Request, {params}: {params: Promise<{id: string}>}) {
   try {
     const {id} = await params;
-    const url = new URL(req.url);
-    const token = url.searchParams.get('token');
-
     const snap = await db.collection('submissions').doc(id).get();
     if (!snap.exists) throw new HttpError(404, 'Application not found.');
     const data = snap.data()!;
+    await authorizeSubmissionDocument(req,data);
 
-    // Security check: require either matching download token or valid auth
-    if (token && data.downloadToken && token === data.downloadToken) {
-      // Authorized via submission token
-    } else {
-      const authHeader = req.headers.get('authorization') || '';
-      if (!authHeader) throw new HttpError(403, 'A valid authorization token is required to view this document.');
+    if (!['accepted','letter_issued','cdf_submitted','cdf_approved','payment_verified','commission_paid'].includes(String(data.status))) {
+      throw new HttpError(403,'This application does not yet have an approved or conditional acceptance letter.');
     }
 
     const answers = data.answers || {};
@@ -38,37 +34,21 @@ export async function GET(req: Request, {params}: {params: Promise<{id: string}>
       }
     } catch {}
 
-    // If custom PDF mode is active, deliver the uploaded file or link
+    // Load only KASA uploads or explicitly approved HTTPS hosts; never
+    // follow redirects or allow unbounded external PDF responses.
     if (letterConfig.packSource === 'custom' && letterConfig.customPdf?.url) {
       try {
-        const {type, url: pdfUrl} = letterConfig.customPdf;
-        if (type === 'link' || pdfUrl.startsWith('http://') || pdfUrl.startsWith('https://')) {
-          const fetchRes = await fetch(pdfUrl, {signal: AbortSignal.timeout(8000)});
-          if (fetchRes.ok) {
-            const arrBuf = await fetchRes.arrayBuffer();
-            return new Response(new Uint8Array(arrBuf), {
-              status: 200,
-              headers: {
-                'Content-Type': 'application/pdf',
-                'Content-Disposition': `attachment; filename="KASA-Acceptance-${data.reference}.pdf"`,
-                'Cache-Control': 'private, no-store'
-              }
-            });
+        const bytes = await loadCustomAcceptancePdf(letterConfig.customPdf);
+        return new Response(new Uint8Array(bytes), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `attachment; filename="KASA-Acceptance-${data.reference}.pdf"`,
+            'Cache-Control': 'private, no-store'
           }
-          return Response.redirect(pdfUrl, 302);
-        } else {
-          const [fileBytes] = await storage.bucket().file(pdfUrl).download();
-          return new Response(new Uint8Array(fileBytes), {
-            status: 200,
-            headers: {
-              'Content-Type': 'application/pdf',
-              'Content-Disposition': `attachment; filename="KASA-Acceptance-${data.reference}.pdf"`,
-              'Cache-Control': 'private, no-store'
-            }
-          });
-        }
-      } catch (err) {
-        console.error('Error reading custom acceptance pack, falling back to template:', err);
+        });
+      } catch (error) {
+        console.error('Unable to deliver custom acceptance PDF:', error instanceof Error ? error.message : 'Unknown error');
       }
     }
 

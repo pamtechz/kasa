@@ -60,9 +60,12 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
      if(body?.enrollmentConfirmed!==true)throw new HttpError(400,'Confirm that enrollment is successful and the verified payment satisfies the institution payment requirement.');
      const paid=Number(body?.enrollmentPaymentAmount);
      if(!Number.isFinite(paid)||paid<=0||paid>10000000)throw new HttpError(400,'Enter the verified amount the student paid (ZMW).');
+     const alreadyRecorded = Number(previous.paymentVerification?.amount || 0);
+     if (!Number.isFinite(alreadyRecorded) || paid < alreadyRecorded)
+      throw new HttpError(400,'Verified payment cannot be below the recorded tuition receipts.');
      const minimum=Number(settings.minimumEnrollmentPayment||0);
      if(previous.agentId && (!Number.isFinite(minimum)||minimum<=0||paid<minimum))throw new HttpError(400,'An agent referral commission requires a configured minimum successful-enrollment payment, verified in full.');
-     changes.paymentVerification={reference:evidence,amount:paid,currency:'ZMW',verifiedBy:actor.uid,verifiedAt:now};
+     changes.paymentVerification={...(previous.paymentVerification||{}),reference:evidence,amount:paid,currency:'ZMW',verifiedBy:actor.uid,verifiedAt:now,verificationPending:false};
      changes.fundingMethod='self_funded';changes.fundingStatus='enrollment_payment_verified';
     }else{
      const required=requiredPolicy.cdfRequiredDocuments;
@@ -72,6 +75,18 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
      changes.cdfVerification={reference:evidence,verifiedBy:actor.uid,verifiedAt:now,fundingMethod:'cdf',documentChecklist:required.map(d=>d.id)};
      changes.fundingMethod='cdf';changes.fundingStatus='government_approval_verified';
     }
+    // Transition approval uses a transaction-scoped evidence reservation.
+    // A receipt can exist for this same application, but never another.
+    if (!priorVerification.exists) {
+     tx.create(verificationRef, {
+      submissionId:id,kind:trigger,reference:evidence,
+      verifiedBy:actor.uid,verifiedAt:now,verificationPending:false
+     });
+    } else {
+     tx.update(verificationRef, {
+      kind:trigger,verifiedBy:actor.uid,verifiedAt:now,verificationPending:false
+     });
+    }
     if(previous.agentId){
      if(body?.referralVerified!==true)throw new HttpError(400,'Independently verify the original agent referral before commission is reserved.');
      const rate=Number(trigger==='payment'?settings.commissionAmountPaid??settings.commissionAmount:settings.commissionAmountCdf??settings.commissionAmount);
@@ -79,13 +94,6 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
      changes.referralVerified={by:actor.uid,at:now};
      changes.commission={amount:rate,currency:'ZMW',trigger,approvedAt:now};
     }
-   }
-   if(['payment_verified','cdf_approved'].includes(status)){
-    const trigger=status==='payment_verified'?'payment':'cdf_approval';
-    const source=safeText(trigger==='payment'?body?.enrollmentPaymentReference:body?.cdfReference,160);
-    tx.create(db.collection('fundingVerifications').doc(digest(trigger+':'+source.toLowerCase())),{
-     submissionId:id,kind:trigger,reference:source,verifiedBy:actor.uid,verifiedAt:now
-    });
    }
     if(status==='commission_paid'){
     if(!previous.agentId||!previous.commission||previous.commission.paidAt)throw new HttpError(400,'No outstanding commission exists for this application.');

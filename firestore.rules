@@ -1,132 +1,39 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // ==========================================
-    // SECURITY HELPER FUNCTIONS
-    // ==========================================
-
-    function isSignedIn() {
-      return request.auth != null;
+    // The KASA Next.js server uses the Firebase Admin SDK. Admin SDK calls
+    // bypass security rules and must authenticate and authorize every request.
+    // Browsers must not create admissions, approvals, invoices or notifications.
+    function ownAccount(uid) {
+      return request.auth != null && request.auth.uid == uid;
     }
 
-    function isUser(uid) {
-      return isSignedIn() && request.auth.uid == uid;
-    }
-
-    // Read profile of requesting user
-    function getProfile() {
-      return get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data;
-    }
-
-    function getUserRole() {
-      return isSignedIn() && exists(/databases/$(database)/documents/profiles/$(request.auth.uid))
-        ? getProfile().role
-        : 'guest';
-    }
-
-    function isSuperAdmin() {
-      return getUserRole() == 'super_admin';
-    }
-
-    function isAdmin() {
-      return getUserRole() == 'super_admin' || getUserRole() == 'admin';
-    }
-
-    function isStaff() {
-      return getUserRole() == 'super_admin' || getUserRole() == 'admin' || getUserRole() == 'reviewer';
-    }
-
-    // ==========================================
-    // USER PROFILES COLLECTION
-    // ==========================================
     match /profiles/{uid} {
-      allow read: if isUser(uid) || isStaff();
-
-      allow create: if isUser(uid) && (
-        !request.resource.data.keys().hasAny(['role']) ||
-        request.resource.data.role == 'student' ||
-        isAdmin()
-      );
-
-      allow update: if (isUser(uid) && (
-        // Non-admin users cannot elevate their role or change agent codes
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'agentCode'])
-      )) || isAdmin();
-
-      allow delete: if isSuperAdmin();
+      allow get: if ownAccount(uid);
+      allow list, create, update, delete: if false;
     }
 
-    // ==========================================
-    // SUBMISSIONS / APPLICATIONS COLLECTION
-    // ==========================================
-    match /submissions/{submissionId} {
-      // Access control for applications:
-      // Staff can read all. Agents can read their attributed candidates. Students can read their own submissions.
-      allow read: if isStaff() ||
-        (isSignedIn() && resource.data.agentId == request.auth.uid) ||
-        (isSignedIn() && resource.data.answers.userUid == request.auth.uid);
-
-      // Public / Student creation
-      allow create: if request.resource.data.keys().hasAll(['reference', 'formId', 'submittedAt', 'status']) &&
-        (request.resource.data.status in ['submitted', 'under_review', 'accepted']);
-
-      // Only staff can update or process status transitions
-      allow update: if isStaff();
-      allow delete: if isAdmin();
+    match /forms/{id} {
+      allow read: if resource.data.published == true;
+      allow write: if false;
+    }
+    match /programmes/{id} {
+      allow read: if resource.data.published == true;
+      allow write: if false;
+    }
+    match /announcements/{id} {
+      allow read: if resource.data.published == true;
+      allow write: if false;
+    }
+    match /adCampaigns/{id} {
+      allow read: if resource.data.active == true;
+      allow write: if false;
     }
 
-    // ==========================================
-    // PUBLISHED CONTENT: FORMS, PROGRAMMES, NEWS
-    // ==========================================
-    match /forms/{formId} {
-      allow read: if resource.data.published == true || isStaff();
-      allow write: if isAdmin();
-    }
-
-    match /programmes/{progId} {
-      allow read: if resource.data.published == true || isStaff();
-      allow write: if isAdmin();
-    }
-
-    match /announcements/{annId} {
-      allow read: if resource.data.published == true || isStaff();
-      allow write: if isAdmin();
-    }
-
-    match /settings/{docId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    // ==========================================
-    // NOTIFICATIONS & ANNOUNCEMENT OUTBOX
-    // ==========================================
-    match /notificationOutbox/{noticeId} {
-      allow read: if isSignedIn();
-      allow write: if isStaff();
-    }
-
-    // ==========================================
-    // REFERRAL TRACKING & AD CAMPAIGNS
-    // ==========================================
-    match /referralClicks/{clickId} {
-      allow create: if true;
-      allow read, update, delete: if isStaff();
-    }
-
-    match /adCampaigns/{adId} {
-      allow read: if resource.data.active == true || isStaff();
-      // Allow incrementing impressions or clicks from public site
-      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['impressions', 'clicks']) || isAdmin();
-      allow create, delete: if isAdmin();
-    }
-
-    // ==========================================
-    // AUDIT LOGS COLLECTION
-    // ==========================================
-    match /auditLog/{logId} {
-      allow read, write: if isSuperAdmin();
+    // Covers submissions, settings, fileClaims, applicationDedupe,
+    // notificationOutbox, finances, rateLimits, audit logs and future paths.
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

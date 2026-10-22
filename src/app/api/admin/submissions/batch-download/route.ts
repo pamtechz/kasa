@@ -7,8 +7,11 @@ export const runtime='nodejs';
 
 function csvEscape(text: unknown): string {
   if (text === null || text === undefined) return '""';
-  const str = String(text).replace(/"/g, '""');
-  return `"${str}"`;
+  // Neutralize formulas (including leading whitespace and spreadsheet
+  // controls) before fields are opened in Excel or other CSV applications.
+  const plain = String(text).replace(/[\u0000-\u001f\u007f]/g, ' ');
+  const protectedValue = /^\s*[=+\-@]/.test(plain) ? "'" + plain : plain;
+  return `"${protectedValue.replace(/"/g, '""')}"`;
 }
 
 export async function POST(req: NextRequest) {

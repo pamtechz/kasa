@@ -1,7 +1,7 @@
 'use client';
 import {useEffect, useState} from 'react';
 import Link from 'next/link';
-import {Plus, ShieldCheck, Trash2, UserPlus, KeyRound, CheckCircle2, Edit3, Search, Filter, X, Save, Lock} from 'lucide-react';
+import {Plus, ShieldCheck, Trash2, UserPlus, KeyRound, CheckCircle2, Edit3, Search, Filter, X, Save} from 'lucide-react';
 import {api, PageHeader} from '@/components/Portal';
 import {ConfirmModal} from '@/components/ConfirmModal';
 
@@ -32,13 +32,11 @@ export default function UserAndStaffManagement() {
   const [provRole, setProvRole] = useState<'student' | 'agent' | 'admin' | 'reviewer'>('student');
   const [provDistrict, setProvDistrict] = useState('');
   const [provPhone, setProvPhone] = useState('');
-  const [provResult, setProvResult] = useState<{email: string; displayName: string; role: string; tempPassword?: string; agentCode?: string} | null>(null);
+  const [provResult, setProvResult] = useState<{email: string; displayName: string; role: string; agentCode?: string} | null>(null);
 
   // Editing User Modal States
   const [editingUser, setEditingUser] = useState<UserItem | null>(null);
   const [editName, setEditName] = useState('');
-  const [editEmail, setEditEmail] = useState('');
-  const [editPassword, setEditPassword] = useState('');
   const [editRole, setEditRole] = useState<'student' | 'agent' | 'admin' | 'reviewer'>('student');
   const [editDistrict, setEditDistrict] = useState('');
   const [editPhone, setEditPhone] = useState('');
@@ -73,7 +71,7 @@ export default function UserAndStaffManagement() {
     if (!provEmail.trim() || !provName.trim()) return;
     setBusy(true); setError(''); setNotice(''); setProvResult(null);
     try {
-      const res = await api<{ok: boolean; email: string; displayName: string; role: string; tempPassword?: string; agentCode?: string; message: string}>('/api/admin/users/provision', {
+      const res = await api<{ok: boolean; email: string; displayName: string; role: string; agentCode?: string; message: string}>('/api/admin/users/provision', {
         method: 'POST',
         body: JSON.stringify({
           email: provEmail,
@@ -95,8 +93,6 @@ export default function UserAndStaffManagement() {
   function openEditModal(user: UserItem) {
     setEditingUser(user);
     setEditName(user.displayName || '');
-    setEditEmail(user.email || '');
-    setEditPassword('');
     setEditRole(user.role === 'super_admin' ? 'admin' : user.role as any);
     setEditDistrict(user.district || '');
     setEditPhone(user.phone || '');
@@ -111,17 +107,12 @@ export default function UserAndStaffManagement() {
     try {
       const payload: Record<string, unknown> = {
         displayName: editName,
-        email: editEmail,
         role: editRole,
         district: editDistrict,
         phone: editPhone,
         active: editActive,
         mustChangePassword: editMustChangePass
       };
-
-      if (editPassword.trim()) {
-        payload.password = editPassword.trim();
-      }
 
       await api(`/api/admin/users/${editingUser.uid}`, {
         method: 'PATCH',
@@ -169,7 +160,7 @@ export default function UserAndStaffManagement() {
     <>
       <PageHeader
         title="User & Staff Account Management"
-        subtitle="Provision, edit, update credentials, change roles, and manage all student, agent, reviewer, and administrator accounts across the system."
+        subtitle="Manage verified identities, account roles, staff territories, and account access. Password recovery is self-service."
       />
 
       {/* 1. Account Provisioning Section */}
@@ -179,7 +170,7 @@ export default function UserAndStaffManagement() {
           <h2 style={{margin: 0, fontSize: 18}}>Provision New Account (Student, Agent or Staff)</h2>
         </div>
         <p className="muted" style={{fontSize: 13, marginBottom: 16}}>
-          Directly create a user profile with an auto-generated temporary password. When the user logs in to their portal, they will set their permanent password.
+          Assign a portal role to an existing registered user whose email address has been verified. New users must register and verify their own email first. No temporary passwords are generated.
         </p>
 
         <form onSubmit={e => void provisionUser(e)}>
@@ -223,13 +214,8 @@ export default function UserAndStaffManagement() {
             </div>
             <div style={{fontSize: 13, lineHeight: 1.6, color: 'var(--ink)'}}>
               Email: <strong>{provResult.email}</strong><br />
-              {provResult.tempPassword && (
-                <>
-                  Generated Temporary Password: <code style={{background: '#e0f0e6', padding: '2px 6px', borderRadius: 4, fontWeight: 700, color: 'var(--green)'}}>{provResult.tempPassword}</code><br />
-                </>
-              )}
               {provResult.agentCode && <>Unique Referral Code: <strong>{provResult.agentCode}</strong><br /></>}
-              <small className="muted">The user can now log in at <Link href="/login" style={{textDecoration: 'underline', fontWeight: 700}}>https://kasaschool.vercel.app/login</Link> and will be guided to set their permanent password.</small>
+              <small className="muted">The user can sign in with their own verified credentials at <Link href="/login" style={{textDecoration: 'underline', fontWeight: 700}}>KASA Login</Link>. Password recovery remains under their control.</small>
             </div>
           </div>
         )}
@@ -243,7 +229,7 @@ export default function UserAndStaffManagement() {
         <div className="panel-title" style={{flexWrap: 'wrap', gap: 12}}>
           <div>
             <h2>Registered System Accounts</h2>
-            <p>Edit user profile details, email addresses, passwords, district territory, or deactivate accounts.</p>
+            <p>Edit permitted profile fields and account status. Verified email changes and password resets require the account owner&apos;s secure recovery flow.</p>
           </div>
           <div className="table-controls" style={{margin: 0, padding: 0, background: 'transparent', border: 'none'}}>
             <label className="search-box">
@@ -313,7 +299,7 @@ export default function UserAndStaffManagement() {
                             onClick={() => openEditModal(u)}
                             style={{display: 'inline-flex', alignItems: 'center', gap: 4}}
                           >
-                            <Edit3 size={14} /> Edit & Reset
+                            <Edit3 size={14} /> Edit
                           </button>
                           <button
                             type="button"
@@ -354,7 +340,7 @@ export default function UserAndStaffManagement() {
               <div className="modal-page-body">
                 <div className="modal-page-card">
                   <h3><UserPlus size={18} /> User Profile & Credentials</h3>
-                  <p>Update full name, verified email address, or force a new password directly in Firebase Auth.</p>
+                  <p>Update allowed profile details and assigned roles. Verified email and passwords cannot be overwritten by administrators.</p>
 
                   <div className="form-grid">
                     <div className="field full">
@@ -363,24 +349,9 @@ export default function UserAndStaffManagement() {
                     </div>
 
                     <div className="field full">
-                      <label>Email Address *</label>
-                      <input required type="email" value={editEmail} onChange={e => setEditEmail(e.target.value)} />
-                      <small className="field-hint">Updating email updates Firebase Auth and Firestore profile.</small>
-                    </div>
-
-                    <div className="field full" style={{background: '#f8faf9', padding: 12, borderRadius: 8, border: '1px dashed var(--border)'}}>
-                      <label style={{color: 'var(--green)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6}}>
-                        <Lock size={15} /> Set New Password (Optional)
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="Leave blank to keep existing password, or enter new 8+ char password"
-                        value={editPassword}
-                        onChange={e => setEditPassword(e.target.value)}
-                        minLength={8}
-                        style={{marginTop: 6, fontSize: 13}}
-                      />
-                      <small className="field-hint">Entering a new password immediately updates Firebase Auth password.</small>
+                      <label>Verified Account Email (Read-only)</label>
+                      <input type="email" value={editingUser.email} readOnly aria-readonly="true" />
+                      <small className="field-hint">Email changes require a verification link controlled by the account owner. Password reset is available through account recovery.</small>
                     </div>
 
                     <div className="field">
@@ -421,7 +392,7 @@ export default function UserAndStaffManagement() {
                 <button type="button" className="btn btn-outline" onClick={() => setEditingUser(null)}>
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary" disabled={savingEdit || !editName.trim() || !editEmail.trim()}>
+                <button type="submit" className="btn btn-primary" disabled={savingEdit || !editName.trim()}>
                   <Save size={16} /> {savingEdit ? 'Saving Changes…' : 'Save User Account'}
                 </button>
               </footer>

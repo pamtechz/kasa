@@ -1,7 +1,7 @@
 import {NextRequest} from 'next/server';
 import {fail} from '@/lib/errors';
 import {operator} from '@/lib/security';
-import {storage} from '@/lib/firebase-admin';
+import {loadCustomAcceptancePdf} from '@/lib/custom-acceptance-pdf';
 import {generateAcceptancePackPdf, type AcceptancePackData} from '@/lib/pdf-acceptance-pack';
 import {acceptanceLetterConfigSchema} from '@/lib/acceptance-letter-config';
 
@@ -18,37 +18,21 @@ export async function POST(req: NextRequest) {
       if (parsed.success) customConfig = parsed.data;
     } catch {}
 
-    // If custom PDF mode is active, preview the custom file/link
+    // Custom preview uses only the uploaded bucket object or an approved
+    // external HTTPS host. Failed/unapproved links fall back to sample preview.
     if (customConfig?.packSource === 'custom' && customConfig?.customPdf?.url) {
       try {
-        const {type, url} = customConfig.customPdf;
-        if (type === 'link' || url.startsWith('http://') || url.startsWith('https://')) {
-          const fetchRes = await fetch(url, {signal: AbortSignal.timeout(8000)});
-          if (fetchRes.ok) {
-            const arrBuf = await fetchRes.arrayBuffer();
-            return new Response(new Uint8Array(arrBuf), {
-              status: 200,
-              headers: {
-                'Content-Type': 'application/pdf',
-                'Content-Disposition': 'inline; filename="KASA-Custom-Acceptance-Preview.pdf"',
-                'Cache-Control': 'no-store'
-              }
-            });
+        const bytes = await loadCustomAcceptancePdf(customConfig.customPdf);
+        return new Response(new Uint8Array(bytes), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': 'inline; filename="KASA-Custom-Acceptance-Preview.pdf"',
+            'Cache-Control': 'private, no-store'
           }
-          return Response.redirect(url, 302);
-        } else {
-          const [fileBytes] = await storage.bucket().file(url).download();
-          return new Response(new Uint8Array(fileBytes), {
-            status: 200,
-            headers: {
-              'Content-Type': 'application/pdf',
-              'Content-Disposition': 'inline; filename="KASA-Custom-Acceptance-Preview.pdf"',
-              'Cache-Control': 'no-store'
-            }
-          });
-        }
-      } catch (err) {
-        console.error('Error serving custom preview PDF:', err);
+        });
+      } catch (error) {
+        console.error('Unable to preview custom acceptance PDF:', error instanceof Error ? error.message : 'Unknown error');
       }
     }
 

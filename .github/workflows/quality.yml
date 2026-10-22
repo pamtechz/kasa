@@ -17,7 +17,7 @@ jobs:
     # Do not execute untrusted fork PR code on a persistent self-hosted machine.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, Windows, X64]
-    timeout-minutes: 30
+    timeout-minutes: 50
     # Windows PowerShell 5.1 is installed on the runner; pwsh 7 is not.
     defaults:
       run:
@@ -35,7 +35,11 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
-      # Tests import PDF libraries: install all locked dependencies first.
+      # Source-level security tests have zero external dependencies: fail fast.
+      - name: Run security boundary checks
+        run: node --test scripts/tests/security-boundaries.test.mjs
+
+      # The remaining tests import PDF libraries: install locked dependencies first.
       # npm ci fails on an inconsistent lockfile instead of silently rewriting it.
       - name: Check npm registry access
         run: |
@@ -43,7 +47,7 @@ jobs:
           npm ping --fetch-retries=0 --fetch-timeout=15000
 
       - name: Install locked dependencies
-        timeout-minutes: 12
+        timeout-minutes: 25
         run: npm ci --no-audit --no-fund --prefer-offline --fetch-retries=1 --fetch-timeout=60000
 
       - name: Run source tests
