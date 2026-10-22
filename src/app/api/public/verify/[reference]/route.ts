@@ -1,57 +1,41 @@
-import {NextRequest, NextResponse} from 'next/server';
+import {NextRequest} from 'next/server';
 import {db} from '@/lib/firebase-admin';
+import {fail, json, HttpError} from '@/lib/errors';
+import {rateLimit} from '@/lib/security';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET(
-  _req: NextRequest,
-  {params}: {params: Promise<{reference: string}>}
-) {
-  try {
+const OFFER_STATES = [
+  'accepted','letter_issued','cdf_submitted','cdf_approved',
+  'payment_verified','commission_paid'
+];
+
+export async function GET(req:NextRequest,{params}:{params:Promise<{reference:string}>}){
+  try{
+    await rateLimit(req,'public-offer-verification',12,15);
     const {reference} = await params;
     const cleanRef = String(reference || '').trim().toUpperCase();
-
-    if (!cleanRef) {
-      return NextResponse.json({error: 'Reference required.'}, {status: 400});
+    if(!/^KASA-[A-Z0-9-]{8,40}$/.test(cleanRef)){
+      throw new HttpError(400,'Invalid official reference format.');
     }
-
-    const snap = await db
-      .collection('submissions')
-      .where('reference', '==', cleanRef)
-      .limit(1)
-      .get();
-
-    if (snap.empty) {
-      return NextResponse.json({
-        verified: false,
-        reference: cleanRef,
-        message: 'No official KASA application found matching this reference number.'
-      }, {status: 404});
+    const snap=await db.collection('submissions')
+      .where('reference','==',cleanRef).limit(1).get();
+    const record=snap.docs[0]?.data();
+    // Do not reveal whether the reference belongs to an applicant awaiting
+    // review, or show names, phone numbers, funding details, or current status.
+    if(!record || record.formKind!=='student' ||
+        !OFFER_STATES.includes(String(record.status))){
+      return json({
+        verified:false,
+        reference:cleanRef,
+        message:'No issued KASA admission offer can be verified for this reference.'
+      },404);
     }
-
-    const data = snap.docs[0].data();
-    const answers = data.answers || {};
-
-    const studentName = String(
-      answers['full-name'] || answers['student-name'] || answers['fullNames'] || 'Student Applicant'
-    );
-    const programmeTitle = String(
-      answers['programme-pathway'] || answers['preferred-programme'] || answers['program'] || data.formTitle || 'General Agriculture'
-    );
-
-    return NextResponse.json({
-      verified: true,
-      reference: data.reference,
-      studentName,
-      programmeTitle,
-      fundingMethod: data.fundingMethod === 'cdf' ? 'Constituency Development Fund (CDF)' : 'Self-Funded / Private',
-      status: data.status,
-      submittedAt: data.submittedAt,
-      updatedAt: data.updatedAt || data.submittedAt,
-      message: 'Official KASA document verification confirmed. This offer is authentic and recognized by the KASA Directorate.'
+    return json({
+      verified:true,
+      reference:cleanRef,
+      message:'An official KASA admission offer is recorded for this reference. Confirm the applicant identity directly with KASA Admissions.'
     });
-  } catch (e) {
-    return NextResponse.json({error: e instanceof Error ? e.message : 'Verification lookup failed.'}, {status: 500});
-  }
+  }catch(error){return fail(error);}
 }

@@ -179,3 +179,13 @@ test('Staff delete rejects a failed Firebase Auth deletion',()=>{
  assert.match(route,/Firebase Auth deletion failed\. No profile was deleted/);
  assert.match(route,/\['admin','reviewer','finance'\]\.includes\(userData\.role\)/);
 });
+
+test('Public offer verification exposes no applicant identity or pending status',()=>{
+ const api=source('src/app/api/public/verify/[reference]/route.ts');
+ const page=source('src/app/(site)/verify/[reference]/page.tsx');
+ assert.match(api,/rateLimit\(req,'public-offer-verification'/);
+ assert.match(api,/OFFER_STATES\.includes/);
+ assert.doesNotMatch(api,/studentName|programmeTitle|fundingMethod:|submittedAt:|status: record\.status/);
+ assert.doesNotMatch(page,/record\?\.answers|studentName|fundingMethod/);
+ assert.match(page,/student portal/);
+});
