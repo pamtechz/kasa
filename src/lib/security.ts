@@ -4,7 +4,7 @@ import type {NextRequest} from 'next/server';
 import {adminAuth,appCheck,db} from './firebase-admin';
 import {HttpError} from './errors';
 import type {Profile,Role} from './types';
-import {can,type Permission} from './permissions';
+import {can,grants,type Permission} from './permissions';
 const operatorRoles:Role[]=['super_admin','admin','reviewer'];
 export async function operator(req:Request, allowed:Role[]=operatorRoles):Promise<Profile>{
  const value=req.headers.get('authorization')||'';
@@ -18,7 +18,7 @@ export async function operator(req:Request, allowed:Role[]=operatorRoles):Promis
  return {...p,uid};
 }
 export async function requirePermission(req:Request,permission:Permission):Promise<Profile>{
- const account=await operator(req);
+ const account=await operator(req,[...grants[permission]]);
  if(!can(account.role,permission))throw new HttpError(403,'Not authorized for this operation.');
  return account;
 }
