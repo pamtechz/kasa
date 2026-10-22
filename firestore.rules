@@ -26,7 +26,7 @@ service cloud.firestore {
   // security and permission changes MUST go through audited server APIs.
   match /profiles/{uid} {
    allow get: if ownProfile(uid) && resource.data.active == true;
-   allow list,create,update,delete: if false;
+   allow list, create, update, delete: if false;
   }
 
   // Published public catalogue is readable anonymously.

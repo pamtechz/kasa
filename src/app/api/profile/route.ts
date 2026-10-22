@@ -15,6 +15,7 @@ async function authenticatedUser(req: Request) {
   } catch {
     throw new HttpError(401, 'Your session has expired. Sign in again.');
   }
+  if(token.email_verified!==true)throw new HttpError(403,'Verify your email before accessing your private profile.');
   return token;
 }
 
@@ -35,6 +36,8 @@ export async function GET(req: Request) {
     const profileSnap = await profileRef.get();
     
     let profileData = profileSnap.data() as Profile | undefined;
+    if(profileData && profileData.active!==true)
+      throw new HttpError(403,'This account is disabled.');
     if (!profileData) {
       const isStudent = true;
       profileData = {

@@ -86,3 +86,9 @@ test('Provisioning cannot manufacture privileged profiles or bypass email verifi
  assert.match(profile,/sameOrigin\(req\)/);
  assert.match(profile,/Account security flags/);
 });
+
+test('Private profile reads require verified identity and deny suspended accounts',()=>{
+ const src=readFileSync('src/app/api/profile/route.ts','utf8');
+ assert.match(src,/token\.email_verified!==true/);
+ assert.match(src,/profileData\.active!==true/);
+});
