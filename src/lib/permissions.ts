@@ -36,3 +36,25 @@ export function canViewDashboard(role:Role|null|undefined,path:string):boolean{
  const entry=paths.find(p=>path===p.prefix||path.startsWith(p.prefix+'/'));
  return entry?can(role,entry.permission):path==='/dashboard';
 }
+
+export function landingForRole(role:Role):string{
+ switch(role){
+  case 'super_admin':case 'admin':return '/dashboard';
+  case 'reviewer':return '/dashboard/applications';
+  case 'finance':return '/dashboard/finance';
+  case 'agent':return '/agent-portal';
+  case 'student':return '/student-portal';
+ }
+}
+export function safeDestination(role:Role,requested:string|null):string{
+ const fallback=landingForRole(role);
+ if(!requested||!requested.startsWith('/')||requested.startsWith('//')||
+    requested.includes('\\')||/[\u0000-\u001F]/.test(requested))return fallback;
+ const base=requested.split('?')[0].split('#')[0];
+ if(base==='/bootstrap')return '/bootstrap';
+ if(base.startsWith('/dashboard'))return canViewDashboard(role,base)?requested:fallback;
+ if(role==='student'&&(base==='/my-applications'||base.startsWith('/student-portal')))return requested;
+ if(role==='agent'&&(base==='/agent-portal'||base.startsWith('/dashboard/referrals')))return requested;
+ if(['/apply','/programmes','/admissions','/account'].some(p=>base===p||base.startsWith(p+'/')))return requested;
+ return fallback;
+}

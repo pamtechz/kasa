@@ -4,6 +4,7 @@ import { createUserWithEmailAndPassword, sendEmailVerification, sendPasswordRese
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { firebaseConfigured, requireClientAuth, missingFirebaseBrowserSettings } from '@/lib/firebase-client';
+import {safeDestination} from '@/lib/permissions';
 import { ArrowRight, ArrowLeft, LockKeyhole } from 'lucide-react';
 import { BrandLogo } from '@/components/BrandLogo';
 import { PasswordInput } from '@/components/PasswordInput';
@@ -36,25 +37,13 @@ export default function Login() {
         // Returning to the bootstrap page never grants a role; the bootstrap API enforces the nominated email.
         const requested = new URLSearchParams(window.location.search).get('next');
         if (requested==='/bootstrap') { router.replace('/bootstrap'); return; }
-        if (requested==='/my-applications' || requested==='/student-portal') { router.replace('/student-portal'); return; }
         const token = await firebaseAuth.currentUser?.getIdToken(true);
         const resp = await fetch('/api/me', { headers: { Authorization: `Bearer ${token}` } });
         const data = await resp.json().catch(() => ({}));
         if (resp.ok && data?.profile) {
-          const role = data.profile.role;
-          if (requested && requested !== '/login') {
-            router.replace(requested);
-          } else if (role === 'super_admin' || role === 'admin') {
-            router.replace('/dashboard');
-          } else if (role === 'reviewer') {
-            router.replace('/dashboard/applications');
-          } else if (role === 'agent') {
-            router.replace('/agent-portal');
-          } else {
-            router.replace('/student-portal');
-          }
-        } else if (resp.status === 403 || !resp.ok) {
-          router.replace(requested || '/student-portal');
+          router.replace(safeDestination(data.profile.role,requested));
+        } else if (!resp.ok) {
+          throw Error(data.error || 'Account access has not been approved.');
         } else {
           throw Error(data.error || 'Unable to check your account role.');
         }
@@ -72,18 +61,9 @@ export default function Login() {
             const token = await user.getIdToken();
             const resp = await fetch('/api/me', { headers: { Authorization: `Bearer ${token}` } });
             const data = await resp.json().catch(() => ({}));
-            const role = data?.profile?.role;
-            const requested = new URLSearchParams(window.location.search).get('next');
-            if (requested && requested !== '/login') {
-              router.replace(requested);
-            } else if (role === 'super_admin' || role === 'admin') {
-              router.replace('/dashboard');
-            } else if (role === 'reviewer') {
-              router.replace('/dashboard/applications');
-            } else if (role === 'agent') {
-              router.replace('/agent-portal');
-            } else {
-              router.replace('/student-portal');
+            if(resp.ok&&data?.profile){
+              const requested = new URLSearchParams(window.location.search).get('next');
+              router.replace(safeDestination(data.profile.role,requested));
             }
           } catch {}
         }

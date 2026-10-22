@@ -67,6 +67,10 @@ export function Portal({children}:{children:React.ReactNode}){
    try{
     const result=await api<{profile:Profile}>('/api/me');
     if(active){
+     if(result.profile.role === 'finance' && path === '/dashboard'){
+      router.replace('/dashboard/finance');
+      return;
+     }
      if(result.profile.role === 'student'){
       router.replace('/my-applications');
       return;
