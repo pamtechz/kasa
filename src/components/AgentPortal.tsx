@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import {auth, authHeaders, firebaseConfigured, signOutClient} from '@/lib/firebase-client';
 import type {Profile} from '@/lib/types';
+import {hasCapability} from '@/lib/access-policy';
 import {BrandLogo} from '@/components/BrandLogo';
 
 export function AgentPortal({children}: {children: React.ReactNode}) {
@@ -67,7 +68,7 @@ export function AgentPortal({children}: {children: React.ReactNode}) {
         const data = await res.json();
         if (active) {
           if (res.ok && data.profile) {
-            if (data.profile.role !== 'agent' && data.profile.role !== 'super_admin' && data.profile.role !== 'admin') {
+            if (!hasCapability(data.profile.role,'referrals.read') || data.profile.role === 'student' || data.profile.role === 'finance') {
               setSessionError('District Agent access required. Sign in with an active agent account.');
             } else {
               setProfile(data.profile);

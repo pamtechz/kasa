@@ -6,6 +6,7 @@ import Link from 'next/link';
 import {BarChart3,ChevronLeft,ChevronRight,ClipboardList,FilePlus2,FileCheck,LayoutDashboard,LogOut,Menu,Settings,Users,X,Bell,BookOpen,Newspaper,CalendarDays,Database,User,Wallet} from 'lucide-react';
 import {auth,authHeaders,firebaseConfigured,signOutClient} from '@/lib/firebase-client';
 import type {Profile} from '@/lib/types';
+import {canAccessPage} from '@/lib/access-policy';
 import {BrandLogo} from '@/components/BrandLogo';
 import {invalidateAdminCache, fetchWithSwr, getAdminCache} from '@/lib/admin-cache';
 
@@ -85,11 +86,31 @@ export function Portal({children}:{children:React.ReactNode}){
   try{await signOutClient();setProfile(null);router.replace('/login?reason=session-ended');}
   catch(e){setSessionError(e instanceof Error?e.message:'Unable to sign out. Please retry.');}
  }
- const links=[{name:'Overview',href:'/dashboard',icon:LayoutDashboard},{name:'Notifications',href:'/dashboard/notifications',icon:Bell},
-  ...(profile?.role==='agent'?[{name:'My referrals',href:'/dashboard/referrals',icon:Users}]:[{name:'Applications',href:'/dashboard/applications',icon:ClipboardList}]),
-  ...(!['super_admin','admin'].includes(profile?.role||'')?[]:[{name:'Website',href:'/dashboard/website',icon:Settings},{name:'Programmes',href:'/dashboard/programmes',icon:BookOpen},{name:'Announcements',href:'/dashboard/announcements',icon:Newspaper},{name:'Intake windows',href:'/dashboard/intake',icon:CalendarDays},{name:'Form builder',href:'/dashboard/forms',icon:FilePlus2},{name:'Acceptance Pack',href:'/dashboard/settings/acceptance-letter',icon:FileCheck},{name:'District agents',href:'/dashboard/agents',icon:Users},{name:'Finance Ledger',href:'/dashboard/finance',icon:Wallet},{name:'Commissions',href:'/dashboard/commissions',icon:BarChart3},{name:'Automations',href:'/dashboard/automations',icon:Bell},{name:'Settings',href:'/dashboard/settings',icon:Settings}]),...(profile?.role==='super_admin'?[{name:'Staff roles',href:'/dashboard/staff',icon:Users},{name:'Data setup',href:'/dashboard/setup',icon:Database}]:[]),{name:'My profile',href:'/dashboard/profile',icon:User}];
+ const links=[
+  {name:'Overview',href:'/dashboard',icon:LayoutDashboard},
+  {name:'Applications',href:'/dashboard/applications',icon:ClipboardList},
+  {name:'Register Candidate',href:'/dashboard/applications/new',icon:FilePlus2},
+  {name:'My referrals',href:'/dashboard/referrals',icon:Users},
+  {name:'Notifications',href:'/dashboard/notifications',icon:Bell},
+  {name:'Website',href:'/dashboard/website',icon:Settings},
+  {name:'Programmes',href:'/dashboard/programmes',icon:BookOpen},
+  {name:'Announcements',href:'/dashboard/announcements',icon:Newspaper},
+  {name:'Intake windows',href:'/dashboard/intake',icon:CalendarDays},
+  {name:'Form builder',href:'/dashboard/forms',icon:FilePlus2},
+  {name:'Acceptance Pack',href:'/dashboard/settings/acceptance-letter',icon:FileCheck},
+  {name:'District agents',href:'/dashboard/agents',icon:Users},
+  {name:'Finance Ledger',href:'/dashboard/finance',icon:Wallet},
+  {name:'Commissions',href:'/dashboard/commissions',icon:BarChart3},
+  {name:'Automations',href:'/dashboard/automations',icon:Bell},
+  {name:'Settings',href:'/dashboard/settings',icon:Settings},
+  {name:'Staff roles',href:'/dashboard/staff',icon:Users},
+  {name:'Data setup',href:'/dashboard/setup',icon:Database},
+  {name:'My profile',href:'/dashboard/profile',icon:User}
+ ].filter(link=>canAccessPage(profile?.role,link.href));
+ const authorized=profile!==null&&canAccessPage(profile.role,path);
  if(loading)return <main className="page-loader" role="status">Loading your secure workspace…</main>;
  if(sessionError||!profile)return <main className="portal-error-state" role="alert"><h1>Workspace access needs attention</h1><p>{sessionError||'Sign in with an authorized KASA staff or agent account to continue.'}</p><Link className="btn btn-primary" href="/login">Go to sign in</Link></main>;
+ if(!authorized)return <main className="portal-error-state" role="alert"><h1>Access denied</h1><p>Your role cannot open this feature. Contact KASA administration if you need a different role.</p><Link href="/dashboard/profile" className="btn btn-primary">My profile</Link></main>;
  return <div className="portal-shell"><aside id="kasa-admin-navigation" className={`sidebar ${collapsed?'collapsed':''} ${mobile?'mobile-open':''}`}>
   <div className="side-header"><Link href="/dashboard" className="brand"><BrandLogo size={48}/>{(!collapsed||mobile)&&<span><strong>KASA</strong><small>Administration</small></span>}</Link><button className="icon-btn toggle-collapse-top" type="button" onClick={toggleSidebar} title={collapsed?"Expand sidebar":"Collapse sidebar"} aria-label={collapsed?"Expand sidebar":"Collapse sidebar"}><ChevronLeft size={18} style={{transform:collapsed?'rotate(180deg)':undefined}}/></button><button className="icon-btn close-mobile" onClick={()=>setMobile(false)} aria-label="Close menu"><X size={20}/></button></div>
   <div className="side-label">{!collapsed||mobile?'WORKSPACE':'·'}</div><nav className="side-links" aria-label="Administration">{links.map(l=>{const I=l.icon;return <Link key={l.href} title={l.name} className={`side-link ${path===l.href||l.href!=='/dashboard'&&path.startsWith(l.href+'/')?'active':''}`} aria-current={path===l.href||l.href!=='/dashboard'&&path.startsWith(l.href+'/')?'page':undefined} href={l.href} onClick={()=>setMobile(false)}><I size={19}/>{(!collapsed||mobile)&&<span>{l.name}</span>}</Link>})}</nav>

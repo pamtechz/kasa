@@ -103,7 +103,8 @@ function pathMatches(pattern:string,path:string):boolean{
 }
 export function requiredApiCapability(path:string,method:string):Capability|undefined{
  // Fail closed for unrecognized endpoints, verbs and future APIs.
- const matched=PRIVILEGED_ROUTES.find(route=>pathMatches(route.path,path));
+ const matched=PRIVILEGED_ROUTES.find(route=>route.path===path) ||
+  PRIVILEGED_ROUTES.find(route=>pathMatches(route.path,path));
  return matched?.operations[method.toUpperCase() as HttpMethod];
 }
 export function isControlledApi(path:string):boolean{

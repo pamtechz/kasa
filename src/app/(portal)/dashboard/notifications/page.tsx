@@ -1,5 +1,6 @@
 'use client';
 import {useEffect, useState, useMemo} from 'react';
+import {hasCapability} from '@/lib/access-policy';
 import {
   Bell, Plus, Search, Trash2, CheckCircle2, AlertTriangle, Info,
   Filter, X, ArrowLeft, Save, ExternalLink, RefreshCw, Eye, EyeOff, Edit
@@ -23,6 +24,9 @@ type Notice = {
 };
 
 export default function Notifications() {
+  const [userRole,setUserRole]=useState<import('@/lib/types').Role|null>(null);
+  const canBroadcast=hasCapability(userRole,'notifications.broadcast');
+  const canDelete=hasCapability(userRole,'notifications.delete');
   const [items, setItems] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -73,7 +77,10 @@ export default function Notifications() {
     return () => window.removeEventListener('keydown', handleKey);
   }, [modalOpen]);
 
+  useEffect(()=>{void api<{profile:{role:import('@/lib/types').Role}}>('/api/me')
+    .then(data=>setUserRole(data.profile.role)).catch(()=>setUserRole(null));},[]);
   function openCreateModal() {
+    if(!canBroadcast)return;
     setEditingNotice(null);
     setTitle('');
     setMessage('');
@@ -154,6 +161,7 @@ export default function Notifications() {
   }
 
   async function confirmDeleteNotice() {
+    if(!canDelete)return;
     if (!deletingNotice) return;
     setBusy(true);
     try {
@@ -169,6 +177,7 @@ export default function Notifications() {
   }
 
   async function confirmBulkDeleteNotices() {
+    if(!canDelete)return;
     if (!bulkDeleteTarget) return;
     setBusy(true);
     try {

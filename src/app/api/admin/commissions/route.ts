@@ -6,16 +6,17 @@ export const runtime='nodejs';
 
 export async function GET(req:Request){
  try{
-  await operator(req,['super_admin','admin','reviewer']);
+  const actor=await operator(req,['super_admin','admin','reviewer','agent']);
   const result=await db.collection('submissions').where('formKind','==','student').limit(500).get();
   const commissions=result.docs.flatMap(doc=>{
    const x=doc.data();
-   if(!x.commission||!x.agentId||!['payment_verified','cdf_approved','commission_paid'].includes(x.status))return [];
+   if(!x.commission||!x.agentId||!['payment_verified','cdf_approved','commission_paid'].includes(x.status)||
+      (actor.role==='agent'&&x.agentId!==actor.uid))return [];
    return [{
     submissionId:doc.id,reference:String(x.reference||''),agentId:String(x.agentId),
     trigger:x.commission.trigger||'cdf_approval',amount:Number(x.commission.amount)||0,
     currency:'ZMW',paidAt:x.commission.paidAt||null,paymentReference:x.commission.paymentReference||null,
-    fundingEvidence:x.commission.trigger==='payment'?x.paymentVerification?.reference:x.cdfVerification?.reference
+    fundingEvidence:actor.role==='agent'?null:(x.commission.trigger==='payment'?x.paymentVerification?.reference:x.cdfVerification?.reference)
    }];
   });
   return json({commissions,totals:{
