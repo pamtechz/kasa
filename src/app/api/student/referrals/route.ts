@@ -1,24 +1,13 @@
 import type {NextRequest} from 'next/server';
-import {adminAuth, db} from '@/lib/firebase-admin';
+import {db} from '@/lib/firebase-admin';
+import {verifiedStudent} from '@/lib/student-access';
+import {requireReferralsEnabled} from '@/lib/feature-policy';
 import {fail, HttpError, json} from '@/lib/errors';
 import {rateLimit, safeText, newId, sameOrigin} from '@/lib/security';
 import {invalidateSubmissionsCache} from '@/lib/server-cache';
 import type {ApplicantRecord} from '@/lib/types';
 
 export const runtime = 'nodejs';
-
-async function verifiedStudent(req: Request) {
-  const h = req.headers.get('authorization') || '';
-  if (!h.startsWith('Bearer ')) throw new HttpError(401, 'Sign in to access your student referral account.');
-  let token;
-  try {
-    token = await adminAuth.verifyIdToken(h.slice(7), true);
-  } catch {
-    throw new HttpError(401, 'Your session has expired.');
-  }
-  if (!token.email_verified || !token.email) throw new HttpError(403, 'Verify your email to participate in the referral program.');
-  return token;
-}
 
 export async function GET(req: NextRequest) {
   try {
@@ -33,11 +22,11 @@ export async function GET(req: NextRequest) {
     if (!agentCode) {
       agentCode = `KASA-STU-${user.uid.slice(0, 6).toUpperCase()}`;
       await profileRef.set({
-        uid: user.uid,
-        email: user.email || '',
-        displayName: user.name || (user.email ? user.email.split('@')[0] : 'Student'),
-        role: profileSnap.data()?.role || 'student',
-        active: true,
+        ...(profileSnap.exists?{}:{
+          uid:user.uid,email:user.email||'',
+          displayName:user.name||(user.email?user.email.split('@')[0]:'Student'),
+          role:'student',active:true
+        }),
         agentCode,
         isStudent: true,
         updatedAt: new Date().toISOString()
@@ -104,6 +93,7 @@ export async function POST(req: NextRequest) {
     sameOrigin(req);
     await rateLimit(req, 'student-referral-submit', 10, 10);
     const user = await verifiedStudent(req);
+    await requireReferralsEnabled();
     const body = await req.json();
 
     const candidateName = safeText(body.candidateName || body.name, 120);
@@ -133,11 +123,11 @@ export async function POST(req: NextRequest) {
     if (!agentCode) {
       agentCode = `KASA-STU-${user.uid.slice(0, 6).toUpperCase()}`;
       await profileRef.set({
-        uid: user.uid,
-        email: user.email || '',
-        displayName: user.name || (user.email ? user.email.split('@')[0] : 'Student'),
-        role: profileSnap.data()?.role || 'student',
-        active: true,
+        ...(profileSnap.exists?{}:{
+          uid:user.uid,email:user.email||'',
+          displayName:user.name||(user.email?user.email.split('@')[0]:'Student'),
+          role:'student',active:true
+        }),
         agentCode,
         isStudent: true,
         updatedAt: new Date().toISOString()
@@ -160,7 +150,7 @@ export async function POST(req: NextRequest) {
         'student-name': candidateName,
         name: candidateName,
         phone,
-        email: email || `${phone.replace(/\D/g, '')}@kasa.referral.zm`,
+        email,
         nrc,
         program: programme,
         programme,
