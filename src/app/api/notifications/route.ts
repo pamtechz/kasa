@@ -13,7 +13,8 @@ function canReadNotice(user:{uid:string;role:string},notice:Record<string,unknow
 }
 function safeNotice<T extends Record<string,unknown>>(notice:T):T{
   if(typeof notice.message!=='string')return notice;
-  return {...notice,message:notice.message.replace(/(Temporary password:\s*)\S+/gi,'$1[REDACTED]')} as T;
+  const redact = (text: string) => text.replace(/(\b(?:temporary|temp|initial|one[- ]time)?\s*password\s*[:=\-]\s*)\S+/gi, '$1[REDACTED]');
+  return {...notice,message:redact(notice.message),...(typeof notice.title==='string'?{title:redact(notice.title)}:{})} as T;
 }
 
 export const runtime = 'nodejs';
@@ -127,7 +128,7 @@ export async function PATCH(req: Request) {
 
     await ref.update(updates);
     invalidateGeneralCache('notifications');
-    return json({ok: true, notification: {id, ...data, ...updates}});
+    return json({ok: true, notification: safeNotice({id, ...data, ...updates})});
   } catch (e) {
     return fail(e);
   }

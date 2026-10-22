@@ -222,3 +222,10 @@ test('Student uploads use owner-authorized API and preserve staff-only verificat
  assert.match(page,/requiredDocuments\.map/);
  assert.match(identity,/profile\.data\(\)\?\.active!==true/);
 });
+
+test('Notification mutation replies never expose legacy password fragments',()=>{
+ const api=source('src/app/api/notifications/route.ts');
+ assert.match(api,/notification: safeNotice\(\{id, \.\.\.data, \.\.\.updates\}\)/);
+ assert.match(api,/REDACTED/);
+ assert.match(api,/typeof notice\.title==='string'/);
+});
