@@ -144,3 +144,19 @@ test('Legacy application notices are not broadcast to unrelated learners or agen
  assert.match(endpoint,/notice\.reference \|\| notice\.submissionId/);
  assert.match(endpoint,/\['student','agent'\]\.includes\(user\.role\)/);
 });
+
+test('Service worker caches public static assets but never private pages or APIs',()=>{
+ const sw=source('public/sw.js');
+ assert.match(sw,/CACHE_NAME = 'kasa-pwa-static-v2'/);
+ assert.match(sw,/event\.request\.mode === 'navigate'/);
+ assert.match(sw,/PUBLIC_STATIC_FILES\.includes/);
+ assert.match(sw,/url\.pathname\.startsWith\('\/_next\/static\/'\)/);
+ assert.doesNotMatch(sw,/caches\.match\(event\.request\).*HTML/);
+});
+test('Origin validation does not trust attacker-controlled localhost subdomains',()=>{
+ const security=source('src/lib/security.ts');
+ assert.match(security,/process\.env\.NODE_ENV !== 'production'/);
+ assert.match(security,/\['localhost','127\.0\.0\.1','\[::1\]'\]\.includes\(originHost\)/);
+ assert.doesNotMatch(security,/requestOrigin\.includes\('localhost'\)/);
+ assert.doesNotMatch(security,/hostHeader \? \x60http:/);
+});

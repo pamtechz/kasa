@@ -18,33 +18,29 @@ export async function operator(req:Request, allowed:Role[]=operatorRoles):Promis
 }
 export function sameOrigin(req: Request) {
   const origin = req.headers.get('origin') || req.headers.get('referer') || '';
+  // Machine-to-machine requests without Origin still require bearer auth at
+  // their API handlers; browsers send Origin for state-changing requests.
   if (!origin) return;
 
   let requestOrigin = '';
-  try {
-    requestOrigin = new URL(origin).origin;
-  } catch {
-    throw new HttpError(403, 'Invalid request origin format.');
-  }
+  try {requestOrigin = new URL(origin).origin;}
+  catch {throw new HttpError(403,'Invalid request origin format.');}
 
-  // Always allow localhost and local IP development origins
-  if (requestOrigin.includes('localhost') || requestOrigin.includes('127.0.0.1')) {
+  const originHost = new URL(requestOrigin).hostname;
+  if (process.env.NODE_ENV !== 'production' &&
+      ['localhost','127.0.0.1','[::1]'].includes(originHost)) {
     return;
   }
 
-  const hostHeader = req.headers.get('host') || '';
-  const reqUrlOrigin = new URL(req.url).origin;
-
+  const requestUrl = new URL(req.url);
   const allowedOrigins = new Set([
-    reqUrlOrigin,
-    hostHeader ? `http://${hostHeader}` : '',
-    hostHeader ? `https://${hostHeader}` : '',
+    requestUrl.origin,
     process.env.APP_URL ? new URL(process.env.APP_URL).origin : '',
-    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : ''
+    process.env.VERCEL_URL ? new URL('https://' + process.env.VERCEL_URL.replace(/^https?:\\/\\//,'')).origin : ''
   ].filter(Boolean));
 
   if (!allowedOrigins.has(requestOrigin)) {
-    throw new HttpError(403, `Invalid request origin.`);
+    throw new HttpError(403,'Invalid request origin.');
   }
 }
 export async function requireAppCheck(req:Request){
