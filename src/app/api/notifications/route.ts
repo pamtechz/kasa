@@ -6,6 +6,9 @@ import {getGeneralCache, setGeneralCache, invalidateGeneralCache} from '@/lib/se
 function canReadNotice(user:{uid:string;role:string},notice:Record<string,unknown>):boolean{
   if(['super_admin','admin'].includes(user.role)) return true;
   if(typeof notice.recipientUid==='string' && notice.recipientUid) return notice.recipientUid===user.uid;
+  // Legacy broadcast notices sometimes contain applicants' names, references
+  // and funding details. Never expose these to an unrelated learner/agent.
+  if((notice.reference || notice.submissionId) && ['student','agent'].includes(user.role))return false;
   return notice.recipient==='all' || notice.recipient===user.role;
 }
 function safeNotice<T extends Record<string,unknown>>(notice:T):T{

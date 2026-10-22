@@ -120,3 +120,26 @@ test('Custom acceptance PDFs reject internal servers, redirects, and oversized f
   assert.doesNotMatch(content,/fetch\(pdfUrl|fetch\(url/);
  }
 });
+
+test('Bulk acceptance notices go only to linked applicants; no fake email send counts',()=>{
+ const endpoint=source('src/app/api/admin/submissions/batch-email/route.ts');
+ const page=source('src/app/(portal)/dashboard/applications/page.tsx');
+ assert.match(endpoint,/recipient: 'student'/);
+ assert.match(endpoint,/recipientUid,/);
+ assert.match(endpoint,/if\(!recipientUid\)/);
+ assert.match(endpoint,/emailSentCount: 0/);
+ assert.doesNotMatch(endpoint,/recipient: 'all'/);
+ assert.doesNotMatch(endpoint,/sentCount: acceptedList\.length/);
+ assert.match(page,/Notify linked students/);
+});
+test('Spreadsheet export guards formula-prefixed applicant input',()=>{
+ const endpoint=source('src/app/api/admin/submissions/batch-download/route.ts');
+ assert.match(endpoint,/protectedValue/);
+ assert.match(endpoint,/\[=\+\\-@\]/);
+ assert.match(endpoint,/protectedValue\.replace/);
+});
+test('Legacy application notices are not broadcast to unrelated learners or agents',()=>{
+ const endpoint=source('src/app/api/notifications/route.ts');
+ assert.match(endpoint,/notice\.reference \|\| notice\.submissionId/);
+ assert.match(endpoint,/\['student','agent'\]\.includes\(user\.role\)/);
+});
