@@ -81,7 +81,7 @@ export async function POST(req: Request) {
     const note = safeText(body.note, 500);
 
     if (!submissionId) throw new HttpError(400, 'Submission ID is required.');
-    if (!Number.isFinite(amountPaid) || amountPaid <= 0 || amountPaid > 10000000 || Math.round(amountPaid * 100) !== amountPaid * 100) throw new HttpError(400, 'Enter a valid positive payment amount in ZMW with no more than two decimal places.');
+    if (!Number.isFinite(amountPaid) || amountPaid <= 0 || amountPaid > 10000000 || Math.abs(Math.round(amountPaid * 100) - amountPaid * 100) > 0.000001) throw new HttpError(400, 'Enter a valid positive payment amount in ZMW with no more than two decimal places.');
     if (!receiptReference || receiptReference.length < 4) throw new HttpError(400, 'Valid receipt or bank reference is required.');
 
     const ref = db.collection('submissions').doc(submissionId);
