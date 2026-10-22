@@ -1,6 +1,6 @@
 import {adminAuth, db} from '@/lib/firebase-admin';
 import {fail, json, HttpError} from '@/lib/errors';
-import {operator, newId, sameOrigin, safeText, audit} from '@/lib/security';
+import {requirePermission, newId, sameOrigin, safeText, audit} from '@/lib/security';
 import {FieldValue} from 'firebase-admin/firestore';
 
 export const runtime = 'nodejs';
@@ -8,7 +8,7 @@ export const runtime = 'nodejs';
 export async function POST(req: Request) {
   try {
     sameOrigin(req);
-    const actor = await operator(req, ['super_admin', 'admin']);
+    const actor = await requirePermission(req,'users.manage');
     const body = await req.json();
 
     const email = safeText(body.email, 240).toLowerCase().trim();

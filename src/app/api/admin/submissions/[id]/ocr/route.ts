@@ -1,13 +1,13 @@
 import {db} from '@/lib/firebase-admin';
 import {fail, json, HttpError} from '@/lib/errors';
-import {operator} from '@/lib/security';
+import {requirePermission} from '@/lib/security';
 import {verifyDocumentText} from '@/lib/ocr-verifier';
 
 export const runtime = 'nodejs';
 
 export async function POST(req: Request, {params}: {params: Promise<{id: string}>}) {
   try {
-    const actor = await operator(req, ['super_admin', 'admin', 'reviewer']);
+    const actor = await requirePermission(req,'applications.review');
     const {id} = await params;
     const body = await req.json().catch(() => ({}));
 
