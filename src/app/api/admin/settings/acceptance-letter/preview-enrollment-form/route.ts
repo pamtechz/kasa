@@ -1,6 +1,6 @@
 import {NextRequest,NextResponse} from 'next/server';
 import {fail} from '@/lib/errors';
-import {operator} from '@/lib/security';
+import {requirePermission} from '@/lib/security';
 import {generateEnrollmentFormPdf} from '@/lib/pdf-enrollment-form';
 
 export const runtime = 'nodejs';
@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   try {
-    await operator(req, ['super_admin', 'admin']);
+    await requirePermission(req,'acceptance.manage');
     const body = await req.json().catch(() => ({}));
     const offsets = body?.config?.enrollmentFormOffsets || body?.offsets || {};
 

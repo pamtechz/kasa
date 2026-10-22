@@ -1,5 +1,5 @@
 import type {Role} from './types';
-export type Permission='applications.read'|'applications.review'|'applications.delete'|'content.read'|'content.manage'|'forms.read'|'forms.manage'|'intake.read'|'intake.manage'|'agents.read'|'agents.manage'|'finance.read'|'finance.manage'|'commissions.read'|'commissions.manage'|'settings.read'|'settings.manage'|'automations.manage'|'staff.manage'|'setup.manage'|'referrals.read'|'notifications.read'|'profile.read'|'users.read'|'users.manage'|'acceptance.manage'|'batch.notify';
+export type Permission='applications.read'|'applications.review'|'applications.delete'|'content.read'|'content.manage'|'forms.read'|'forms.manage'|'intake.read'|'intake.manage'|'agents.read'|'agents.manage'|'finance.read'|'finance.manage'|'commissions.read'|'commissions.manage'|'settings.read'|'settings.manage'|'automations.manage'|'staff.manage'|'setup.manage'|'referrals.read'|'notifications.read'|'profile.read'|'users.read'|'users.manage'|'acceptance.manage'|'batch.notify'|'setup.read'|'acceptance.preview';
 const admins:Role[]=['super_admin','admin'];
 const reviewers:Role[]=[...admins,'reviewer'];
 const financing:Role[]=[...admins,'finance'];
@@ -12,7 +12,7 @@ export const grants:Readonly<Record<Permission,readonly Role[]>>={
  'finance.read':[...financing,'reviewer'],'finance.manage':financing,
  'commissions.read':reviewers,'commissions.manage':admins,
  'settings.read':reviewers,'settings.manage':admins,
- 'automations.manage':admins,'staff.manage':['super_admin'],'setup.manage':['super_admin'],
+ 'automations.manage':admins,'staff.manage':['super_admin'],'setup.manage':['super_admin'],'setup.read':admins,'acceptance.preview':reviewers,
  'referrals.read':[...admins,'agent'],'users.read':reviewers,'users.manage':admins,'acceptance.manage':admins,'batch.notify':reviewers,
  'notifications.read':[...reviewers,'agent','finance','student'],
  'profile.read':['super_admin','admin','reviewer','finance','agent','student']
