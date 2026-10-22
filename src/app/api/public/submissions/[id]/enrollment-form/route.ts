@@ -13,6 +13,9 @@ export async function GET(req: Request, {params}: {params: Promise<{id: string}>
     const data = snap.data()!;
     await authorizeSubmissionDocument(req,data);
 
+    // Preserve administrator-configured enrollment PDF field positions.
+    const letterSettingsDoc = await db.collection('settings').doc('acceptanceLetter').get();
+    const offsets = letterSettingsDoc.data()?.enrollmentFormOffsets || {};
     const answers = data.answers || {};
 
     const fullNames = String(
@@ -38,42 +41,42 @@ export async function GET(req: Request, {params}: {params: Promise<{id: string}>
       sportsFocus: String(answers['sportsFocus'] || answers['sports-focus'] || ''),
       preferredIntake: intakeAndYear,
       fullNames,
-      dob: String(answers['date-of-birth'] || answers['dob'] || '2004-05-14'),
-      gender: String(answers['gender'] || 'Male'),
+      dob: String(answers['date-of-birth'] || answers['dob'] || ''),
+      gender: String(answers['gender'] || ''),
       nationality: String(answers['nationality'] || 'Zambian'),
       nrcNumber: String(answers['nrc-number'] || answers['nrcNumber'] || 'On file'),
-      mobileNumber: String(answers['phone'] || answers['mobileNumber'] || '+260 97X XXX XXX'),
-      whatsappNumber: String(answers['whatsappNumber'] || answers['phone'] || '+260 97X XXX XXX'),
-      email: String(answers['email'] || 'applicant@example.com'),
+      mobileNumber: String(answers['phone'] || answers['mobileNumber'] || ''),
+      whatsappNumber: String(answers['whatsappNumber'] || answers['phone'] || ''),
+      email: String(answers['email'] || ''),
       residentialAddress: String(answers['residentialAddress'] || answers['residential-address'] || answers['ward'] || 'Kamaila Farming Block'),
       district: String(answers['district'] || 'Chisamba'),
       province: String(answers['province'] || 'Central Province'),
       postalAddress: String(answers['postalAddress'] || 'P.O. Box 40, Chisamba'),
       highestGrade: String(answers['education-level'] || answers['highest-education'] || answers['highestGrade'] || 'Grade 12'),
-      schoolInstitution: String(answers['schoolInstitution'] || 'Secondary School'),
+      schoolInstitution: String(answers['schoolInstitution'] || ''),
       qualificationYear: String(answers['qualificationYear'] || '2025'),
       currentStatus: String(answers['currentStatus'] || 'Student'),
       occupation: String(answers['occupation'] || 'N/A'),
       previousExperience: String(answers['previousExperience'] || 'Practical farming interests'),
-      guardianName: String(answers['guardianName'] || 'Family Guardian'),
+      guardianName: String(answers['guardianName'] || ''),
       guardianRelationship: String(answers['guardianRelationship'] || 'Parent'),
-      guardianMobile: String(answers['guardianMobile'] || answers['phone'] || '+260 97X XXX XXX'),
+      guardianMobile: String(answers['guardianMobile'] || answers['phone'] || ''),
       guardianAddress: String(answers['guardianAddress'] || answers['district'] || 'Chisamba'),
-      emergencyName: String(answers['emergencyName'] || 'Emergency Contact'),
+      emergencyName: String(answers['emergencyName'] || ''),
       emergencyRelationship: String(answers['emergencyRelationship'] || 'Parent'),
-      emergencyMobile: String(answers['emergencyMobile'] || answers['phone'] || '+260 97X XXX XXX'),
+      emergencyMobile: String(answers['emergencyMobile'] || answers['phone'] || ''),
       learningSupport: 'None',
       healthNeeds: String(answers['medical-conditions'] || answers['medical-note'] || 'None to report'),
       healthDetails: String(answers['medical-conditions'] || answers['medical-note'] || 'None'),
       feesPaidBy: String(answers['funding-pathway'] || answers['funding-arrangements'] || answers['fees-paid-by'] || (data.fundingMethod === 'cdf' ? 'CDF' : 'Self')),
       sponsorName: data.fundingMethod === 'cdf' ? 'Constituency Development Fund (CDF)' : fullNames,
       sponsorPhone: String(answers['phone'] || '—'),
-      photoPublicityConsent: true,
+      photoPublicityConsent: ['yes','true','1'].includes(String(answers['photo-publicity-consent'] || answers['photoPublicityConsent'] || '').toLowerCase()),
       status: data.status,
       agreedFees: 'Approved 2027 Tariff'
     };
 
-    const bytes = await generateEnrollmentFormPdf(formData);
+    const bytes = await generateEnrollmentFormPdf(formData, offsets);
     return new Response(new Uint8Array(bytes), {
       status: 200,
       headers: {
