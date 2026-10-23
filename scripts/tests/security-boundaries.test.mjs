@@ -285,3 +285,8 @@ test('Agents never receive private application fields via admin submissions list
  assert.match(code,/if\(user.role==='agent'\)return \{/);
  assert.doesNotMatch(code,/\.\.\.item,id:x.id,\.\.\.\(user.role==='agent'/);
 });
+
+test('Capability guard authenticates finance/agent/student before checking permission',()=>{
+ const s=source('src/lib/security.ts');
+ assert.match(s,/operator\(req,\['super_admin','admin','reviewer','finance','agent','student'\]\)/);
+});

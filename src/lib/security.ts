@@ -18,7 +18,7 @@ export async function operator(req:Request, allowed:Role[]=operatorRoles):Promis
  return {...p,uid};
 }
 export async function requireCapability(req:Request,capability:import('./permissions').Capability):Promise<Profile>{
- const actor=await operator(req);
+ const actor=await operator(req,['super_admin','admin','reviewer','finance','agent','student']);
  if(!can(actor.role,capability))throw new HttpError(403,'This operation is not permitted for your role.');
  return actor;
 }
