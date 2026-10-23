@@ -139,7 +139,7 @@ export default function FinanceDashboardPage() {
         <div className="metric-card">
           <div className="metric-icon blue"><DollarSign /></div>
           <span>Total Accrued Revenue</span>
-          <strong>{loading ? '—' : `ZMW ${(summary?.totalRevenueExpected || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`}</strong>
+          <strong>{loading ? '—' : summary?.financialTotalsPartial ? 'Incomplete' : `ZMW ${(summary?.totalRevenueExpected || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`}</strong>
           <small>Approved quoted fees only</small>
         </div>
         <div className="metric-card">
@@ -151,13 +151,13 @@ export default function FinanceDashboardPage() {
         <div className="metric-card">
           <div className="metric-icon amber"><Building2 /></div>
           <span>CDF Council Approved</span>
-          <strong>{loading ? '—' : `ZMW ${(summary?.totalCdfApproved || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`}</strong>
+          <strong>{loading ? '—' : summary?.financialTotalsPartial ? 'Incomplete' : `ZMW ${(summary?.totalCdfApproved || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`}</strong>
           <small>Government bursary funding</small>
         </div>
         <div className="metric-card">
           <div className="metric-icon purple"><CreditCard /></div>
           <span>Outstanding Balance</span>
-          <strong>{loading ? '—' : `ZMW ${(summary?.outstandingBalance || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`}</strong>
+          <strong>{loading ? '—' : summary?.financialTotalsPartial ? 'Incomplete' : `ZMW ${(summary?.outstandingBalance || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`}</strong>
           <small>Reconciled balances only</small>
         </div>
       </div>

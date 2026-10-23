@@ -15,8 +15,10 @@ test('financial totals never guess tuition from user-entered labels or suggest f
  const screen=readFileSync(new URL('../../src/app/(portal)/dashboard/finance/page.tsx',import.meta.url),'utf8');
  assert.match(finance,/readApprovedFeeQuote\(x\.feeQuote\)/);
  assert.match(finance,/missingFeeQuotes/);
+ assert.match(finance,/Receipt would exceed the approved programme fee/);
  assert.doesNotMatch(finance,/tuitionFee = 8200|programme\.includes\('K/);
  assert.match(screen,/Fee reconciliation required/);
+ assert.match(screen,/financialTotalsPartial \? 'Incomplete'/);
  assert.doesNotMatch(screen,/: '1000'/);
  assert.match(screen,/can\(role,'finance.record'\)/);
  assert.match(screen,/item\.fundingMethod === 'cdf'/);

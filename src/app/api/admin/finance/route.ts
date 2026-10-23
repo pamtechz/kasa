@@ -112,6 +112,12 @@ export async function POST(req: Request) {
         throw new HttpError(409, 'Existing student ledger requires reconciliation.');
       }
       newPaidTotal = existingPaid + amountPaid;
+      // Never allow a receipt to exceed a valid contractual quote. Unknown
+      // historic quotes remain visible for staff reconciliation, not guessed.
+      const approvedQuote = readApprovedFeeQuote(app.feeQuote);
+      if (approvedQuote && Math.round(newPaidTotal * 100) > Math.round(approvedQuote.total * 100)) {
+        throw new HttpError(409, 'Receipt would exceed the approved programme fee. Reconcile the application before recording this amount.');
+      }
       reference = String(app.reference || '');
       const updates: Record<string, unknown> = {
         updatedAt: now,
