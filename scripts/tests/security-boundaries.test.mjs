@@ -310,3 +310,15 @@ test('Finance and commission mutation controls are hidden for read-only roles',(
  assert.match(commissions,/can\(role,'commissions.manage'\)/);
  assert.match(commissions,/can\(role,'settings.manage'\)/);
 });
+
+test('All sensitive acceptance preview, settings, and OCR mutations validate caller origins',()=>{
+ for(const path of [
+  'src/app/api/admin/settings/acceptance-letter/preview-enrollment-form/route.ts',
+  'src/app/api/admin/settings/acceptance-letter/preview/route.ts',
+  'src/app/api/admin/settings/acceptance-letter/route.ts',
+  'src/app/api/admin/submissions/[id]/ocr/route.ts'
+ ]){
+  const code=source(path);
+  assert.match(code,/sameOrigin\(req\)/,path+' must validate request origin');
+ }
+});

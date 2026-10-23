@@ -1,12 +1,13 @@
 import {db} from '@/lib/firebase-admin';
 import {fail, json, HttpError} from '@/lib/errors';
-import {operator} from '@/lib/security';
+import {operator,sameOrigin} from '@/lib/security';
 import {verifyDocumentText} from '@/lib/ocr-verifier';
 
 export const runtime = 'nodejs';
 
 export async function POST(req: Request, {params}: {params: Promise<{id: string}>}) {
   try {
+    sameOrigin(req);
     const actor = await operator(req, ['super_admin', 'admin', 'reviewer']);
     const {id} = await params;
     const body = await req.json().catch(() => ({}));
