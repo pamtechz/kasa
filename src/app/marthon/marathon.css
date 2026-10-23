@@ -15,3 +15,5 @@
 
 .ml-member-role-select{min-width:150px;border:1px solid #e1ebe4;background:#f8fbf8;border-radius:8px;padding:9px;color:#2a6747;font-size:11px;font-weight:800}
 button.ml-member-active,button.ml-member-inactive{border:0;cursor:pointer}
+
+.ml-school-switch{border-top:1px solid #ecf0ed;margin:18px 0 16px;padding-top:20px}.ml-school-switch .ml-nav-section{display:block;margin-bottom:8px}.ml-school-link{color:#3c7555!important;background:#eef7f1!important}

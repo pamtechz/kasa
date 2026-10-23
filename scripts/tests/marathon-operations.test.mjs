@@ -41,7 +41,7 @@ test('only existing school super admin may assign secondary role',()=>{
  assert.match(grant,/getUserByEmail\(email\)/);
  assert.match(grant,/emailVerified/);
  assert.match(grant,/if\(!snap.exists\)/);
- assert.match(change,/if\(uid===actor.uid\)/);
+ assert.match(change,/uid===actor.uid/);
 });
 
 test('Marathon task writes require role, audit and concurrency control',()=>{

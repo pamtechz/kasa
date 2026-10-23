@@ -218,6 +218,8 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
   const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='KASA-Life-Marathon-Operations.csv';a.click();URL.revokeObjectURL(url);
  }
  const displayName=state.identity.displayName||state.identity.email.split('@')[0]||'Team member';
+ const schoolDestination=['super_admin','admin','reviewer'].includes(state.identity.schoolRole)?'/dashboard':
+  state.identity.schoolRole==='agent'?'/agent-portal':'/student-portal';
  const menu=nav.filter(x=>x.view!=='super'||state.permissions.super).filter(x=>x.view!=='settings'||state.permissions.super).filter(x=>x.view!=='archive'||state.permissions.edit);
  const PageIcon=(menu.find(m=>m.view===view)||nav[0]).icon;
  async function logout(){if(pending.length&&!window.confirm('You have '+pending.length+' unsynced edits stored on this device. Sign out anyway?'))return;await signOutClient();router.replace('/marthon/login');}
@@ -229,6 +231,9 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
    <Link href="/marthon" className="ml-sidebar-brand" onClick={()=>setMobile(false)}><span className="ml-mark">K</span><span><b>KASA <em>LIFE</em></b><small>MARATHON OPERATIONS</small></span></Link>
    <div className="ml-nav-section">WORKSPACE</div>
    <nav aria-label="Marathon workspace navigation">{menu.map(item=>{const Icon=item.icon;return <Link key={item.view} href={item.view==='overview'?'/marthon':'/marthon/'+item.view} className={'ml-nav-item '+(view===item.view?'selected':'')} onClick={()=>setMobile(false)}><Icon size={19}/><span>{item.label}</span>{item.view==='recommendations'&&state.suggestions.some(s=>s.status==='pending')&&<i/>}</Link>;})}</nav>
+   <div className="ml-school-switch"><span className="ml-nav-section">YOUR WORKSPACES</span>
+    <Link href={schoolDestination} className="ml-nav-item ml-school-link"><ArrowDownRight size={19}/><span>Return to KASA School</span></Link>
+   </div>
    <div className="ml-sidebar-event"><div className="ml-sidebar-event-top"><span className="ml-event-kicker"><span className="ml-pulse"/> EVENT COUNTDOWN</span><CalendarDays size={18}/></div><strong>{daysLeft}<small> days</small></strong><span>Sunday, 21 March 2027</span><div className="ml-event-line"><span style={{width:Math.max(5,100-daysLeft/150*100)+'%'}}/></div></div>
    <div className="ml-sidebar-bottom"><div className="ml-sidebar-person"><span className="ml-avatar">{displayName.slice(0,2).toUpperCase()}</span><div><b>{displayName}</b><small>School: {state.identity.schoolRole} · Marathon: {state.identity.role}</small></div><button title="Sign out" aria-label="Sign out" onClick={()=>void logout()}><LogOut size={18}/></button></div></div>
   </aside>
