@@ -1,5 +1,5 @@
 'use client';
-import {useCallback,useEffect,useMemo,useState} from 'react';
+import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import Link from 'next/link';
 import {useRouter} from 'next/navigation';
 import {onAuthStateChanged} from 'firebase/auth';
@@ -12,8 +12,12 @@ import {
 } from 'lucide-react';
 import {authHeaders,getClientAuth,signOutClient} from '@/lib/firebase-client';
 import {
- readMarathonCache,saveMarathonCache,pendingMarathonEdits,queueMarathonEdit,removeMarathonEdit
+ readMarathonCache,saveMarathonCache,pendingMarathonEdits,queueMarathonEdit,
+ claimMarathonEdit,acknowledgeMarathonEdit,flagMarathonConflict,resolveMarathonEdit
 } from '@/lib/marathon-offline';
+import type {PendingEdit} from '@/lib/marathon-offline';
+import {csvEscape,schoolWorkspace} from '@/lib/marathon-export';
+import {MarathonSyncReview} from './MarathonSyncReview';
 import type {MarathonTask,MarathonRole,MarathonStatus} from '@/lib/marathon-types';
 
 type Identity={uid:string;email:string;displayName:string;schoolRole:string;role:MarathonRole};
@@ -21,21 +25,22 @@ type Suggestion={id:string;taskId:string;recommendation:string;proposedStatus?:M
 type Member={uid:string;email:string;displayName:string;schoolRole:string;role:MarathonRole;schoolActive:boolean;marathonActive:boolean;active:boolean};
 type EventItem={id:string;action:string;actor:string;at:string;taskId?:string;targetUid?:string;changes?:Record<string,unknown>};
 type Permissions={edit:boolean;review:boolean;manage:boolean;super:boolean};
-type Bootstrap={identity:Identity;tasks:MarathonTask[];meta:Record<string,unknown>|null;suggestions:Suggestion[];members:Member[];permissions:Permissions};
-type View='overview'|'operations'|'timeline'|'recommendations'|'archive'|'settings'|'team'|'super'|'activity';
+type Bootstrap={identity:Identity;tasks:MarathonTask[];meta:Record<string,unknown>|null;suggestions:Suggestion[];nextSuggestionCursor?:string|null;members:Member[];permissions:Permissions};
+type View='overview'|'operations'|'timeline'|'recommendations'|'archive'|'settings'|'team'|'super'|'activity'|'sync';
 type EditChanges=Partial<Pick<MarathonTask,'title'|'lead'|'dueDate'|'priority'|'importance'|'status'|'nextStep'|'notes'|'evidence'|'completedAt'|'archived'>>;
-const validViews:View[]=['overview','operations','timeline','recommendations','archive','settings','team','super','activity'];
+const validViews:View[]=['overview','operations','timeline','recommendations','archive','settings','team','super','activity','sync'];
 const blank:Bootstrap={identity:{uid:'',email:'',displayName:'',schoolRole:'student',role:'kasaClient'},tasks:[],meta:null,suggestions:[],members:[],permissions:{edit:false,review:false,manage:false,super:false}};
 const statusLabels:Record<MarathonStatus,string>={todo:'Not started',doing:'In progress',blocked:'Blocked',done:'Completed'};
 const roles=['kasaAdmin','kasaOperations','kasaEditor','kasaReviewer','kasaClient'] as const;
 const nav=[{view:'overview' as View,label:'Overview',icon:LayoutDashboard},{view:'operations' as View,label:'Operations',icon:ClipboardCheck},
  {view:'timeline' as View,label:'Event timeline',icon:CalendarDays},{view:'recommendations' as View,label:'Recommendations',icon:MessageSquarePlus},
  {view:'activity' as View,label:'Activity log',icon:Activity},{view:'archive' as View,label:'Archive & recovery',icon:Trash2},{view:'settings' as View,label:'Settings & roles',icon:Settings2},
+ {view:'sync' as View,label:'Offline edits',icon:CloudOff},
  {view:'super' as View,label:'Super admin',icon:ShieldCheck}];
 function formatDate(value:string|null|undefined){if(!value)return 'Not set';const date=new Date(value.length===10?value+'T12:00:00':value);return Number.isNaN(+date)?'Not set':new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',year:'numeric'}).format(date);}
 function dateTimeLocal(iso:string|null|undefined){if(!iso)return '';const d=new Date(iso);const p=(n:number)=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes());}
-function csvEscape(value:unknown){return '"'+String(value??'').replace(/"/g,'""')+'"';}
-function isNetworkFailure(e:unknown){return typeof navigator!=='undefined'&&!navigator.onLine||e instanceof TypeError;}
+function isNetworkFailure(e:unknown){return e instanceof TypeError||(e instanceof Error&&'code' in e&&e.code==='auth/network-request-failed');}
+function overlayPending(data:Bootstrap,edits:PendingEdit[]):Bootstrap{return {...data,tasks:data.tasks.map(t=>{const edit=edits.find(e=>e.taskId===t.id);return edit?{...t,...edit.changes} as MarathonTask:t;})};}
 async function api<T>(path:string,init:RequestInit={}):Promise<T>{
  const headers=await authHeaders();
  const response=await fetch(path,{...init,cache:'no-store',headers:{...headers,...(init.body?{'Content-Type':'application/json'}:{}),...init.headers}});
@@ -52,7 +57,7 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
  const router=useRouter();
  const view=validViews.includes(section as View)?section as View:'overview';
  const [state,setState]=useState<Bootstrap>(blank),[loading,setLoading]=useState(true),[offline,setOffline]=useState(false);
- const [authError,setAuthError]=useState(''),[notice,setNotice]=useState(''),[pending,setPending]=useState<string[]>([]);
+ const [authError,setAuthError]=useState(''),[notice,setNotice]=useState(''),[queuedEdits,setQueuedEdits]=useState<PendingEdit[]>([]);
  const [drawer,setDrawer]=useState<MarathonTask|null>(null),[newTask,setNewTask]=useState(false),[mobile,setMobile]=useState(false);
  const [saving,setSaving]=useState(false),[query,setQuery]=useState(''),[filterStatus,setFilterStatus]=useState('all');
  const [filterPriority,setFilterPriority]=useState('all'),[filterLead,setFilterLead]=useState('all');
@@ -60,63 +65,144 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
  const [suggestTask,setSuggestTask]=useState(''),[suggestText,setSuggestText]=useState(''),[suggestStatus,setSuggestStatus]=useState<MarathonStatus>('done');
  const [inviteEmail,setInviteEmail]=useState(''),[inviteRole,setInviteRole]=useState<typeof roles[number]>('kasaClient');
  const [importing,setImporting]=useState(false);
+ const authUid=useRef(''),syncingRef=useRef(false),initializedUid=useRef(''),suggestionRequest=useRef(0),reviewRequest=useRef(0);
+ const [syncing,setSyncing]=useState(false),[reviewEdit,setReviewEdit]=useState<PendingEdit|null>(null);
+ const [reviewTask,setReviewTask]=useState<MarathonTask|null>(null),[reviewError,setReviewError]=useState('');
+ const [suggestionCursor,setSuggestionCursor]=useState<string|null>(null),[suggestionFilter,setSuggestionFilter]=useState('pending');
+ const [suggestionLoading,setSuggestionLoading]=useState(false);
+ const pending=queuedEdits.map(x=>x.taskId);
  const uid=state.identity.uid;
  const hydrate=useCallback(async(userUid:string)=>{
   try{
    const data=await api<Bootstrap>('/api/marathon/bootstrap');
-   setState(data);setOffline(false);setAuthError('');
+   if(authUid.current!==userUid)return;
+   let local:PendingEdit[]=[];
+   try{local=await pendingMarathonEdits(userUid);}
+   catch{setNotice('Offline storage is unavailable. Changes require a successful online save on this device.');}
+   if(authUid.current!==userUid)return;
+   const next=overlayPending(data,local);
+   const initial=initializedUid.current!==userUid;
+   setState(previous=>initial?next:{...next,suggestions:previous.suggestions});
+   if(initial){setSuggestionCursor(data.nextSuggestionCursor||null);initializedUid.current=userUid;}
+   setQueuedEdits(local);setOffline(false);setAuthError('');
    await saveMarathonCache(userUid,data).catch(()=>{});
-   const local=await pendingMarathonEdits(userUid);setPending(local.map(x=>x.taskId));
   }catch(e){
+   if(authUid.current!==userUid)return;
    if(isNetworkFailure(e)){
     const cached=await readMarathonCache(userUid);
-    if(cached){setState(cached.data as Bootstrap);setOffline(true);
-     const local=await pendingMarathonEdits(userUid);setPending(local.map(x=>x.taskId));setAuthError('');return;}
+    if(cached){
+     const local=await pendingMarathonEdits(userUid).catch(()=>[]);
+     if(authUid.current!==userUid)return;
+     setState(overlayPending(cached.data as Bootstrap,local));setQueuedEdits(local);
+     setOffline(true);setAuthError('');return;
+    }
    }
-   setAuthError(errorMessage(e));
-  }finally{setLoading(false);}
+   // Never continue displaying a privileged cached workspace after a server denial.
+   setState(blank);setQueuedEdits([]);initializedUid.current='';setAuthError(errorMessage(e));
+  }finally{if(authUid.current===userUid)setLoading(false);}
  },[]);
  useEffect(()=>{
   let active=true;const a=getClientAuth();
   if(!a){setAuthError('Firebase sign-in is not configured.');setLoading(false);return;}
   const unsub=onAuthStateChanged(a,user=>{
    if(!active)return;
+   const nextUid=user?.uid||'';
+   if(authUid.current!==nextUid){setState(blank);setQueuedEdits([]);setReviewEdit(null);setLoading(true);initializedUid.current='';}
+   authUid.current=nextUid;
    if(!user){router.replace('/marthon/login');return;}
    if(!user.emailVerified){setAuthError('Verify your email address first.');setLoading(false);return;}
    void hydrate(user.uid);
   });
-  return ()=>{active=false;unsub();};
+  return ()=>{active=false;authUid.current='';unsub();};
  },[hydrate,router]);
- const refresh=useCallback(async()=>{if(!uid)return;await hydrate(uid);},[hydrate,uid]);
+ const refresh=useCallback(async()=>{if(uid)await hydrate(uid);},[hydrate,uid]);
  const flush=useCallback(async()=>{
-  if(!uid||!navigator.onLine)return;
-  const list=await pendingMarathonEdits(uid);
-  if(!list.length)return;
-  for(const edit of list){
-   try{
-    await api('/api/marathon/tasks/'+encodeURIComponent(edit.taskId),{
-     method:'PATCH',body:JSON.stringify({expectedRevision:edit.expectedRevision,mutationId:edit.mutationId,changes:edit.changes})
-    });
-    await removeMarathonEdit(edit.key);
-   }catch(e){
-    setNotice((e as Error&{status?:number}).status===409?
-     'A queued edit conflicts with a newer update. Your offline edit is preserved; ask a coordinator to reconcile it.':
-     'Some offline edits are pending. '+errorMessage(e));
-    break;
+  if(!uid||!navigator.onLine||syncingRef.current)return;
+  syncingRef.current=true;setSyncing(true);
+  let hadPending=false;
+  const run=async()=>{
+   const attempted=new Set<string>();
+   while(authUid.current===uid){
+    const list=await pendingMarathonEdits(uid);
+    if(list.length)hadPending=true;
+    let sentAny=false;
+    for(const entry of list){
+     if(authUid.current!==uid)return;
+     const id=entry.submitted?.mutationId||entry.mutationId;
+     if(entry.conflict||attempted.has(id))continue;
+     const edit=await claimMarathonEdit(entry.key);
+     if(!edit)continue;
+     attempted.add(edit.mutationId);sentAny=true;
+     try{
+      const result=await api<{task:MarathonTask;appliedRevision:number}>('/api/marathon/tasks/'+encodeURIComponent(edit.taskId),{
+       method:'PATCH',body:JSON.stringify({expectedRevision:edit.expectedRevision,mutationId:edit.mutationId,changes:edit.changes})
+      });
+      await acknowledgeMarathonEdit(edit,result.appliedRevision);
+     }catch(e){
+      const status=(e as Error&{status?:number}).status;
+      if(status&&[400,404,409].includes(status)){
+       await flagMarathonConflict(edit,errorMessage(e));
+       setNotice('A saved edit needs review. Other actions continue syncing. Open Offline edits to compare and resolve it.');
+       continue;
+      }
+      setNotice('Saved edits remain on this device. '+errorMessage(e));
+      return;
+     }
+    }
+    if(!sentAny)break;
    }
+  };
+  try{
+   // Coordinate tabs as well as React callbacks. The persisted submitted request
+   // and compare-and-swap acknowledgement also protect browsers without Web Locks.
+   if(navigator.locks)await navigator.locks.request('kasa-marathon-sync:'+uid,run);else await run();
+  }catch(e){if(authUid.current===uid)setNotice('Unable to sync saved edits. '+errorMessage(e));}
+  finally{
+   if(authUid.current===uid){if(hadPending)await hydrate(uid);setSyncing(false);}
+   syncingRef.current=false;
   }
-  const remaining=await pendingMarathonEdits(uid);
-  setPending(remaining.map(x=>x.taskId));
-  if(!remaining.length)await refresh();
- },[uid,refresh]);
+ },[uid,hydrate]);
  useEffect(()=>{
   if(!uid)return;
-  const online=()=>{setOffline(false);void flush();};
+  const online=()=>{void refresh().then(()=>flush());};
   const away=()=>setOffline(true);
-  window.addEventListener('online',online);window.addEventListener('offline',away);
+  const focus=()=>{if(navigator.onLine)void flush();};
+  window.addEventListener('online',online);window.addEventListener('offline',away);window.addEventListener('focus',focus);
+  const timer=window.setInterval(()=>{if(navigator.onLine)void flush();},30000);
   if(navigator.onLine)void flush();else setOffline(true);
-  return ()=>{window.removeEventListener('online',online);window.removeEventListener('offline',away);};
- },[uid,flush]);
+  return ()=>{window.removeEventListener('online',online);window.removeEventListener('offline',away);window.removeEventListener('focus',focus);window.clearInterval(timer);};
+ },[uid,flush,refresh]);
+ const loadSuggestions=useCallback(async(cursor:string|null=null)=>{
+  if(!uid)return;
+  const request=++suggestionRequest.current;setSuggestionLoading(true);
+  try{
+   const page=await api<{suggestions:Suggestion[];nextSuggestionCursor:string|null}>('/api/marathon/suggestions?status='+suggestionFilter+(cursor?'&cursor='+encodeURIComponent(cursor):''));
+   if(authUid.current!==uid||request!==suggestionRequest.current)return;
+   setState(s=>({...s,suggestions:cursor?[...new Map([...s.suggestions,...page.suggestions].map(x=>[x.id,x])).values()]:page.suggestions}));
+   setSuggestionCursor(page.nextSuggestionCursor);
+  }catch(e){if(authUid.current===uid)setNotice(errorMessage(e));}
+  finally{if(request===suggestionRequest.current)setSuggestionLoading(false);}
+ },[uid,suggestionFilter]);
+ useEffect(()=>{if(view==='recommendations'&&!offline)void loadSuggestions();},[view,offline,loadSuggestions]);
+ async function inspectEdit(edit:PendingEdit){
+  const request=++reviewRequest.current;
+  setReviewEdit(edit);setReviewTask(null);setReviewError('');
+  try{
+   const result=await api<{task:MarathonTask}>('/api/marathon/tasks/'+encodeURIComponent(edit.taskId));
+   if(authUid.current===uid&&request===reviewRequest.current)setReviewTask(result.task);
+  }catch(e){if(authUid.current===uid&&request===reviewRequest.current)setReviewError(errorMessage(e));}
+ }
+ async function resolveEdit(retry:boolean){
+  if(!reviewEdit||(retry&&(!reviewTask||reviewTask.id!==reviewEdit.taskId)))return;
+  setSaving(true);
+  try{
+   const resolved=await resolveMarathonEdit(reviewEdit,retry?reviewTask!.revision:undefined);
+   if(!resolved)throw Error('This saved edit changed or is syncing. Close this comparison and review it again.');
+   setReviewEdit(null);await hydrate(uid);
+   setNotice(retry?'Your changes will be checked against the reviewed version before saving.':'Device edit discarded. The saved online record is retained.');
+   if(retry)void flush();
+  }catch(e){setReviewError(errorMessage(e));}finally{setSaving(false);}
+ }
  useEffect(()=>{if(view==='activity'&&uid&&!offline)void api<{events:EventItem[]}>('/api/marathon/activity').then(x=>setEvents(x.events)).catch(e=>setNotice(errorMessage(e)));},[view,uid,offline]);
  const tasks=state.tasks;
  const today=new Date().toISOString().slice(0,10);
@@ -139,28 +225,32 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
  async function changeTask(task:MarathonTask,changes:EditChanges){
   if(!state.permissions.edit)return;
   setSaving(true);setNotice('');
-  const update=(saved:MarathonTask)=>setState(prev=>({...prev,tasks:prev.tasks.map(x=>x.id===saved.id?saved:x)}));
-  const pendingId=pending.includes(task.id);
-  const mutationId=crypto.randomUUID();
   try{
-   if(pendingId||offline||!navigator.onLine)throw new TypeError('Offline');
-   const result=await api<{task:MarathonTask}>('/api/marathon/tasks/'+encodeURIComponent(task.id),{
-    method:'PATCH',body:JSON.stringify({expectedRevision:task.revision,mutationId,changes})
-   });
-   update(result.task);setNotice('Action updated successfully.');setDrawer(null);
-   await saveMarathonCache(uid,{...state,tasks:state.tasks.map(x=>x.id===task.id?result.task:x)}).catch(()=>{});
-  }catch(e){
-   if(isNetworkFailure(e)||pendingId){
-    const queued=await queueMarathonEdit(uid,task.id,task.revision,changes,mutationId);
-    const updated={...task,...changes} as MarathonTask;
-    update(updated);setPending(p=>[...new Set([...p,task.id])]);
-    setOffline(!navigator.onLine);setNotice('Saved on this device. Will sync when the connection returns.');
-    setDrawer(null);
-    await saveMarathonCache(uid,{...state,tasks:state.tasks.map(x=>x.id===task.id?updated:x)}).catch(()=>{});
-    if(navigator.onLine)void flush();
-    void queued;
-   }else setNotice(errorMessage(e));
-  }finally{setSaving(false);}
+   // Persist before any request, including online edits. A lost response can then
+   // be retried with the exact submitted ID and payload after a reload.
+   try{await queueMarathonEdit(uid,task.id,task.revision,changes);}
+   catch(storageError){
+    if(!navigator.onLine||offline)throw storageError;
+    // Browsers that disable device storage can still confirm an online save.
+    // Keep the form if the server cannot confirm it; never claim it was queued.
+    const result=await api<{task:MarathonTask}>('/api/marathon/tasks/'+encodeURIComponent(task.id),{
+     method:'PATCH',body:JSON.stringify({expectedRevision:task.revision,mutationId:crypto.randomUUID(),changes})
+    });
+    if(authUid.current!==uid)return;
+    setState(s=>({...s,tasks:s.tasks.map(t=>t.id===task.id?result.task:t)}));
+    setDrawer(null);await hydrate(uid);setNotice('Action saved online. Offline storage is unavailable on this device.');return;
+   }
+   const local=await pendingMarathonEdits(uid);
+   if(authUid.current!==uid)return;
+   setQueuedEdits(local);setState(previous=>overlayPending(previous,local));setDrawer(null);
+   if(navigator.onLine&&!offline){
+    await flush();
+    const remaining=await pendingMarathonEdits(uid);
+    if(!remaining.some(x=>x.taskId===task.id))setNotice('Action updated successfully.');
+    else setNotice('Your edit is saved on this device. Open Offline edits to check its sync status.');
+   }else setNotice('Saved on this device. Will sync when the connection returns.');
+  }catch(e){setNotice('This edit could not be saved. Keep the form open and retry. '+errorMessage(e));}
+  finally{setSaving(false);}
  }
  async function createTask(values:{title:string;lead:string;dueDate:string|null;priority:string;importance:string;nextStep:string;notes:string}){
   setSaving(true);
@@ -174,15 +264,15 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
   e.preventDefault();setSaving(true);
   try{
    if(!navigator.onLine)throw Error('Recommendations can be submitted after reconnecting.');
-   const result=await api<{suggestion:Suggestion}>('/api/marathon/suggestions',{method:'POST',body:JSON.stringify({taskId:suggestTask,recommendation:suggestText,proposedStatus:suggestStatus})});
-   setState(s=>({...s,suggestions:[result.suggestion,...s.suggestions]}));
+   await api<{suggestion:Suggestion}>('/api/marathon/suggestions',{method:'POST',body:JSON.stringify({taskId:suggestTask,recommendation:suggestText,proposedStatus:suggestStatus})});
+   await loadSuggestions();
    setSuggestText('');setSuggestTask('');setNotice('Recommendation submitted to the review queue.');
   }catch(e){setNotice(errorMessage(e));}finally{setSaving(false);}
  }
  async function reviewSuggestion(s:Suggestion,decision:'accepted'|'rejected'){
   try{
    await api('/api/marathon/suggestions/'+encodeURIComponent(s.id),{method:'PATCH',body:JSON.stringify({decision})});
-   setState(x=>({...x,suggestions:x.suggestions.map(t=>t.id===s.id?{...t,status:decision}:t)}));
+   await loadSuggestions();
    setNotice('Recommendation '+decision+'. The actual checklist requires a separate approval and update.');
   }catch(e){setNotice(errorMessage(e));}
  }
@@ -218,8 +308,7 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
   const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='KASA-Life-Marathon-Operations.csv';a.click();URL.revokeObjectURL(url);
  }
  const displayName=state.identity.displayName||state.identity.email.split('@')[0]||'Team member';
- const schoolDestination=['super_admin','admin','reviewer'].includes(state.identity.schoolRole)?'/dashboard':
-  state.identity.schoolRole==='agent'?'/agent-portal':'/student-portal';
+ const schoolDestination=schoolWorkspace(state.identity.schoolRole);
  const menu=nav.filter(x=>x.view!=='super'||state.permissions.super).filter(x=>x.view!=='settings'||state.permissions.super).filter(x=>x.view!=='archive'||state.permissions.edit);
  const PageIcon=(menu.find(m=>m.view===view)||nav[0]).icon;
  async function logout(){if(pending.length&&!window.confirm('You have '+pending.length+' unsynced edits stored on this device. Sign out anyway?'))return;await signOutClient();router.replace('/marthon/login');}
@@ -239,26 +328,26 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
   </aside>
   {mobile&&<button className="ml-mobile-overlay" aria-label="Close menu" onClick={()=>setMobile(false)}/>}
   <main className="ml-main">
-   <header className="ml-topbar"><div className="ml-top-left"><button className="ml-mobile-menu" aria-label="Open navigation" onClick={()=>setMobile(true)}><Menu size={22}/></button><span className="ml-breadcrumb">Marathon operations</span><ChevronRight size={15}/><strong>{menu.find(x=>x.view===view)?.label||'Overview'}</strong></div><div className="ml-top-actions"><span className={'ml-sync-status '+(offline?'off':'')}>{offline?<WifiOff size={15}/>:pending.length?<CloudOff size={15}/>:<Cloud size={15}/>} {offline?'Offline':pending.length?pending.length+' pending':'Synced'}</span><button aria-label="Refresh" title="Refresh data" onClick={()=>void refresh()}><RefreshCcw size={18}/></button><span className="ml-top-divider"/><span className="ml-avatar ml-avatar-small">{displayName.slice(0,2).toUpperCase()}</span></div></header>
+   <header className="ml-topbar"><div className="ml-top-left"><button className="ml-mobile-menu" aria-label="Open navigation" onClick={()=>setMobile(true)}><Menu size={22}/></button><span className="ml-breadcrumb">Marathon operations</span><ChevronRight size={15}/><strong>{menu.find(x=>x.view===view)?.label||'Overview'}</strong></div><div className="ml-top-actions"><span className={'ml-sync-status '+(offline?'off':'')}>{offline?<WifiOff size={15}/>:pending.length?<CloudOff size={15}/>:<Cloud size={15}/>} {syncing?'Syncing…':offline?'Offline':pending.length?pending.length+' pending':'Synced'}</span><button aria-label="Refresh" title="Refresh data" onClick={()=>void refresh().then(()=>flush())}><RefreshCcw size={18}/></button><span className="ml-top-divider"/><span className="ml-avatar ml-avatar-small">{displayName.slice(0,2).toUpperCase()}</span></div></header>
    <div className="ml-content">
     {!!notice&&<div className="ml-notice" role="status"><span>{notice}</span><button onClick={()=>setNotice('')} aria-label="Dismiss notification"><X size={17}/></button></div>}
     {!!authError&&uid&&<div className="ml-notice ml-warning"><AlertTriangle size={17}/>{authError}</div>}
     {offline&&<div className="ml-offline-notice"><CloudOff size={17}/> You are viewing cached operations. Changes to existing tasks are stored on this device until connectivity returns.</div>}
     {view==='overview'&&<>
-     <div className="ml-heading-row"><div><span className="ml-eyebrow">EVENT CONTROL CENTRE · 2027</span><h1>Good day, {displayName.split(' ')[0]} <span className="ml-greeting">✳</span></h1><p>Here is where your event preparations stand today.</p></div><div className="ml-heading-actions"><button className="ml-secondary" onClick={exportCSV}><Download size={17}/> Export</button>{state.permissions.edit&&<button className="ml-primary" onClick={()=>setNewTask(true)}><Plus size={17}/> New action</button>}</div></div>
+     <div className="ml-heading-row"><div><span className="ml-eyebrow">EVENT CONTROL CENTRE · 2027</span><h1>Good day, {displayName.split(' ')[0]} <Flag className="ml-greeting" size={24}/></h1><p>Here is where your event preparations stand today.</p></div><div className="ml-heading-actions"><button className="ml-secondary" onClick={exportCSV}><Download size={17}/> Export</button>{state.permissions.edit&&<button className="ml-primary" onClick={()=>setNewTask(true)}><Plus size={17}/> New action</button>}</div></div>
      <div className="ml-hero"><div className="ml-hero-copy"><span className="ml-hero-tag"><span className="ml-pulse"/> KASA LIFE MARATHON 2027</span><h2>Making every mile<br/><i>count.</i></h2><p>One shared workspace for planning, approvals, preparations and the event-day experience.</p><Link href="/marthon/operations" className="ml-hero-button">Explore operations <ArrowRight size={17}/></Link></div><div className="ml-hero-art"><div className="ml-orbit big"/><div className="ml-orbit small"/><span>21<span className="ml-runner-dot">•</span></span><b>MAR<br/>2027</b></div><div className="ml-hero-foot"><span>21.1 KM HALF MARATHON</span><span>10 KM RUN</span><span>5 KM FAMILY RUN</span></div></div>
      <div className="ml-kpis"><Metric label="Total actions" value={active.length} icon={Layers3} note="Across all workstreams"/><Metric label="Completed" value={complete} icon={CheckCircle2} note={pct+'% of all actions'} accent="green"/><Metric label="In progress" value={inProgress} icon={Clock3} note="Active assignments" accent="blue"/><Metric label="Overdue" value={overdue} icon={AlertTriangle} note="Require immediate attention" accent="amber"/></div>
      <div className="ml-grid-two"><section className="ml-panel"><div className="ml-panel-head"><div><span className="ml-eyebrow">PROGRESS OVERVIEW</span><h3>Event readiness</h3></div><span className="ml-panel-icon"><TrendingUp size={19}/></span></div><div className="ml-progress-content"><div className="ml-donut" style={{background:'conic-gradient(#258660 '+pct+'%,#e9f0ed 0)'}}><div><strong>{pct}%</strong><small>complete</small></div></div><div className="ml-progress-legend"><div><span className="ml-legend-dot green"/>Completed<b>{complete}</b></div><div><span className="ml-legend-dot blue"/>In progress<b>{inProgress}</b></div><div><span className="ml-legend-dot amber"/>Not started / blocked<b>{active.length-complete-inProgress}</b></div><div className="ml-progress-tip"><Target size={18}/> {critical} critical tasks remain open</div></div></div></section>
       <section className="ml-panel"><div className="ml-panel-head"><div><span className="ml-eyebrow">IMMEDIATE ATTENTION</span><h3>Priority decisions</h3></div><Link href="/marthon/operations" className="ml-link">View all <ArrowUpRight size={16}/></Link></div><div className="ml-decision-list">{sortTasks(active.filter(t=>t.priority.startsWith('P1')&&t.status!=='done')).slice(0,5).map(t=><button className="ml-decision" key={t.id} onClick={()=>setDrawer(t)}><span className="ml-decision-ic"><Flag size={17}/></span><span><b>{t.title}</b><small>{t.lead} · {formatDate(t.dueDate)}</small></span><ChevronRight size={17}/></button>)}{!active.some(t=>t.priority.startsWith('P1')&&t.status!=='done')&&<p>All immediate decisions have been addressed.</p>}</div></section></div>
      <div className="ml-section-row"><div><span className="ml-eyebrow">WHAT IS NEXT</span><h3>Upcoming operations</h3></div><Link className="ml-link" href="/marthon/operations">Open operations <ArrowRight size={17}/></Link></div>
-     <div className="ml-task-list">{sortTasks(active.filter(t=>t.status!=='done')).slice(0,6).map(t=><TaskRow key={t.id} task={t} queued={pending.includes(t.id)} onOpen={()=>setDrawer(t)} onQuickDone={state.permissions.edit?()=>void changeTask(t,{status:'done'}):undefined}/>)}</div>
+     <div className="ml-task-list">{sortTasks(active.filter(t=>t.status!=='done')).slice(0,6).map(t=><TaskRow key={t.id} task={t} queued={pending.includes(t.id)} onOpen={()=>setDrawer(t)} onQuickDone={state.permissions.edit?()=>void changeTask(t,{status:t.status==='done'?'todo':'done'}):undefined}/>)}</div>
     </>}
     {view==='operations'&&<>
      <div className="ml-heading-row"><div><span className="ml-eyebrow">WORKSTREAM MANAGEMENT</span><h1>Operations board</h1><p>Organise work, record evidence and complete every checklist item.</p></div><div className="ml-heading-actions"><button className="ml-secondary" onClick={exportCSV}><Download size={17}/> Export</button>{state.permissions.edit&&<button className="ml-primary" onClick={()=>setNewTask(true)}><Plus size={17}/> New action</button>}</div></div>
      <div className="ml-mini-stats"><span><i className="ml-legend-dot green"/>{complete} completed</span><span><i className="ml-legend-dot blue"/>{inProgress} in progress</span><span><i className="ml-legend-dot amber"/>{overdue} overdue</span><span>{active.length} total</span></div>
      <div className="ml-filterbar"><div className="ml-search"><Search size={18}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search actions, IDs, owners…" aria-label="Search actions"/></div><select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} aria-label="Filter by status"><option value="all">All statuses</option>{Object.entries(statusLabels).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select><select value={filterPriority} onChange={e=>setFilterPriority(e.target.value)} aria-label="Filter by priority"><option value="all">All priorities</option><option value="P1">P1 · Act now</option><option value="P2">P2 · Next 30 days</option><option value="P3">P3 · Scheduled</option></select><select value={filterLead} onChange={e=>setFilterLead(e.target.value)} aria-label="Filter by team"><option value="all">All teams</option>{leads.map(l=><option key={l}>{l}</option>)}</select></div>
      <div className="ml-task-results"><b>{filtered.length} actions</b><span>Sorted by urgency and due date</span></div>
-     <div className="ml-task-list">{filtered.map(t=><TaskRow key={t.id} task={t} queued={pending.includes(t.id)} onOpen={()=>setDrawer(t)} onQuickDone={state.permissions.edit?()=>void changeTask(t,{status:'done'}):undefined}/>)}{!filtered.length&&<EmptyState text="No actions match your filters."/>}</div>
+     <div className="ml-task-list">{filtered.map(t=><TaskRow key={t.id} task={t} queued={pending.includes(t.id)} onOpen={()=>setDrawer(t)} onQuickDone={state.permissions.edit?()=>void changeTask(t,{status:t.status==='done'?'todo':'done'}):undefined}/>)}{!filtered.length&&<EmptyState text="No actions match your filters."/>}</div>
     </>}
     {view==='timeline'&&<>
      <div className="ml-heading-row"><div><span className="ml-eyebrow">DATES & DEPENDENCIES</span><h1>Event timeline</h1><p>Track the major stages from decision-making to race day and close-out.</p></div><span className="ml-countdown-pill"><CalendarDays size={18}/>{daysLeft} days to race day</span></div>
@@ -278,7 +367,11 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
     {view==='recommendations'&&<>
      <div className="ml-heading-row"><div><span className="ml-eyebrow">COLLABORATION</span><h1>Recommendations</h1><p>Suggest corrections, report progress and route proposals for review.</p></div></div>
      <div className="ml-grid-two ml-recommend-layout"><div className="ml-panel"><div className="ml-panel-head"><div><span className="ml-eyebrow">SEND A SUGGESTION</span><h3>Propose an update</h3></div><MessageSquarePlus size={22}/></div><form className="ml-form" onSubmit={sendSuggestion}><label>Checklist action<select required value={suggestTask} onChange={e=>setSuggestTask(e.target.value)}><option value="">Select action</option>{sortTasks(active).map(t=><option key={t.id} value={t.id}>{t.id} · {t.title.slice(0,70)}</option>)}</select></label><label>Suggested progress<select value={suggestStatus} onChange={e=>setSuggestStatus(e.target.value as MarathonStatus)}>{Object.entries(statusLabels).map(([key,value])=><option key={key} value={key}>{value}</option>)}</select></label><label>Your recommendation<textarea required minLength={10} rows={5} placeholder="Describe the progress made, evidence available, or change that should be recorded." value={suggestText} onChange={e=>setSuggestText(e.target.value)}/></label><button disabled={saving} className="ml-primary" type="submit"><ArrowRight size={17}/> Submit recommendation</button></form></div>
-      <div className="ml-panel"><div className="ml-panel-head"><div><span className="ml-eyebrow">REVIEW DESK</span><h3>Submitted proposals</h3></div><span className="ml-count-badge">{state.suggestions.length}</span></div><div className="ml-suggestions">{state.suggestions.length?state.suggestions.map(s=><article className="ml-suggestion" key={s.id}><div><b>{s.taskId}</b><span className="ml-status ml-status-doing">{s.status}</span></div><p>{s.recommendation}</p><small>From {s.createdName} · {formatDate(s.createdAt)}</small>{state.permissions.review&&s.status==='pending'&&<div className="ml-suggestion-actions"><button onClick={()=>void reviewSuggestion(s,'accepted')}><Check size={16}/> Accept</button><button onClick={()=>void reviewSuggestion(s,'rejected')}><X size={16}/> Decline</button></div>}</article>):<EmptyState text="No submitted recommendations yet."/>}</div></div></div>
+      <div className="ml-panel"><div className="ml-panel-head"><div><span className="ml-eyebrow">REVIEW DESK</span><h3>Submitted proposals</h3></div><span className="ml-count-badge">{state.suggestions.length}</span></div><div className="ml-suggestion-filters">{state.permissions.review&&<label>Status <select aria-label="Recommendation status" value={suggestionFilter} onChange={e=>setSuggestionFilter(e.target.value)}><option value="pending">Pending</option><option value="accepted">Accepted</option><option value="rejected">Declined</option><option value="all">All statuses</option></select></label>}<button className="ml-secondary" disabled={suggestionLoading||offline} onClick={()=>void loadSuggestions()}><RefreshCcw size={15}/> Refresh</button></div><div className="ml-suggestions" aria-busy={suggestionLoading}>{state.suggestions.length?state.suggestions.map(s=><article className="ml-suggestion" key={s.id}><div><b>{s.taskId}</b><span className="ml-status ml-status-doing">{s.status}</span></div><p>{s.recommendation}</p><small>From {s.createdName} · {formatDate(s.createdAt)}</small>{state.permissions.review&&s.status==='pending'&&<div className="ml-suggestion-actions"><button onClick={()=>void reviewSuggestion(s,'accepted')}><Check size={16}/> Accept</button><button onClick={()=>void reviewSuggestion(s,'rejected')}><X size={16}/> Decline</button></div>}</article>):<EmptyState text={suggestionLoading?"Loading recommendations…":"No recommendations in this view."}/>}</div>{suggestionCursor&&<button className="ml-secondary ml-load-more" disabled={suggestionLoading||offline} onClick={()=>void loadSuggestions(suggestionCursor)}>{suggestionLoading?'Loading…':'Load more recommendations'}</button>}</div></div>
+    </>}
+    {view==='sync'&&<>
+     <div className="ml-heading-row"><div><span className="ml-eyebrow">DEVICE & ONLINE CHANGES</span><h1>Offline edits</h1><p>Review changes saved on this device. Resolve conflicts without blocking other actions.</p></div><button className="ml-primary" disabled={syncing||offline} onClick={()=>void flush()}><RefreshCcw size={17}/>{syncing?'Syncing…':'Sync now'}</button></div>
+     <div className="ml-sync-list">{queuedEdits.map(edit=><article className="ml-panel" key={edit.key}><div className="ml-panel-head"><div><span className="ml-eyebrow">{edit.taskId}</span><h3>{tasks.find(t=>t.id===edit.taskId)?.title||'Saved action'}</h3></div><span className={edit.conflict?'ml-status ml-status-blocked':'ml-status ml-status-doing'}>{edit.conflict?'Needs review':edit.submitted?'Awaiting confirmation':'Waiting to sync'}</span></div><p className="ml-panel-description">{edit.conflict||'Your change is saved here until the server confirms it.'}</p><button className="ml-secondary" onClick={()=>void inspectEdit(edit)}><Eye size={17}/> Review saved changes</button></article>)}{!queuedEdits.length&&<EmptyState text="No offline edits are waiting on this device."/>}</div>
     </>}
     {view==='activity'&&<>
      <div className="ml-heading-row"><div><span className="ml-eyebrow">ACCOUNTABILITY</span><h1>Activity & audit log</h1><p>Every recorded update includes who submitted it and when it was recorded.</p></div><button className="ml-secondary" onClick={()=>void api<{events:EventItem[]}>('/api/marathon/activity').then(x=>setEvents(x.events)).catch(e=>setNotice(errorMessage(e)))}><RefreshCcw size={16}/> Refresh</button></div>
@@ -297,20 +390,21 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
     </>}
    </div>
   </main>
+  {reviewEdit&&<MarathonSyncReview edit={reviewEdit} current={reviewTask} error={reviewError} busy={saving||syncing} onClose={()=>{reviewRequest.current++;setReviewEdit(null);}} onResolve={retry=>void resolveEdit(retry)}/>}
   {drawer&&<TaskDrawer task={drawer} editable={state.permissions.edit} saving={saving} queued={pending.includes(drawer.id)} onClose={()=>setDrawer(null)} onSave={changes=>void changeTask(drawer,changes)} onRecommend={()=>{setSuggestTask(drawer.id);setDrawer(null);router.push('/marthon/recommendations');}}/>}
   {newTask&&<NewTaskModal saving={saving} onClose={()=>setNewTask(false)} onSave={x=>void createTask(x)}/>}
  </div>;
 }
 function Metric({label,value,icon:Icon,note,accent=''}:{label:string;value:number|string;icon:typeof Layers3;note:string;accent?:string}){return <div className={'ml-metric '+accent}><span className="ml-metric-label">{label}<span className="ml-metric-icon"><Icon size={19}/></span></span><strong>{value}</strong><small>{note}</small></div>;}
 function EmptyState({text}:{text:string}){return <div className="ml-empty"><ClipboardCheck size={28}/><p>{text}</p></div>;}
-function TaskRow({task,queued,onOpen,onQuickDone}:{task:MarathonTask;queued:boolean;onOpen:()=>void;onQuickDone?:()=>void}){return <article className="ml-task-row"><button className={'ml-task-check '+(task.status==='done'?'checked':'')} title={onQuickDone?'Mark as done':'View action'} onClick={onQuickDone||onOpen}>{task.status==='done'?<Check size={15}/>:<Circle size={20}/>}</button><button className="ml-task-title" onClick={onOpen}><span>{task.id} <i className={'ml-priority-dot '+(task.priority.startsWith('P1')?'urgent':'')}/>{task.priority.split(' ').slice(0,2).join(' ')}</span><strong>{task.title}</strong><small>{task.lead}</small></button><span className={progressClass(task.status)}>{statusLabels[task.status]}</span><span className="ml-task-date"><CalendarDays size={15}/>{formatDate(task.dueDate)}</span>{queued&&<span className="ml-queued" title="Waiting to sync"><CloudOff size={16}/></span>}<button className="ml-task-arrow" aria-label={'Open '+task.title} onClick={onOpen}><ChevronRight size={19}/></button></article>;}
+function TaskRow({task,queued,onOpen,onQuickDone}:{task:MarathonTask;queued:boolean;onOpen:()=>void;onQuickDone?:()=>void}){return <article className="ml-task-row"><button className={'ml-task-check '+(task.status==='done'?'checked':'')} aria-label={onQuickDone?(task.status==='done'?'Mark '+task.title+' as not done':'Mark '+task.title+' as done'):'View '+task.title} aria-pressed={task.status==='done'} title={onQuickDone?(task.status==='done'?'Mark as not done':'Mark as done'):'View action'} onClick={onQuickDone||onOpen}>{task.status==='done'?<Check size={15}/>:<Circle size={20}/>}</button><button className="ml-task-title" onClick={onOpen}><span>{task.id} <i className={'ml-priority-dot '+(task.priority.startsWith('P1')?'urgent':'')}/>{task.priority.split(' ').slice(0,2).join(' ')}</span><strong>{task.title}</strong><small>{task.lead}</small></button><span className={progressClass(task.status)}>{statusLabels[task.status]}</span><span className="ml-task-date"><CalendarDays size={15}/>{formatDate(task.dueDate)}</span>{queued&&<span className="ml-queued" title="Waiting to sync"><CloudOff size={16}/></span>}<button className="ml-task-arrow" aria-label={'Open '+task.title} onClick={onOpen}><ChevronRight size={19}/></button></article>;}
 function TaskDrawer({task,editable,saving,queued,onClose,onSave,onRecommend}:{task:MarathonTask;editable:boolean;saving:boolean;queued:boolean;onClose:()=>void;onSave:(x:EditChanges)=>void;onRecommend:()=>void}){
  const [title,setTitle]=useState(task.title),[lead,setLead]=useState(task.lead),[dueDate,setDueDate]=useState(task.dueDate||'');
  const [priority,setPriority]=useState(task.priority),[importance,setImportance]=useState(task.importance),[status,setStatus]=useState<MarathonStatus>(task.status);
  const [completion,setCompletion]=useState(dateTimeLocal(task.completedAt)),[nextStep,setNextStep]=useState(task.nextStep),[evidence,setEvidence]=useState(task.evidence||''),[notes,setNotes]=useState(task.notes||'');
  const [archived,setArchived]=useState(Boolean(task.archived));
  function submit(e:React.FormEvent){e.preventDefault();const changes:EditChanges={title,lead,dueDate:dueDate||null,priority,importance,status,nextStep,evidence,notes,archived};
-  if(status==='done'&&completion)changes.completedAt=new Date(completion).toISOString();
+  if(status==='done'&&completion&&completion!==dateTimeLocal(task.completedAt))changes.completedAt=new Date(completion).toISOString();
   onSave(changes);
  }
  return <div className="ml-modal-backdrop" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)onClose();}}><section className="ml-drawer" role="dialog" aria-modal="true" aria-label="Action details"><header><div><span className="ml-eyebrow">ACTION DETAILS · {task.id}</span><h2>Review operation</h2></div><button onClick={onClose} aria-label="Close details"><X size={22}/></button></header><div className="ml-drawer-content"><span className={progressClass(task.status)}>{statusLabels[task.status]}</span>{queued&&<p className="ml-form-help">This action has edits pending offline synchronisation.</p>}<form className="ml-form" id="ml-task-form" onSubmit={submit}><label>Action title<input value={title} onChange={e=>setTitle(e.target.value)} disabled={!editable} required/></label><div className="ml-form-grid"><label>Responsible team<input value={lead} onChange={e=>setLead(e.target.value)} disabled={!editable} required/></label><label>Due date<input type="date" value={dueDate} onChange={e=>setDueDate(e.target.value)} disabled={!editable}/></label></div><div className="ml-form-grid"><label>Priority<select value={priority} onChange={e=>setPriority(e.target.value)} disabled={!editable}><option>P1 Act now</option><option>P2 Next 30 days</option><option>P3 Schedule</option></select></label><label>Importance<select value={importance} onChange={e=>setImportance(e.target.value)} disabled={!editable}>{['Critical','High','Medium','Low'].map(x=><option key={x}>{x}</option>)}</select></label></div><label>Status<select value={status} onChange={e=>setStatus(e.target.value as MarathonStatus)} disabled={!editable}>{Object.entries(statusLabels).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>{status==='done'&&<label>Actual completion date and time (backdating allowed)<input type="datetime-local" value={completion} onChange={e=>setCompletion(e.target.value)} disabled={!editable}/><small className="ml-form-help">The audit log records the entry time separately from the actual completion date.</small></label>}<label>Next action or evidence needed<textarea rows={3} value={nextStep} onChange={e=>setNextStep(e.target.value)} disabled={!editable}/></label><label>Completion evidence / reference<textarea rows={3} value={evidence} placeholder="Meeting minutes, letter reference, document location or other verifiable evidence" onChange={e=>setEvidence(e.target.value)} disabled={!editable}/></label><label>Internal notes<textarea rows={3} value={notes} onChange={e=>setNotes(e.target.value)} disabled={!editable}/></label><div className="ml-meta-line">Dependencies: {task.dependencies?.join(', ')||'None'} · Last update: {formatDate(task.updatedAt)}</div>{editable&&<label className="ml-checkbox-row"><input type="checkbox" checked={archived} onChange={e=>setArchived(e.target.checked)}/> Archive this record (recoverable)</label>}</form></div><footer><button className="ml-secondary" onClick={onRecommend}><MessageSquarePlus size={16}/> Recommend change</button>{editable?<button className="ml-primary" type="submit" form="ml-task-form" disabled={saving}>{saving?'Saving…':'Save changes'}<Check size={17}/></button>:<button className="ml-primary" onClick={onClose}>Close</button>}</footer></section></div>;
