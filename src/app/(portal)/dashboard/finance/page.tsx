@@ -6,6 +6,8 @@ import {
   Plus, Download, ShieldCheck, Building2, CreditCard
 } from 'lucide-react';
 import {api, PageHeader, StatusBadge} from '@/components/Portal';
+import {can} from '@/lib/permissions';
+import type {Role} from '@/lib/types';
 
 type Summary = {
   totalRevenueExpected: number;
@@ -30,6 +32,7 @@ type LedgerItem = {
 };
 
 export default function FinanceDashboardPage() {
+  const [role,setRole]=useState<Role|null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [ledger, setLedger] = useState<LedgerItem[]>([]);
   const [search, setSearch] = useState('');
@@ -62,11 +65,12 @@ export default function FinanceDashboardPage() {
 
   useEffect(() => {
     void loadFinanceData();
+    void api<{profile:{role:Role}}>('/api/me').then(result=>setRole(result.profile.role)).catch(()=>setRole(null));
   }, []);
 
   async function handleRecordPayment(e: React.FormEvent) {
     e.preventDefault();
-    if (!recordingItem) return;
+    if (!recordingItem || !can(role,'finance.record')) return;
     const amount = Number(payAmount);
     if (amount <= 0) return;
 
@@ -216,7 +220,7 @@ export default function FinanceDashboardPage() {
                       {item.paymentReference ? <code>{item.paymentReference}</code> : <span className="muted">—</span>}
                     </td>
                     <td>
-                      <button
+                      {can(role,'finance.record') ? <button
                         type="button"
                         className="btn btn-sm btn-primary"
                         onClick={() => {
@@ -228,7 +232,7 @@ export default function FinanceDashboardPage() {
                         style={{padding: '4px 10px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4}}
                       >
                         <Plus size={13} /> Record Payment
-                      </button>
+                      </button> : <span className="muted">Read only</span>}
                     </td>
                   </tr>
                 ))
@@ -239,7 +243,7 @@ export default function FinanceDashboardPage() {
       </div>
 
       {/* RECORD PAYMENT MODAL PAGE */}
-      {recordingItem && (
+      {recordingItem && can(role,'finance.record') && (
         <div className="modal-page-overlay" role="dialog" aria-modal="true">
           <div className="modal-page" style={{maxWidth: 620}}>
             <header className="modal-page-header">

@@ -4,6 +4,8 @@ import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import {Banknote,Clock,CheckCircle2,ExternalLink,X,Save} from 'lucide-react';
 import {api,PageHeader} from '@/components/Portal';
+import {can} from '@/lib/permissions';
+import type {Role} from '@/lib/types';
 
 type Commission={
  submissionId:string;reference:string;agentId:string;trigger:string;
@@ -13,6 +15,7 @@ type Commission={
 type Totals={eligible:number;paid:number;pending:number};
 
 export default function Commissions(){
+ const [role,setRole]=useState<Role|null>(null);
  const [items,setItems]=useState<Commission[]>([]);
  const [totals,setTotals]=useState<Totals>({eligible:0,paid:0,pending:0});
  const [filter,setFilter]=useState('all');
@@ -29,7 +32,7 @@ export default function Commissions(){
    setTotals(data.totals);
   }catch(err){setError(err instanceof Error?err.message:'Unable to load commissions.');}
  }
- useEffect(()=>{void load();},[]);
+ useEffect(()=>{void load();void api<{profile:{role:Role}}>('/api/me').then(x=>setRole(x.profile.role)).catch(()=>setRole(null));},[]);
 
  const visible=items.filter(x=>filter==='all'||(filter==='paid'?!!x.paidAt:!x.paidAt));
  async function recordPayout(event:React.FormEvent){
@@ -77,7 +80,7 @@ export default function Commissions(){
      <td>K{item.amount.toFixed(2)}</td>
      <td><span className={'tag '+(item.paidAt?'tag-green':'tag-amber')}>{item.paidAt?'Paid':'Pending'}</span></td>
      <td>{item.paymentReference||item.fundingEvidence||'—'}</td>
-     <td>{item.paidAt?<span className="muted">Recorded</span>:<button className="text-link" onClick={()=>{setEditing(item);setPaymentReference('');}}>Record verified payout</button>}</td>
+     <td>{item.paidAt?<span className="muted">Recorded</span>:!can(role,'commissions.manage')?<span className="muted">Read only</span>:<button className="text-link" onClick={()=>{setEditing(item);setPaymentReference('');}}>Record verified payout</button>}</td>
     </tr>)}{visible.length===0&&<tr><td colSpan={7} className="empty-state">No verified commissions match this filter.</td></tr>}</tbody>
    </table></div>
   </div>

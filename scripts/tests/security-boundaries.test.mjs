@@ -302,3 +302,11 @@ test('Every privileged route is enumerated in the deny-by-default capability map
  assert.match(security,/routeCapability\(pathname,req\.method\)/);
  assert.match(security,/!cap\|\|!can\(p\.role,cap\)/);
 });
+
+test('Finance and commission mutation controls are hidden for read-only roles',()=>{
+ const finance=source('src/app/(portal)/dashboard/finance/page.tsx');
+ const commissions=source('src/app/(portal)/dashboard/commissions/page.tsx');
+ assert.match(finance,/can\(role,'finance.record'\)/);
+ assert.match(commissions,/can\(role,'commissions.manage'\)/);
+ assert.match(commissions,/can\(role,'settings.manage'\)/);
+});
