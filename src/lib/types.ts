@@ -21,8 +21,15 @@ export type ApplicantRecord = {id:string;reference:string;formId:string;formTitl
   commission?:{amount:number;currency:string;trigger?:'cdf_approval'|'payment';approvedAt?:string;paidAt?:string;paymentReference?:string};
 };
 export type Role = 'super_admin'|'admin'|'reviewer'|'agent'|'student'|'finance';
+/** Optional second workspace role. The existing school role stays authoritative for school routes. */
+export type MarathonAccess = {
+ role:'kasaAdmin'|'kasaOperations'|'kasaEditor'|'kasaReviewer'|'kasaClient';
+ active:boolean;
+ assignedAt?:string;assignedBy?:string;updatedAt?:string;updatedBy?:string;
+};
 export type Profile = {
   uid:string; email:string; displayName:string; role:Role; active:boolean;
+  marathonAccess?:MarathonAccess;
   agentCode?:string; district?:string; province?:string; constituency?:string; ward?:string;
   commissionOverride?:number; referralsCount?:number; totalCommission?:number; isStudent?:boolean;
   phone?:string; address?:string; photoUrl?:string; bio?:string;
