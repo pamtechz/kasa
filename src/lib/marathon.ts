@@ -15,7 +15,8 @@ export type MarathonTask = {
  updatedAt:string;updatedBy:string;
 };
 export type MarathonIdentity={uid:string;email:string;displayName:string;schoolRole:Role;role:MarathonRole};
-export const marathonCollection=db.collection('marathonTasks');
+// Never resolve Firebase Admin when Next.js imports API routes during a credential-free CI build.
+export function marathonCollection(){return db.collection('marathonTasks');}
 export function canEdit(role:MarathonRole){return ['super_admin','kasaAdmin','kasaOperations','kasaEditor'].includes(role);}
 export function canReview(role:MarathonRole){return ['super_admin','kasaAdmin','kasaOperations','kasaReviewer'].includes(role);}
 // KASA School's global super administrator alone can configure the secondary role,
