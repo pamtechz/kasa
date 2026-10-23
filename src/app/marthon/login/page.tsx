@@ -1,0 +1,50 @@
+'use client';
+import {useEffect,useState} from 'react';
+import Link from 'next/link';
+import {useRouter} from 'next/navigation';
+import {onAuthStateChanged,sendPasswordResetEmail,signInWithEmailAndPassword,signOut} from 'firebase/auth';
+import {ArrowRight,ArrowLeft,ShieldCheck,CalendarDays,LockKeyhole,Eye,EyeOff} from 'lucide-react';
+import {firebaseConfigured,requireClientAuth} from '@/lib/firebase-client';
+
+export default function MarathonLogin(){
+ const router=useRouter();const [email,setEmail]=useState(''),[password,setPassword]=useState('');
+ const [busy,setBusy]=useState(false),[error,setError]=useState(''),[show,setShow]=useState(false);
+ useEffect(()=>{if(!firebaseConfigured)return;const a=requireClientAuth();return onAuthStateChanged(a,user=>{
+  if(user?.emailVerified)router.replace('/marthon');
+ });},[router]);
+ async function login(event:React.FormEvent){
+  event.preventDefault();setBusy(true);setError('');
+  try{
+   const a=requireClientAuth();
+   const result=await signInWithEmailAndPassword(a,email.trim().toLowerCase(),password);
+   await result.user.reload();
+   if(!result.user.emailVerified){await signOut(a);throw Error('Please verify your email address before signing in.');}
+   const res=await fetch('/api/marathon/bootstrap',{headers:{Authorization:'Bearer '+await result.user.getIdToken()},cache:'no-store'});
+   if(!res.ok){const data=await res.json().catch(()=>({}));throw Error(data.error||'You do not have Marathon workspace access yet.');}
+   router.replace('/marthon');
+  }catch(e){setError(e instanceof Error?e.message:'Unable to sign in.');}finally{setBusy(false);}
+ }
+ async function reset(){if(!email.trim()){setError('Enter your email address first.');return;}
+  try{await sendPasswordResetEmail(requireClientAuth(),email.trim().toLowerCase());setError('Password reset instructions have been requested for this address.');}
+  catch{setError('Unable to request a password reset.');}
+ }
+ return <main className="ml-login">
+  <section className="ml-login-art">
+   <div className="ml-login-brand"><span className="ml-mark">K</span><span>KASA <b>LIFE</b><small>MARATHON COMMAND CENTRE</small></span></div>
+   <div className="ml-login-graphic"><div className="ml-orbit ml-orbit-one"/><div className="ml-orbit ml-orbit-two"/><span>21<span className="ml-orbit-dot">●</span></span><small>MAR 2027</small></div>
+   <div className="ml-login-bottom"><span className="ml-eyebrow">ONE EVENT. ONE MISSION.</span><h1>Every detail.<br/>One clear view.</h1><p>Plan confidently, collaborate across teams and monitor every milestone on the road to race day.</p><div className="ml-login-tags"><span>21.1 KM</span><span>10 KM</span><span>5 KM</span></div></div>
+  </section>
+  <section className="ml-login-main"><div className="ml-login-top"><Link href="/" className="ml-back"><ArrowLeft size={17}/> Main KASA website</Link><span className="ml-login-sec"><ShieldCheck size={16}/> Protected workspace</span></div>
+   <div className="ml-login-formwrap"><div className="ml-login-icon"><LockKeyhole size={24}/></div><span className="ml-eyebrow">WELCOME BACK</span><h2>Sign in to the<br/>Marathon workspace</h2><p>Use your existing KASA account. Marathon access is granted by an administrator.</p>
+    <form onSubmit={login} className="ml-login-fields"><label>Email address<input type="email" autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@organisation.com" required/></label>
+     <label>Password<div className="ml-password"><input type={show?'text':'password'} autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Enter password" required/><button type="button" onClick={()=>setShow(!show)} aria-label={show?'Hide password':'Show password'}>{show?<EyeOff size={18}/>:<Eye size={18}/>}</button></div></label>
+     {error&&<div className="ml-form-error" role="alert">{error}</div>}
+     <button disabled={busy||!firebaseConfigured} className="ml-login-submit">{busy?'Signing in…':'Sign in to workspace'}<ArrowRight size={18}/></button>
+    </form><button type="button" className="ml-textbtn" onClick={reset}>Forgot password?</button>
+    {!firebaseConfigured&&<p role="alert">The Firebase configuration is missing on this deployment.</p>}
+    <div className="ml-login-note"><CalendarDays size={17}/> Sunday, 21 March 2027 · KASA Life Marathon</div>
+   </div>
+   <footer className="ml-login-footer">KASA Life Marathon · Restricted operations portal</footer>
+  </section>
+ </main>;
+}
