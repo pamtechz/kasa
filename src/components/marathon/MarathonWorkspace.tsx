@@ -141,16 +141,17 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
   setSaving(true);setNotice('');
   const update=(saved:MarathonTask)=>setState(prev=>({...prev,tasks:prev.tasks.map(x=>x.id===saved.id?saved:x)}));
   const pendingId=pending.includes(task.id);
+  const mutationId=crypto.randomUUID();
   try{
    if(pendingId||offline||!navigator.onLine)throw new TypeError('Offline');
    const result=await api<{task:MarathonTask}>('/api/marathon/tasks/'+encodeURIComponent(task.id),{
-    method:'PATCH',body:JSON.stringify({expectedRevision:task.revision,mutationId:crypto.randomUUID(),changes})
+    method:'PATCH',body:JSON.stringify({expectedRevision:task.revision,mutationId,changes})
    });
    update(result.task);setNotice('Action updated successfully.');setDrawer(null);
    await saveMarathonCache(uid,{...state,tasks:state.tasks.map(x=>x.id===task.id?result.task:x)}).catch(()=>{});
   }catch(e){
    if(isNetworkFailure(e)||pendingId){
-    const queued=await queueMarathonEdit(uid,task.id,task.revision,changes);
+    const queued=await queueMarathonEdit(uid,task.id,task.revision,changes,mutationId);
     const updated={...task,...changes} as MarathonTask;
     update(updated);setPending(p=>[...new Set([...p,task.id])]);
     setOffline(!navigator.onLine);setNotice('Saved on this device. Will sync when the connection returns.');

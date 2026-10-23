@@ -9,8 +9,12 @@ import {firebaseConfigured,requireClientAuth} from '@/lib/firebase-client';
 export default function MarathonLogin(){
  const router=useRouter();const [email,setEmail]=useState(''),[password,setPassword]=useState('');
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[show,setShow]=useState(false);
- useEffect(()=>{if(!firebaseConfigured)return;const a=requireClientAuth();return onAuthStateChanged(a,user=>{
-  if(user?.emailVerified)router.replace('/marthon');
+ useEffect(()=>{if(!firebaseConfigured)return;const a=requireClientAuth();return onAuthStateChanged(a,async user=>{
+  if(!user?.emailVerified)return;
+  try{
+   const result=await fetch('/api/marathon/bootstrap',{cache:'no-store',headers:{Authorization:'Bearer '+await user.getIdToken()}});
+   if(result.ok)router.replace('/marthon');
+  }catch{/* Keep sign-in available if access cannot be verified. */}
  });},[router]);
  async function login(event:React.FormEvent){
   event.preventDefault();setBusy(true);setError('');
@@ -40,7 +44,7 @@ export default function MarathonLogin(){
      <label>Password<div className="ml-password"><input type={show?'text':'password'} autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Enter password" required/><button type="button" onClick={()=>setShow(!show)} aria-label={show?'Hide password':'Show password'}>{show?<EyeOff size={18}/>:<Eye size={18}/>}</button></div></label>
      {error&&<div className="ml-form-error" role="alert">{error}</div>}
      <button disabled={busy||!firebaseConfigured} className="ml-login-submit">{busy?'Signing in…':'Sign in to workspace'}<ArrowRight size={18}/></button>
-    </form><button type="button" className="ml-textbtn" onClick={reset}>Forgot password?</button>
+    </form><button type="button" className="ml-textbtn" onClick={reset}>Forgot password?</button><Link href="/login" className="ml-back" style={{fontSize:12}}>Need an account? Register through KASA and verify your email</Link>
     {!firebaseConfigured&&<p role="alert">The Firebase configuration is missing on this deployment.</p>}
     <div className="ml-login-note"><CalendarDays size={17}/> Sunday, 21 March 2027 · KASA Life Marathon</div>
    </div>

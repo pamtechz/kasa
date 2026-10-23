@@ -32,17 +32,16 @@ export async function pendingMarathonEdits(uid:string):Promise<PendingEdit[]>{
  try{return (await store('pending','readonly',s=>s.getAll())||[]).filter(x=>x.uid===uid);}
  catch{return [];}
 }
-export async function queueMarathonEdit(uid:string,taskId:string,expectedRevision:number,changes:Record<string,unknown>){
+export async function queueMarathonEdit(uid:string,taskId:string,expectedRevision:number,changes:Record<string,unknown>,mutationId=crypto.randomUUID()){
  const key=uid+':'+taskId;
  const existing=await store<PendingEdit|undefined>('pending','readonly',s=>s.get(key));
  const item:PendingEdit={
   key,uid,taskId,expectedRevision:existing?.expectedRevision??expectedRevision,
-  mutationId:existing?.mutationId||crypto.randomUUID(),
+  mutationId:existing?crypto.randomUUID():mutationId,
   changes:{...(existing?.changes||{}),...changes},queuedAt:new Date().toISOString()
  };
  // A pending mutation ID never changes its meaning: subsequent offline edits
  // generate a new ID for the merged operation before it has been submitted.
- if(existing)item.mutationId=crypto.randomUUID();
  await store('pending','readwrite',s=>s.put(item));
  return item;
 }
