@@ -37,7 +37,7 @@ export default function Commissions(){
  const visible=items.filter(x=>filter==='all'||(filter==='paid'?!!x.paidAt:!x.paidAt));
  async function recordPayout(event:React.FormEvent){
   event.preventDefault();
-  if(!editing||!paymentReference.trim())return;
+  if(!can(role,'commissions.manage')||!editing||!paymentReference.trim())return;
   setBusy(true);setError('');setNotice('');
   try{
    await api('/api/admin/commissions',{
@@ -57,7 +57,7 @@ export default function Commissions(){
  return <>
   <PageHeader title="Commissions and referrals"
    subtitle="Commissions are created only after independently verified tuition payment or CDF approval."
-   action={<Link href="/dashboard/settings" className="btn btn-outline">Configure rates <ExternalLink size={16}/></Link>}/>
+   action={can(role,'settings.manage')?<Link href="/dashboard/settings" className="btn btn-outline">Configure rates <ExternalLink size={16}/></Link>:undefined}/>
   {error&&<div className="alert-error" role="alert">{error}</div>}
   {notice&&<div className="notice" role="status">{notice}</div>}
   <div className="metric-grid">
@@ -84,7 +84,7 @@ export default function Commissions(){
     </tr>)}{visible.length===0&&<tr><td colSpan={7} className="empty-state">No verified commissions match this filter.</td></tr>}</tbody>
    </table></div>
   </div>
-  {editing&&<div className="modal-page-overlay" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)setEditing(null);}}>
+  {editing&&can(role,'commissions.manage')&&<div className="modal-page-overlay" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)setEditing(null);}}>
    <div className="modal-page" style={{maxWidth:600}} role="dialog" aria-modal="true" aria-label="Record verified commission payout">
     <div className="modal-page-header">
      <div className="modal-page-header-left"><span className="modal-page-badge">VERIFIED PAYOUT</span><h2>Record commission payout</h2></div>
