@@ -99,3 +99,38 @@ test('private CDF evidence and acceptance packs never expose directly through St
   }
  }
 });
+
+test('All roles are denied direct identity, finance and approval mutations',async()=>{
+ const contexts=[
+  env.unauthenticatedContext(),
+  env.authenticatedContext('alice',{role:'student'}),
+  env.authenticatedContext('agent',{role:'agent'}),
+  env.authenticatedContext('reviewer',{role:'reviewer'}),
+  env.authenticatedContext('finance',{role:'finance'}),
+  env.authenticatedContext('admin',{role:'admin'}),
+  env.authenticatedContext('super',{role:'super_admin'})
+ ];
+ const protectedPaths=[
+  'submissions/app1','settings/intake','notificationOutbox/private1',
+  'fundingVerifications/private1','commissionPayments/private1',
+  'payoutRequests/req1','applicationDedupe/hashed','fileClaims/hashed',
+  'rateLimits/ip1','auditLogs/log1','siteContent/header'
+ ];
+ for(const ctx of contexts){
+  const db=ctx.firestore();
+  for(const path of protectedPaths){
+   await assertFails(getDoc(doc(db,path)));
+   await assertFails(setDoc(doc(db,path),{role:'super_admin',status:'payment_verified'}));
+   await assertFails(deleteDoc(doc(db,path)));
+  }
+ }
+});
+test('No elevated role can mutate published site content directly',async()=>{
+ for(const role of ['student','agent','reviewer','finance','admin','super_admin']){
+  const db=env.authenticatedContext(role,{role}).firestore();
+  for(const path of ['forms/published','programmes/open','adCampaigns/active']){
+   await assertFails(setDoc(doc(db,path),{published:true,active:true,role:'admin'}));
+   await assertFails(deleteDoc(doc(db,path)));
+  }
+ }
+});
