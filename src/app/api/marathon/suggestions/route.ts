@@ -3,7 +3,15 @@ import {db} from '@/lib/firebase-admin';
 import {fail,json,HttpError} from '@/lib/errors';
 import {marathonIdentity} from '@/lib/marathon';
 import {sameOrigin} from '@/lib/security';
+import {marathonSuggestionsPage} from '@/lib/marathon-suggestions';
 export const runtime='nodejs';
+export async function GET(req:Request){
+ try{
+  const actor=await marathonIdentity(req);
+  const query=new URL(req.url).searchParams;
+  return json(await marathonSuggestionsPage(actor,query.get('status')||'pending',query.get('cursor')));
+ }catch(e){return fail(e);}
+}
 const schema=z.object({
  taskId:z.string().min(2).max(60),
  recommendation:z.string().trim().min(10).max(1500),

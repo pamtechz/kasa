@@ -42,3 +42,20 @@ Access controls are enforced server-side on all Marathon APIs, not merely hidden
 6. Import approved source checklist from `/marthon/super`, verify 130 records without destructive overwrites, and test historical completion plus offline replay before production promotion.
 
 The real production Firebase database has not been seeded or modified merely by committing this code.
+
+
+## Offline recovery and completion history
+
+Open **Offline edits** to inspect queued changes. Conflicts show the online field values beside the device changes. **Apply my changes** retries against the version that was reviewed; another online update still causes a conflict. **Discard device edit** keeps the online record. A conflict on one action does not stop independent actions syncing.
+
+If an editor loses edit permission, a rejected queued change stops automatic retries and remains available to discard in **Offline edits**. Connection failures and uncertain server responses keep the original submitted request for a safe retry.
+
+Each request is persisted before submission. Requests awaiting confirmation retain their original mutation ID and payload across reloads; later local changes are preserved separately until acknowledgement. All queue read/merge/write operations are atomic, and a write is reported as saved only after IndexedDB commits. Cached server snapshots are overlaid with queued changes on refresh. Online saves remain available when a browser disables device storage.
+
+Editing notes, evidence or another field on an already completed task preserves its completion actor and entry timestamp. An explicit change to the completion date, or a new transition to Done, records the new completion attribution. The drawer sends the completion date only when the user actually changes it, preserving the original seconds on unrelated edits. Quick completion controls toggle Done / Not done.
+
+The recommendation desk has status filtering for reviewers and cursor pagination. Other users can page through their own recommendations only. CSV output neutralizes formula-like input. School finance users return to `/dashboard/finance`.
+
+Local verification: 82 source/runtime tests, lint, TypeScript and production build passed on Node 22. Browser fixtures verified phone, tablet and desktop layouts, offline queue persistence, conflict recovery alongside independent updates, and 205 paginated recommendations. Real-account sign-in and the live 130-item Firestore import require separate production verification.
+
+The production audit passes the high-severity threshold after same-major gRPC and PostCSS updates. Eight pre-existing moderate findings remain in Firebase Admin's transitive dependencies; their upstream major-version migration is outside this Marathon reliability change.
