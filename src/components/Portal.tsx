@@ -105,6 +105,7 @@ export function Portal({children}:{children:React.ReactNode}){
   ...(allowed('settings.manage')?[{name:'Settings',href:'/dashboard/settings',icon:Settings}]:[]),
   ...(allowed('staff.manage')?[{name:'Staff roles',href:'/dashboard/staff',icon:Users}]:[]),
   ...(allowed('bootstrap.manage')?[{name:'Data setup',href:'/dashboard/setup',icon:Database}]:[]),
+  ...(role==='super_admin'?[{name:'KASA Life Marathon',href:'/marthon',icon:CalendarDays}]:[]),
   ...(allowed('profile.read')?[{name:'My profile',href:'/dashboard/profile',icon:User}]:[])
  ];
  if(loading)return <main className="page-loader" role="status">Loading your secure workspace…</main>;
