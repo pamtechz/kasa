@@ -290,3 +290,15 @@ test('Capability guard authenticates finance/agent/student before checking permi
  const s=source('src/lib/security.ts');
  assert.match(s,/operator\(req,\['super_admin','admin','reviewer','finance','agent','student'\]\)/);
 });
+
+test('Every privileged route is enumerated in the deny-by-default capability map',()=>{
+ const s=source('src/lib/permissions.ts');
+ for(const phrase of ['admin/finance','admin/commissions','admin/submissions','admin/staff','admin/users',
+  'admin/agents','admin/ads','admin/automations','admin/content','admin/forms','admin/intake',
+  'admin/site','admin/settings','admin/file','agent/leaderboard','agent/payout-request','agent/referrals']){
+  assert.ok(s.includes(phrase),phrase+' is missing from RBAC');
+ }
+ const security=source('src/lib/security.ts');
+ assert.match(security,/routeCapability\(pathname,req\.method\)/);
+ assert.match(security,/!cap\|\|!can\(p\.role,cap\)/);
+});
