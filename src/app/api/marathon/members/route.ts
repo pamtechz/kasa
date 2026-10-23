@@ -42,7 +42,7 @@ export async function POST(req:Request){
    });
    member={
     uid:authUser.uid,email:profile.email||email,displayName:profile.displayName||authUser.displayName||email,
-    schoolRole:profile.role,role:secondary.role,active:secondary.active
+    schoolRole:profile.role,role:secondary.role,schoolActive:true,marathonActive:secondary.active,active:secondary.active
    };
   });
   return json({member},201);

@@ -38,7 +38,7 @@ export async function PATCH(req:Request,{params}:{params:Promise<{uid:string}>})
    });
    member={
     uid,email:profile.email,displayName:profile.displayName,
-    schoolRole:profile.role,role:secondary.role,active:profile.active===true&&secondary.active===true
+    schoolRole:profile.role,role:secondary.role,schoolActive:profile.active===true,marathonActive:secondary.active===true,active:profile.active===true&&secondary.active===true
    };
   });
   return json({ok:true,member});
