@@ -6,14 +6,18 @@ import {ref, uploadBytes, getMetadata, deleteObject} from 'firebase/storage';
 
 // These tests operate exclusively against local emulators and a demo project.
 const bucketName='gs://demo-kasa-security-ci.appspot.com';
+// firebase-tools exports these addresses from the CI-specific emulator config.
+// Keep local defaults for developers running emulators manually.
+const fsEndpoint=new URL('http://'+(process.env.FIRESTORE_EMULATOR_HOST||'127.0.0.1:8080'));
+const storageEndpoint=new URL('http://'+(process.env.FIREBASE_STORAGE_EMULATOR_HOST||'127.0.0.1:9199'));
 let env;
 const bucket=ctx=>ctx.storage(bucketName);
 
 before(async()=>{
  env=await initializeTestEnvironment({
   projectId:'demo-kasa-security-ci',
-  firestore:{host:'127.0.0.1',port:8080,rules:readFileSync('firestore.rules','utf8')},
-  storage:{host:'127.0.0.1',port:9199,rules:readFileSync('storage.rules','utf8')}
+  firestore:{host:fsEndpoint.hostname,port:Number(fsEndpoint.port),rules:readFileSync('firestore.rules','utf8')},
+  storage:{host:storageEndpoint.hostname,port:Number(storageEndpoint.port),rules:readFileSync('storage.rules','utf8')}
  });
  await env.clearFirestore();
  await env.clearStorage();
