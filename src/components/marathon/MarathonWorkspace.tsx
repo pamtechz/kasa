@@ -22,15 +22,15 @@ type Member={uid:string;email:string;displayName:string;role:MarathonRole;active
 type EventItem={id:string;action:string;actor:string;at:string;taskId?:string;targetUid?:string;changes?:Record<string,unknown>};
 type Permissions={edit:boolean;review:boolean;manage:boolean;super:boolean};
 type Bootstrap={identity:Identity;tasks:MarathonTask[];meta:Record<string,unknown>|null;suggestions:Suggestion[];members:Member[];permissions:Permissions};
-type View='overview'|'operations'|'timeline'|'recommendations'|'team'|'super'|'activity';
+type View='overview'|'operations'|'timeline'|'recommendations'|'archive'|'team'|'super'|'activity';
 type EditChanges=Partial<Pick<MarathonTask,'title'|'lead'|'dueDate'|'priority'|'importance'|'status'|'nextStep'|'notes'|'evidence'|'completedAt'|'archived'>>;
-const validViews:View[]=['overview','operations','timeline','recommendations','team','super','activity'];
+const validViews:View[]=['overview','operations','timeline','recommendations','archive','team','super','activity'];
 const blank:Bootstrap={identity:{uid:'',email:'',displayName:'',role:'kasaClient'},tasks:[],meta:null,suggestions:[],members:[],permissions:{edit:false,review:false,manage:false,super:false}};
 const statusLabels:Record<MarathonStatus,string>={todo:'Not started',doing:'In progress',blocked:'Blocked',done:'Completed'};
 const roles=['kasaAdmin','kasaOperations','kasaEditor','kasaReviewer','kasaClient'] as const;
 const nav=[{view:'overview' as View,label:'Overview',icon:LayoutDashboard},{view:'operations' as View,label:'Operations',icon:ClipboardCheck},
  {view:'timeline' as View,label:'Event timeline',icon:CalendarDays},{view:'recommendations' as View,label:'Recommendations',icon:MessageSquarePlus},
- {view:'activity' as View,label:'Activity log',icon:Activity},{view:'team' as View,label:'Team & access',icon:Users},
+ {view:'activity' as View,label:'Activity log',icon:Activity},{view:'archive' as View,label:'Archive & recovery',icon:Trash2},{view:'team' as View,label:'Team & access',icon:Users},
  {view:'super' as View,label:'Super admin',icon:ShieldCheck}];
 function formatDate(value:string|null|undefined){if(!value)return 'Not set';const date=new Date(value.length===10?value+'T12:00:00':value);return Number.isNaN(+date)?'Not set':new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',year:'numeric'}).format(date);}
 function dateTimeLocal(iso:string|null|undefined){if(!iso)return '';const d=new Date(iso);const p=(n:number)=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes());}
@@ -185,6 +185,14 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
    setNotice('Recommendation '+decision+'. The actual checklist requires a separate approval and update.');
   }catch(e){setNotice(errorMessage(e));}
  }
+ async function updateMember(member:Member,changes:{active?:boolean;role?:MarathonRole}){
+  if(!state.permissions.super)return;
+  try{
+   await api('/api/marathon/members/'+encodeURIComponent(member.uid),{method:'PATCH',body:JSON.stringify(changes)});
+   setState(x=>({...x,members:x.members.map(m=>m.uid===member.uid?{...m,...changes}:m)}));
+   setNotice('Member access updated.');
+  }catch(e){setNotice(errorMessage(e));}
+ }
  async function invite(e:React.FormEvent){
   e.preventDefault();setSaving(true);
   try{
@@ -209,9 +217,9 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
   const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='KASA-Life-Marathon-Operations.csv';a.click();URL.revokeObjectURL(url);
  }
  const displayName=state.identity.displayName||state.identity.email.split('@')[0]||'Team member';
- const menu=nav.filter(x=>x.view!=='super'||state.permissions.super).filter(x=>x.view!=='team'||state.permissions.manage||state.permissions.super);
+ const menu=nav.filter(x=>x.view!=='super'||state.permissions.super).filter(x=>x.view!=='team'||state.permissions.manage||state.permissions.super).filter(x=>x.view!=='archive'||state.permissions.edit);
  const PageIcon=(menu.find(m=>m.view===view)||nav[0]).icon;
- async function logout(){await signOutClient();router.replace('/marthon/login');}
+ async function logout(){if(pending.length&&!window.confirm('You have '+pending.length+' unsynced edits stored on this device. Sign out anyway?'))return;await signOutClient();router.replace('/marthon/login');}
 
  if(loading)return <div className="ml-init"><span className="ml-spinner"/><h2>Opening Marathon Command Centre</h2><p>Verifying your account and loading event operations…</p></div>;
  if(authError&&!uid)return <main className="ml-init"><Shield size={32}/><h2>Marathon workspace unavailable</h2><p>{authError}</p><Link className="ml-primary" href="/marthon/login">Return to secure sign in</Link></main>;
@@ -256,6 +264,11 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
        {name:'Close-out and final reporting',when:'After race day',filter:(t:MarathonTask)=>t.dueDate!==null&&t.dueDate>'2027-03-21'}
       ].map((phase,i)=>{const list=active.filter(phase.filter);const n=list.filter(x=>x.status==='done').length;return <section className="ml-timeline-phase" key={phase.name}><span className="ml-timeline-node">{i+1}</span><div className="ml-panel"><span className="ml-eyebrow">{phase.when}</span><h3>{phase.name}</h3><p>{n} of {list.length} actions completed</p><div className="ml-phase-line"><span style={{width:(list.length?n/list.length*100:0)+'%'}}/></div><div className="ml-phase-items">{sortTasks(list).slice(0,5).map(t=><button key={t.id} onClick={()=>setDrawer(t)}><span className={progressClass(t.status)}>{statusLabels[t.status]}</span><b>{t.title}</b><ChevronRight size={15}/></button>)}</div></div></section>;})}</div>
     </>}
+    {view==='archive'&&state.permissions.edit&&<>
+     <div className="ml-heading-row"><div><span className="ml-eyebrow">RECORD RETENTION</span><h1>Archive & recovery</h1><p>Archived activities remain in Firestore with a full change history. Select a record and untick Archive to restore it.</p></div></div>
+     <div className="ml-task-results"><b>{tasks.filter(t=>t.archived).length} archived actions</b><span>Not included in active completion figures</span></div>
+     <div className="ml-task-list">{sortTasks(tasks.filter(t=>t.archived)).map(t=><TaskRow key={t.id} task={t} queued={pending.includes(t.id)} onOpen={()=>setDrawer(t)}/>)}{!tasks.some(t=>t.archived)&&<EmptyState text="The archive is empty. Your active checklist is intact."/>}</div>
+    </>}
     {view==='recommendations'&&<>
      <div className="ml-heading-row"><div><span className="ml-eyebrow">COLLABORATION</span><h1>Recommendations</h1><p>Suggest corrections, report progress and route proposals for review.</p></div></div>
      <div className="ml-grid-two ml-recommend-layout"><div className="ml-panel"><div className="ml-panel-head"><div><span className="ml-eyebrow">SEND A SUGGESTION</span><h3>Propose an update</h3></div><MessageSquarePlus size={22}/></div><form className="ml-form" onSubmit={sendSuggestion}><label>Checklist action<select required value={suggestTask} onChange={e=>setSuggestTask(e.target.value)}><option value="">Select action</option>{sortTasks(active).map(t=><option key={t.id} value={t.id}>{t.id} · {t.title.slice(0,70)}</option>)}</select></label><label>Suggested progress<select value={suggestStatus} onChange={e=>setSuggestStatus(e.target.value as MarathonStatus)}>{Object.entries(statusLabels).map(([key,value])=><option key={key} value={key}>{value}</option>)}</select></label><label>Your recommendation<textarea required minLength={10} rows={5} placeholder="Describe the progress made, evidence available, or change that should be recorded." value={suggestText} onChange={e=>setSuggestText(e.target.value)}/></label><button disabled={saving} className="ml-primary" type="submit"><ArrowRight size={17}/> Submit recommendation</button></form></div>
@@ -268,7 +281,7 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
     {view==='team'&&<>
      <div className="ml-heading-row"><div><span className="ml-eyebrow">ACCESS & RESPONSIBILITY</span><h1>Marathon team</h1><p>Keep access to event operations separate from school administration.</p></div></div>
      {state.permissions.super&&<div className="ml-panel ml-team-invite"><div className="ml-panel-head"><div><span className="ml-eyebrow">SUPER ADMIN CONTROL</span><h3>Assign a Marathon role</h3></div><UserPlus size={22}/></div><form onSubmit={invite} className="ml-invite-form"><label>Email address<input type="email" required placeholder="Verified KASA account email" value={inviteEmail} onChange={e=>setInviteEmail(e.target.value)}/></label><label>Marathon role<select value={inviteRole} onChange={e=>setInviteRole(e.target.value as typeof inviteRole)}>{roles.map(r=><option key={r} value={r}>{r}</option>)}</select></label><button className="ml-primary" disabled={saving}>Assign role <ArrowRight size={17}/></button></form><p className="ml-form-help">Users must register and verify their email first. This does not change school portal roles.</p></div>}
-     <div className="ml-panel"><div className="ml-panel-head"><h3>Team directory</h3><span className="ml-count-badge">{state.members.length}</span></div><div className="ml-members">{state.members.map(m=><div className="ml-member" key={m.uid}><span className="ml-avatar">{m.displayName.slice(0,2).toUpperCase()}</span><div><b>{m.displayName}</b><small>{m.email}</small></div><span className="ml-role-tag">{m.role}</span><span className={m.active?'ml-member-active':'ml-member-inactive'}>{m.active?'Active':'Inactive'}</span></div>)}{!state.members.length&&<EmptyState text={state.permissions.super?'No Marathon team members have been added yet.':'Team membership can be managed by the super administrator.'}/>}</div></div>
+     <div className="ml-panel"><div className="ml-panel-head"><h3>Team directory</h3><span className="ml-count-badge">{state.members.length}</span></div><div className="ml-members">{state.members.map(m=><div className="ml-member" key={m.uid}><span className="ml-avatar">{m.displayName.slice(0,2).toUpperCase()}</span><div><b>{m.displayName}</b><small>{m.email}</small></div>{state.permissions.super?<select className="ml-member-role-select" value={m.role} aria-label={'Role for '+m.email} onChange={e=>void updateMember(m,{role:e.target.value as MarathonRole})}>{roles.map(role=><option key={role}>{role}</option>)}</select>:<span className="ml-role-tag">{m.role}</span>}{state.permissions.super?<button className={m.active?'ml-member-active':'ml-member-inactive'} onClick={()=>void updateMember(m,{active:!m.active})}>{m.active?'Deactivate':'Reactivate'}</button>:<span className={m.active?'ml-member-active':'ml-member-inactive'}>{m.active?'Active':'Inactive'}</span>}</div>)}{!state.members.length&&<EmptyState text={state.permissions.super?'No Marathon team members have been added yet.':'Team membership can be managed by the super administrator.'}/>}</div></div>
     </>}
     {view==='super'&&state.permissions.super&&<>
      <div className="ml-heading-row"><div><span className="ml-eyebrow">INSTITUTIONAL OVERSIGHT</span><h1>Super administrator</h1><p>Control initial data migration, access and the event governance overview.</p></div><span className="ml-role-tag"><ShieldCheck size={16}/> Super admin</span></div>

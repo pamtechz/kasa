@@ -8,8 +8,8 @@ export async function GET(req:Request){
   const [tasks,meta,suggestions,members]=await Promise.all([
    db.collection('marathonTasks').limit(500).get(),
    db.collection('marathonMeta').doc('source').get(),
-   canReview(identity.role)?db.collection('marathonSuggestions').limit(200).get():Promise.resolve(null),
-   identity.role==='super_admin'?db.collection('marathonMembers').limit(200).get():Promise.resolve(null)
+   canReview(identity.role)?db.collection('marathonSuggestions').limit(200).get():db.collection('marathonSuggestions').where('createdBy','==',identity.uid).limit(100).get(),
+   canManage(identity.role)?db.collection('marathonMembers').limit(200).get():Promise.resolve(null)
   ]);
   return json({
    identity,
