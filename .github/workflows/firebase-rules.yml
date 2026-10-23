@@ -41,4 +41,4 @@ jobs:
         run: npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund @firebase/rules-unit-testing@5.0.2
       - name: Run Firestore and Storage authorization tests
         timeout-minutes: 25
-        run: npx --yes firebase-tools@15.34.0 emulators:exec --project demo-kasa-security-ci --only firestore,storage "node --test scripts/integration/firebase-rules.integration.mjs"
+        run: npx --yes firebase-tools@15.34.0 emulators:exec --config firebase.ci.json --project demo-kasa-security-ci --only firestore,storage "node --test scripts/integration/firebase-rules.integration.mjs"
