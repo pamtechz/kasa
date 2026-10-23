@@ -14,6 +14,8 @@ type Summary = {
   totalPaymentsReceived: number;
   outstandingBalance: number;
   totalCdfApproved: number;
+  missingFeeQuotes: number;
+  financialTotalsPartial: boolean;
 };
 
 type LedgerItem = {
@@ -23,9 +25,10 @@ type LedgerItem = {
   programme: string;
   fundingMethod: string;
   status: string;
-  totalPackage: number;
+  totalPackage: number | null;
+  feeStatus: 'approved' | 'requires_reconciliation';
   paidAmount: number;
-  outstandingBalance: number;
+  outstandingBalance: number | null;
   paymentReference?: string;
   verifiedAt?: string;
   submittedAt: string;
@@ -65,14 +68,15 @@ export default function FinanceDashboardPage() {
 
   useEffect(() => {
     void loadFinanceData();
-    void api<{profile:{role:Role}}>('/api/me').then(result=>setRole(result.profile.role)).catch(()=>setRole(null));
+    void api<{profile:{role:Role}}>('/api/me').then(v=>setRole(v.profile.role)).catch(()=>setRole(null));
   }, []);
 
   async function handleRecordPayment(e: React.FormEvent) {
     e.preventDefault();
-    if (!recordingItem || !can(role,'finance.record')) return;
+    if (!recordingItem || !can(role,'finance.record') || recordingItem.fundingMethod === 'cdf' ||
+        (recordingItem.totalPackage !== null && recordingItem.outstandingBalance === 0)) return;
     const amount = Number(payAmount);
-    if (amount <= 0) return;
+    if (!Number.isFinite(amount) || amount <= 0) return;
 
     setRecordingBusy(true);
     setError('');
@@ -128,14 +132,15 @@ export default function FinanceDashboardPage() {
 
       {error && <div className="alert-error" style={{marginBottom: 16}}>{error}</div>}
       {message && <div className="notice" style={{marginBottom: 16}}><CheckCircle2 size={16} /> {message}</div>}
+      {summary?.financialTotalsPartial && <div className="notice" role="status" style={{marginBottom: 16}}>{summary.missingFeeQuotes} application(s) need approved fee reconciliation. Totals below exclude unquoted liabilities. Recorded receipts remain visible.</div>}
 
       {/* Finance Metrics Overview */}
       <div className="metric-grid" style={{marginBottom: 24}}>
         <div className="metric-card">
           <div className="metric-icon blue"><DollarSign /></div>
           <span>Total Accrued Revenue</span>
-          <strong>{loading ? '—' : `ZMW ${(summary?.totalRevenueExpected || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`}</strong>
-          <small>Total course fees</small>
+          <strong>{loading ? '—' : summary?.financialTotalsPartial ? 'Incomplete' : `ZMW ${(summary?.totalRevenueExpected || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`}</strong>
+          <small>Approved quoted fees only</small>
         </div>
         <div className="metric-card">
           <div className="metric-icon green"><Wallet /></div>
@@ -146,14 +151,14 @@ export default function FinanceDashboardPage() {
         <div className="metric-card">
           <div className="metric-icon amber"><Building2 /></div>
           <span>CDF Council Approved</span>
-          <strong>{loading ? '—' : `ZMW ${(summary?.totalCdfApproved || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`}</strong>
+          <strong>{loading ? '—' : summary?.financialTotalsPartial ? 'Incomplete' : `ZMW ${(summary?.totalCdfApproved || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`}</strong>
           <small>Government bursary funding</small>
         </div>
         <div className="metric-card">
           <div className="metric-icon purple"><CreditCard /></div>
           <span>Outstanding Balance</span>
-          <strong>{loading ? '—' : `ZMW ${(summary?.outstandingBalance || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`}</strong>
-          <small>Pending student payments</small>
+          <strong>{loading ? '—' : summary?.financialTotalsPartial ? 'Incomplete' : `ZMW ${(summary?.outstandingBalance || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`}</strong>
+          <small>Reconciled balances only</small>
         </div>
       </div>
 
@@ -211,21 +216,21 @@ export default function FinanceDashboardPage() {
                       </span>
                     </td>
                     <td>
-                      <strong style={{color: item.paidAmount >= item.totalPackage ? 'var(--green)' : 'var(--ink)'}}>
+                      <strong style={{color: item.totalPackage !== null && item.paidAmount >= item.totalPackage ? 'var(--green)' : 'var(--ink)'}}>
                         ZMW {item.paidAmount.toLocaleString('en-US', {minimumFractionDigits: 2})}
                       </strong>
-                      <small className="table-sub">of ZMW {item.totalPackage.toLocaleString('en-US', {minimumFractionDigits: 2})}</small>
+                      <small className="table-sub">{item.totalPackage === null ? 'Fee reconciliation required' : `of ZMW ${item.totalPackage.toLocaleString('en-US', {minimumFractionDigits: 2})}`}</small>
                     </td>
                     <td>
                       {item.paymentReference ? <code>{item.paymentReference}</code> : <span className="muted">—</span>}
                     </td>
                     <td>
-                      {can(role,'finance.record') ? <button
+                      {item.fundingMethod === 'cdf' ? <span className="muted">CDF funding — separate approval</span> : item.totalPackage !== null && item.outstandingBalance === 0 ? <span className="muted">Settled</span> : can(role,'finance.record') ? <button
                         type="button"
                         className="btn btn-sm btn-primary"
                         onClick={() => {
                           setRecordingItem(item);
-                          setPayAmount(item.outstandingBalance > 0 ? String(item.outstandingBalance) : '1000');
+                          setPayAmount('');
                           setPayReceipt('');
                           setPayNote('');
                         }}
@@ -263,11 +268,12 @@ export default function FinanceDashboardPage() {
                   <div style={{background: '#f8faf9', padding: 14, borderRadius: 10, border: '1px solid var(--border)', marginBottom: 16, fontSize: 13, lineHeight: 1.6}}>
                     Student Name: <strong>{recordingItem.studentName}</strong><br />
                     Course: <strong>{recordingItem.programme}</strong><br />
-                    Total Package Fee: <strong>ZMW {recordingItem.totalPackage.toLocaleString('en-US', {minimumFractionDigits: 2})}</strong><br />
+                    Total Package Fee: <strong>{recordingItem.totalPackage === null ? 'Requires reconciliation' : `ZMW ${recordingItem.totalPackage.toLocaleString('en-US', {minimumFractionDigits: 2})}`}</strong><br />
                     Total Paid to Date: <strong>ZMW {recordingItem.paidAmount.toLocaleString('en-US', {minimumFractionDigits: 2})}</strong><br />
-                    Remaining Balance: <strong style={{color: 'var(--green)'}}>ZMW {recordingItem.outstandingBalance.toLocaleString('en-US', {minimumFractionDigits: 2})}</strong>
+                    Remaining Balance: <strong style={{color: 'var(--green)'}}>{recordingItem.outstandingBalance === null ? 'Not confirmed' : `ZMW ${recordingItem.outstandingBalance.toLocaleString('en-US', {minimumFractionDigits: 2})}`}</strong>
                   </div>
 
+                  <p className="field-hint">Enter only the amount verified against the actual payment receipt. No amount is suggested where fees need reconciliation.</p>
                   <div className="form-grid">
                     <div className="field">
                       <label>Payment Amount (ZMW) *</label>
