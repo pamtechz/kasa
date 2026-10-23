@@ -264,3 +264,61 @@ test('Production CSRF origin is not derived from an untrusted request Host heade
  assert.match(security,/\.\.\.\(process\.env\.NODE_ENV !== 'production' \?/);
  assert.doesNotMatch(security,/\n\s*requestUrl\.origin/);
 });
+
+test('Role matrix controls UI visibility and server authorization for sensitive features',()=>{
+ const policy=source('src/lib/permissions.ts');
+ const ui=source('src/components/Portal.tsx');
+ const security=source('src/lib/security.ts');
+ const finance=source('src/app/api/admin/finance/route.ts');
+ const commissions=source('src/app/api/admin/commissions/route.ts');
+ assert.match(policy,/finance:\s*\[/);
+ assert.match(policy,/student:\s*\[/);
+ assert.match(policy,/reviewer:\s*\[/);
+ assert.match(ui,/allowed\('finance.read'\)/);
+ assert.match(ui,/allowed\('applications.read'\)/);
+ assert.match(security,/export async function requireCapability/);
+ assert.match(finance,/requireCapability\(req,'finance.record'\)/);
+ assert.match(commissions,/requireCapability\(req,'commissions.manage'\)/);
+});
+test('Agents never receive private application fields via admin submissions listing',()=>{
+ const code=source('src/app/api/admin/submissions/route.ts');
+ assert.match(code,/if\(user.role==='agent'\)return \{/);
+ assert.doesNotMatch(code,/\.\.\.item,id:x.id,\.\.\.\(user.role==='agent'/);
+});
+
+test('Capability guard authenticates finance/agent/student before checking permission',()=>{
+ const s=source('src/lib/security.ts');
+ assert.match(s,/operator\(req,\['super_admin','admin','reviewer','finance','agent','student'\]\)/);
+});
+
+test('Every privileged route is enumerated in the deny-by-default capability map',()=>{
+ const s=source('src/lib/permissions.ts');
+ for(const phrase of ['admin/finance','admin/commissions','admin/submissions','admin/staff','admin/users',
+  'admin/agents','admin/ads','admin/automations','admin/content','admin/forms','admin/intake',
+  'admin/site','admin/settings','admin/file','agent/leaderboard','agent/payout-request','agent/referrals']){
+  assert.ok(s.includes(phrase),phrase+' is missing from RBAC');
+ }
+ const security=source('src/lib/security.ts');
+ assert.match(security,/routeCapability\(pathname,req\.method\)/);
+ assert.match(security,/!cap\|\|!can\(p\.role,cap\)/);
+});
+
+test('Finance and commission mutation controls are hidden for read-only roles',()=>{
+ const finance=source('src/app/(portal)/dashboard/finance/page.tsx');
+ const commissions=source('src/app/(portal)/dashboard/commissions/page.tsx');
+ assert.match(finance,/can\(role,'finance.record'\)/);
+ assert.match(commissions,/can\(role,'commissions.manage'\)/);
+ assert.match(commissions,/can\(role,'settings.manage'\)/);
+});
+
+test('All sensitive acceptance preview, settings, and OCR mutations validate caller origins',()=>{
+ for(const path of [
+  'src/app/api/admin/settings/acceptance-letter/preview-enrollment-form/route.ts',
+  'src/app/api/admin/settings/acceptance-letter/preview/route.ts',
+  'src/app/api/admin/settings/acceptance-letter/route.ts',
+  'src/app/api/admin/submissions/[id]/ocr/route.ts'
+ ]){
+  const code=source(path);
+  assert.match(code,/sameOrigin\(req\)/,path+' must validate request origin');
+ }
+});

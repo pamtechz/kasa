@@ -1,6 +1,6 @@
 import {NextRequest} from 'next/server';
 import {fail} from '@/lib/errors';
-import {operator} from '@/lib/security';
+import {operator,sameOrigin} from '@/lib/security';
 import {loadCustomAcceptancePdf} from '@/lib/custom-acceptance-pdf';
 import {generateAcceptancePackPdf, type AcceptancePackData} from '@/lib/pdf-acceptance-pack';
 import {acceptanceLetterConfigSchema} from '@/lib/acceptance-letter-config';
@@ -10,6 +10,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   try {
+    sameOrigin(req);
     await operator(req, ['super_admin', 'admin', 'reviewer']);
     let customConfig: any = null;
     try {

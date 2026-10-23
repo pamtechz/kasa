@@ -1,7 +1,7 @@
 import {NextRequest} from 'next/server';
 import {db} from '@/lib/firebase-admin';
 import {fail, json} from '@/lib/errors';
-import {operator} from '@/lib/security';
+import {operator,sameOrigin} from '@/lib/security';
 import {
   acceptanceLetterConfigSchema,
   defaultAcceptanceLetterConfig
@@ -48,6 +48,7 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
+    sameOrigin(req);
     const user = await operator(req, ['super_admin', 'admin']);
     const body = await req.json();
     const parsed = acceptanceLetterConfigSchema.safeParse(body?.config || body);

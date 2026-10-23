@@ -6,6 +6,7 @@ import Link from 'next/link';
 import {BarChart3,ChevronLeft,ChevronRight,ClipboardList,FilePlus2,FileCheck,LayoutDashboard,LogOut,Menu,Settings,Users,X,Bell,BookOpen,Newspaper,CalendarDays,Database,User,Wallet} from 'lucide-react';
 import {auth,authHeaders,firebaseConfigured,signOutClient} from '@/lib/firebase-client';
 import type {Profile} from '@/lib/types';
+import {can} from '@/lib/permissions';
 import {BrandLogo} from '@/components/BrandLogo';
 import {invalidateAdminCache, fetchWithSwr, getAdminCache} from '@/lib/admin-cache';
 
@@ -85,9 +86,28 @@ export function Portal({children}:{children:React.ReactNode}){
   try{await signOutClient();setProfile(null);router.replace('/login?reason=session-ended');}
   catch(e){setSessionError(e instanceof Error?e.message:'Unable to sign out. Please retry.');}
  }
- const links=[{name:'Overview',href:'/dashboard',icon:LayoutDashboard},{name:'Notifications',href:'/dashboard/notifications',icon:Bell},
-  ...(profile?.role==='agent'?[{name:'My referrals',href:'/dashboard/referrals',icon:Users}]:[{name:'Applications',href:'/dashboard/applications',icon:ClipboardList}]),
-  ...(!['super_admin','admin'].includes(profile?.role||'')?[]:[{name:'Website',href:'/dashboard/website',icon:Settings},{name:'Programmes',href:'/dashboard/programmes',icon:BookOpen},{name:'Announcements',href:'/dashboard/announcements',icon:Newspaper},{name:'Intake windows',href:'/dashboard/intake',icon:CalendarDays},{name:'Form builder',href:'/dashboard/forms',icon:FilePlus2},{name:'Acceptance Pack',href:'/dashboard/settings/acceptance-letter',icon:FileCheck},{name:'District agents',href:'/dashboard/agents',icon:Users},{name:'Finance Ledger',href:'/dashboard/finance',icon:Wallet},{name:'Commissions',href:'/dashboard/commissions',icon:BarChart3},{name:'Automations',href:'/dashboard/automations',icon:Bell},{name:'Settings',href:'/dashboard/settings',icon:Settings}]),...(profile?.role==='super_admin'?[{name:'Staff roles',href:'/dashboard/staff',icon:Users},{name:'Data setup',href:'/dashboard/setup',icon:Database},{name:'KASA Life Marathon',href:'/marthon',icon:CalendarDays}]:[]),{name:'My profile',href:'/dashboard/profile',icon:User}];
+ const role=profile?.role;
+ const allowed=(cap:import('@/lib/permissions').Capability)=>can(role,cap);
+ const links=[
+  ...(allowed('workspace.view')?[{name:'Overview',href:'/dashboard',icon:LayoutDashboard}]:[]),
+  ...(allowed('notifications.read')?[{name:'Notifications',href:'/dashboard/notifications',icon:Bell}]:[]),
+  ...(allowed('applications.read')&&role!=='agent'?[{name:'Applications',href:'/dashboard/applications',icon:ClipboardList}]:[]),
+  ...(role==='agent'?[{name:'My referrals',href:'/dashboard/referrals',icon:Users}]:[]),
+  ...(allowed('site.manage')?[{name:'Website',href:'/dashboard/website',icon:Settings}]:[]),
+  ...(allowed('content.manage')?[{name:'Programmes',href:'/dashboard/programmes',icon:BookOpen},{name:'Announcements',href:'/dashboard/announcements',icon:Newspaper}]:[]),
+  ...(allowed('intake.manage')?[{name:'Intake windows',href:'/dashboard/intake',icon:CalendarDays}]:[]),
+  ...(allowed('forms.manage')?[{name:'Form builder',href:'/dashboard/forms',icon:FilePlus2}]:[]),
+  ...(allowed('settings.manage')?[{name:'Acceptance Pack',href:'/dashboard/settings/acceptance-letter',icon:FileCheck}]:[]),
+  ...(allowed('agents.manage')?[{name:'District agents',href:'/dashboard/agents',icon:Users}]:[]),
+  ...(allowed('finance.read')?[{name:'Finance Ledger',href:'/dashboard/finance',icon:Wallet}]:[]),
+  ...(allowed('commissions.read')?[{name:'Commissions',href:'/dashboard/commissions',icon:BarChart3}]:[]),
+  ...(allowed('automation.manage')?[{name:'Automations',href:'/dashboard/automations',icon:Bell}]:[]),
+  ...(allowed('settings.manage')?[{name:'Settings',href:'/dashboard/settings',icon:Settings}]:[]),
+  ...(allowed('staff.manage')?[{name:'Staff roles',href:'/dashboard/staff',icon:Users}]:[]),
+  ...(allowed('bootstrap.manage')?[{name:'Data setup',href:'/dashboard/setup',icon:Database}]:[]),
+  ...(role==='super_admin'?[{name:'KASA Life Marathon',href:'/marthon',icon:CalendarDays}]:[]),
+  ...(allowed('profile.read')?[{name:'My profile',href:'/dashboard/profile',icon:User}]:[])
+ ];
  if(loading)return <main className="page-loader" role="status">Loading your secure workspace…</main>;
  if(sessionError||!profile)return <main className="portal-error-state" role="alert"><h1>Workspace access needs attention</h1><p>{sessionError||'Sign in with an authorized KASA staff or agent account to continue.'}</p><Link className="btn btn-primary" href="/login">Go to sign in</Link></main>;
  return <div className="portal-shell"><aside id="kasa-admin-navigation" className={`sidebar ${collapsed?'collapsed':''} ${mobile?'mobile-open':''}`}>

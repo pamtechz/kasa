@@ -1,12 +1,12 @@
 import {db} from '@/lib/firebase-admin';
 import {fail, json, HttpError} from '@/lib/errors';
-import {operator} from '@/lib/security';
+import {requireCapability} from '@/lib/security';
 
 export const runtime = 'nodejs';
 
 export async function GET(req: Request) {
   try {
-    await operator(req, ['super_admin', 'admin', 'reviewer']);
+    await requireCapability(req,'users.read');
     const url = new URL(req.url);
     const roleFilter = url.searchParams.get('role');
     const search = url.searchParams.get('search')?.toLowerCase().trim() || '';

@@ -6,14 +6,18 @@ import {ref, uploadBytes, getMetadata, deleteObject} from 'firebase/storage';
 
 // These tests operate exclusively against local emulators and a demo project.
 const bucketName='gs://demo-kasa-security-ci.appspot.com';
+// firebase-tools exports these addresses from the CI-specific emulator config.
+// Keep local defaults for developers running emulators manually.
+const fsEndpoint=new URL('http://'+(process.env.FIRESTORE_EMULATOR_HOST||'127.0.0.1:8080'));
+const storageEndpoint=new URL('http://'+(process.env.FIREBASE_STORAGE_EMULATOR_HOST||'127.0.0.1:9199'));
 let env;
 const bucket=ctx=>ctx.storage(bucketName);
 
 before(async()=>{
  env=await initializeTestEnvironment({
   projectId:'demo-kasa-security-ci',
-  firestore:{host:'127.0.0.1',port:8080,rules:readFileSync('firestore.rules','utf8')},
-  storage:{host:'127.0.0.1',port:9199,rules:readFileSync('storage.rules','utf8')}
+  firestore:{host:fsEndpoint.hostname,port:Number(fsEndpoint.port),rules:readFileSync('firestore.rules','utf8')},
+  storage:{host:storageEndpoint.hostname,port:Number(storageEndpoint.port),rules:readFileSync('storage.rules','utf8')}
  });
  await env.clearFirestore();
  await env.clearStorage();
@@ -96,6 +100,41 @@ test('private CDF evidence and acceptance packs never expose directly through St
   for(const path of ['cdf-documents/app1/id.png','acceptance-pack/letter.pdf']){
    await assertFails(getMetadata(ref(storage,path)));
    await assertFails(uploadBytes(ref(storage,path),new Uint8Array([9])));
+  }
+ }
+});
+
+test('All roles are denied direct identity, finance and approval mutations',async()=>{
+ const contexts=[
+  env.unauthenticatedContext(),
+  env.authenticatedContext('alice',{role:'student'}),
+  env.authenticatedContext('agent',{role:'agent'}),
+  env.authenticatedContext('reviewer',{role:'reviewer'}),
+  env.authenticatedContext('finance',{role:'finance'}),
+  env.authenticatedContext('admin',{role:'admin'}),
+  env.authenticatedContext('super',{role:'super_admin'})
+ ];
+ const protectedPaths=[
+  'submissions/app1','settings/intake','notificationOutbox/private1',
+  'fundingVerifications/private1','commissionPayments/private1',
+  'payoutRequests/req1','applicationDedupe/hashed','fileClaims/hashed',
+  'rateLimits/ip1','auditLogs/log1','siteContent/header'
+ ];
+ for(const ctx of contexts){
+  const db=ctx.firestore();
+  for(const path of protectedPaths){
+   await assertFails(getDoc(doc(db,path)));
+   await assertFails(setDoc(doc(db,path),{role:'super_admin',status:'payment_verified'}));
+   await assertFails(deleteDoc(doc(db,path)));
+  }
+ }
+});
+test('No elevated role can mutate published site content directly',async()=>{
+ for(const role of ['student','agent','reviewer','finance','admin','super_admin']){
+  const db=env.authenticatedContext(role,{role}).firestore();
+  for(const path of ['forms/published','programmes/open','adCampaigns/active']){
+   await assertFails(setDoc(doc(db,path),{published:true,active:true,role:'admin'}));
+   await assertFails(deleteDoc(doc(db,path)));
   }
  }
 });
