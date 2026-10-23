@@ -1,39 +1,48 @@
 rules_version = '2';
 service cloud.firestore {
-  match /databases/{database}/documents {
-    // The KASA Next.js server uses the Firebase Admin SDK. Admin SDK calls
-    // bypass security rules and must authenticate and authorize every request.
-    // Browsers must not create admissions, approvals, invoices or notifications.
-    function ownAccount(uid) {
-      return request.auth != null && request.auth.uid == uid;
-    }
+ match /databases/{database}/documents {
+  // Critical: Firebase Admin SDK bypasses these rules. KASA's server routes
+  // enforce RBAC via verified ID tokens, active Firestore profiles and
+  // permissions.ts. Never grant browser write access to privileged records.
+  function signedIn() { return request.auth != null; }
+  function ownProfile(uid) { return signedIn() && request.auth.uid == uid; }
+  function publiclyPublished() { return resource.data.get('published',false) == true; }
+  function activeCampaign() { return resource.data.get('active',false) == true; }
 
-    match /profiles/{uid} {
-      allow get: if ownAccount(uid);
-      allow list, create, update, delete: if false;
-    }
-
-    match /forms/{id} {
-      allow read: if resource.data.published == true;
-      allow write: if false;
-    }
-    match /programmes/{id} {
-      allow read: if resource.data.published == true;
-      allow write: if false;
-    }
-    match /announcements/{id} {
-      allow read: if resource.data.published == true;
-      allow write: if false;
-    }
-    match /adCampaigns/{id} {
-      allow read: if resource.data.active == true;
-      allow write: if false;
-    }
-
-    // Covers submissions, settings, fileClaims, applicationDedupe,
-    // notificationOutbox, finances, rateLimits, audit logs and future paths.
-    match /{document=**} {
-      allow read, write: if false;
-    }
+  match /profiles/{uid} {
+   allow get: if ownProfile(uid);
+   allow list, create, update, delete: if false;
   }
+  match /forms/{id} {
+   allow get, list: if publiclyPublished();
+   allow create, update, delete: if false;
+  }
+  match /programmes/{id} {
+   allow get, list: if publiclyPublished();
+   allow create, update, delete: if false;
+  }
+  match /announcements/{id} {
+   allow get, list: if publiclyPublished();
+   allow create, update, delete: if false;
+  }
+  match /adCampaigns/{id} {
+   allow get, list: if activeCampaign();
+   allow create, update, delete: if false;
+  }
+  // Every browser request to financial, academic, identity, message and
+  // security state is denied, INCLUDING requests with forged admin claims.
+  // Privileged functions are only available through authorized API routes.
+  match /submissions/{id} { allow read, write: if false; }
+  match /settings/{id} { allow read, write: if false; }
+  match /applicationDedupe/{id} { allow read, write: if false; }
+  match /fileClaims/{id} { allow read, write: if false; }
+  match /notificationOutbox/{id} { allow read, write: if false; }
+  match /fundingVerifications/{id} { allow read, write: if false; }
+  match /commissionPayments/{id} { allow read, write: if false; }
+  match /payoutRequests/{id} { allow read, write: if false; }
+  match /rateLimits/{id} { allow read, write: if false; }
+  match /auditLogs/{id} { allow read, write: if false; }
+  match /siteContent/{id} { allow read, write: if false; }
+  match /{document=**} { allow read, write: if false; }
+ }
 }

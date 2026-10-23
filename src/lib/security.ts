@@ -4,6 +4,7 @@ import type {NextRequest} from 'next/server';
 import {adminAuth,appCheck,db} from './firebase-admin';
 import {HttpError} from './errors';
 import type {Profile,Role} from './types';
+import {can} from './permissions';
 const operatorRoles:Role[]=['super_admin','admin','reviewer'];
 export async function operator(req:Request, allowed:Role[]=operatorRoles):Promise<Profile>{
  const value=req.headers.get('authorization')||'';
@@ -15,6 +16,11 @@ export async function operator(req:Request, allowed:Role[]=operatorRoles):Promis
  const p=snapshot.data() as Profile|undefined;
  if(!p || !p.active || !allowed.includes(p.role)) throw new HttpError(403,'Access denied.');
  return {...p,uid};
+}
+export async function requireCapability(req:Request,capability:import('./permissions').Capability):Promise<Profile>{
+ const actor=await operator(req);
+ if(!can(actor.role,capability))throw new HttpError(403,'This operation is not permitted for your role.');
+ return actor;
 }
 export function sameOrigin(req: Request) {
   const origin = req.headers.get('origin') || req.headers.get('referer') || '';

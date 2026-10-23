@@ -1,6 +1,6 @@
 import {db} from '@/lib/firebase-admin';
 import {fail,json,HttpError} from '@/lib/errors';
-import {operator,sameOrigin,audit,newId,safeText} from '@/lib/security';
+import {operator,sameOrigin,audit,newId,safeText,requireCapability} from '@/lib/security';
 import type {ApplicantRecord,SubmissionStatus} from '@/lib/types';
 import {submissionsCache, SUBMISSIONS_CACHE_TTL, invalidateSubmissionsCache} from '@/lib/server-cache';
 
@@ -16,7 +16,14 @@ export async function GET(req:Request){
   }
   const q=user.role==='agent'?db.collection('submissions').where('agentId','==',user.uid):db.collection('submissions');
   const result=await q.limit(300).get();
-  const items:ApplicantRecord[]=result.docs.map(x=>{const item=x.data() as ApplicantRecord;return {...item,id:x.id,...(user.role==='agent'?{answers:{},formSnapshot:undefined,history:undefined,documents:undefined,internalNotes:undefined,cdfVerification:undefined,paymentVerification:undefined}:{})};}).sort((a,b)=>String(b.submittedAt).localeCompare(String(a.submittedAt)));
+  const items=result.docs.map(x=>{
+   const item=x.data() as ApplicantRecord;
+   if(user.role==='agent')return {
+    id:x.id,reference:item.reference,formTitle:item.formTitle,status:item.status,
+    submittedAt:item.submittedAt,agentId:item.agentId
+   };
+   return {...item,id:x.id};
+  }).sort((a,b)=>String(b.submittedAt).localeCompare(String(a.submittedAt)));
   submissionsCache.set(cacheKey, {items, timestamp: Date.now()});
   return json({submissions:items});
  }catch(e){return fail(e);}
@@ -25,7 +32,7 @@ export async function GET(req:Request){
 export async function POST(req:Request){
  try{
   sameOrigin(req);
-  const actor=await operator(req,['super_admin','admin','reviewer']);
+  const actor=await requireCapability(req,'applications.review');
   const body=await req.json();
   const studentName=safeText(body.name||body.studentName,120);
   const email=safeText(body.email,160).toLowerCase();

@@ -264,3 +264,24 @@ test('Production CSRF origin is not derived from an untrusted request Host heade
  assert.match(security,/\.\.\.\(process\.env\.NODE_ENV !== 'production' \?/);
  assert.doesNotMatch(security,/\n\s*requestUrl\.origin/);
 });
+
+test('Role matrix controls UI visibility and server authorization for sensitive features',()=>{
+ const policy=source('src/lib/permissions.ts');
+ const ui=source('src/components/Portal.tsx');
+ const security=source('src/lib/security.ts');
+ const finance=source('src/app/api/admin/finance/route.ts');
+ const commissions=source('src/app/api/admin/commissions/route.ts');
+ assert.match(policy,/finance:\s*\[/);
+ assert.match(policy,/student:\s*\[/);
+ assert.match(policy,/reviewer:\s*\[/);
+ assert.match(ui,/allowed\('finance.read'\)/);
+ assert.match(ui,/allowed\('applications.read'\)/);
+ assert.match(security,/export async function requireCapability/);
+ assert.match(finance,/requireCapability\(req,'finance.record'\)/);
+ assert.match(commissions,/requireCapability\(req,'commissions.manage'\)/);
+});
+test('Agents never receive private application fields via admin submissions listing',()=>{
+ const code=source('src/app/api/admin/submissions/route.ts');
+ assert.match(code,/if\(user.role==='agent'\)return \{/);
+ assert.doesNotMatch(code,/\.\.\.item,id:x.id,\.\.\.\(user.role==='agent'/);
+});
