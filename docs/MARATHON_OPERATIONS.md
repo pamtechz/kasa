@@ -1,35 +1,44 @@
-# KASA Life Marathon operations module
+# KASA Life Marathon — dual-role profile access
 
-Routes: **/marthon** (requested spelling), **/marthon/login**, /marthon/operations, /marthon/timeline, /marthon/recommendations, /marthon/activity, /marthon/archive, /marthon/team and /marthon/super. /marathon redirects to /marthon.
+The Marathon workspace uses **the same Firebase project, Firestore database, Firebase Authentication identities and `profiles/{uid}` documents** as the KASA School app. No separate user database, duplicate login identity or `marathonMembers` collection is used.
 
-## Architecture
-Existing kasaschool.vercel.app Next.js app, existing Firebase Authentication and Firebase Admin/Firestore backend. Marathon uses separate document collections: `marathonTasks`, `marathonMembers`, `marathonSuggestions`, `marathonAudit`, and `marathonMeta`. The existing main KASA `profiles.role` remains unchanged. Global active super administrators inherit Marathon super-admin access.
+The school profile has its original `role` (for example `admin`, `student`, `agent`) and may have an additional optional `marathonAccess` object:
 
-## Roles
-- `super_admin`: main KASA super admin; only this role can import source data and assign/edit Marathon-specific memberships.
-- `kasaAdmin`: manage Marathon tasks and review proposals; cannot import source or change memberships.
-- `kasaOperations`: edit tasks and review proposals.
-- `kasaEditor`: edit tasks.
-- `kasaReviewer`: read tasks and review proposals, but not modify task statuses directly.
-- `kasaClient`: read tasks and recommend changes, but not change official checklist records.
+```json
+{
+  "role": "admin",
+  "active": true,
+  "marathonAccess": {
+    "role": "kasaAdmin",
+    "active": true,
+    "assignedBy": "verified-super-admin-uid",
+    "assignedAt": "ISO-8601",
+    "updatedBy": "verified-super-admin-uid",
+    "updatedAt": "ISO-8601"
+  }
+}
+```
 
-All operations require a valid, email-verified Firebase ID token, active account and server-side Marathon membership (except global super admin). Direct Firestore writes remain denied by the existing `firestore.rules`: the Next.js API uses Firebase Admin SDK and checks roles on every request.
+School `role` is unchanged when Marathon access is added, modified or revoked. The **only** permitted role grantor is the existing active, email-verified KASA School `super_admin`. All Marathon role controls live in `/marthon/settings` (also `/marthon/team`) within the Marathon application, not in the root school user-management screens. The school super admin automatically has full Marathon permissions without `marathonAccess`.
 
-## Seed and historical completion
-`src/data/marathon-seed.json` is an exact migrated task register from the native Google Sheet `1bRilxxldCNU3KkZ4Oobu5_Tr8Fu5f1niIDU9Mx4DF04`, tab `Actions`: 130 uniquely identified rows. This snapshot is not automatically rewritten from or into Google Sheets. The *Import source checklist* button in /marthon/super executes a super-admin-only, idempotent seed to the existing Firestore project. Existing task IDs and prior edits are never overwritten. This button must be clicked once by an authenticated super administrator; committing source files or deploying Vercel does not by itself write Firestore data.
+Second-role options: `kasaAdmin` (edit and review), `kasaOperations` (edit and review), `kasaEditor` (edit), `kasaReviewer` (read and review recommendations), and `kasaClient` (read and recommend). These roles do **not** confer school app permissions or permission to grant Marathon roles.
 
-Completion can be backdated via *Actual completion date and time*. The server separately records actual completion time, identity and edit-submission time. Do not infer completion from the Sheet's former "To confirm" status; staff must verify and enter historical results and supporting evidence.
+The app uses its existing Firebase Auth login at `/marthon/login`; users can sign in with the same email and password as school. Marathon APIs verify the Firebase ID token, email verification and `profiles/{uid}.active===true`, then check `marathonAccess.active===true` and the secondary role. For the global school super admin, only the active profile and school `role` are required. Missing profiles, inactive school accounts and unassigned/inactive Marathon access fail closed.
 
-## Offline operations
-A separate Marathon service worker at /marthon-sw.js caches Marathon client-only route shells and static Next assets after the first online visit. The school's security-restricted /sw.js is preserved unchanged. IndexedDB stores an authenticated-user-scoped snapshot and pending PATCHes for existing tasks. A client edits cached task records offline, sees *pending* indicators, and automatically attempts server replay after reconnection. Mutations use original document revision and UUID mutation IDs for idempotency; uncertain network outcomes reuse the same mutation ID for automatic replay. A 409 conflict leaves the local queue intact for human reconciliation (no last-write-wins). Creating tasks, managing accounts, import and recommendations require connectivity. Browser offline snapshots are not shared across users and should not contain sensitive evidence or participant PII. Do not use browser storage for personal data in future extensions.
+Access controls are enforced server-side on all Marathon APIs, not merely hidden in the UI. Direct Firestore access remains denied by the existing rules. Role assignments update only `marathonAccess` within the existing profile, transactionally with `marathonAudit` records. There is no client API that writes the school `role`.
 
-## Launch checklist
-1. Verify Vercel has valid existing Firebase browser and Admin settings; do not expose service-account credentials.
-2. Build / typecheck, run source and Firestore rule tests, verify all Marathon API role-denial paths.
-3. Deploy as a Vercel preview first. Ensure /marthon/login works, /marathon redirects, and the existing school routes remain unaffected.
-4. With a verified super admin, open /marthon/super and click the import button. Confirm total of 130 records and test update/backdated completion.
-5. Invite registered verified accounts to Marathon roles. Test client read + suggestion and confirm they cannot POST/PATCH tasks or import.
-6. On a test account, go offline after first visit, update a task, reconnect and verify automatic replay and audit trail; test 409 conflicts separately.
-7. Promote only a reviewed, successful deployment to kasaschool.vercel.app. Repeat permissions tests on production.
+## Existing Marathon functionality
+- `/marthon` dashboard, `/marthon/operations`, `/marthon/timeline`, `/marthon/recommendations`, `/marthon/archive`, `/marthon/activity`, `/marthon/super` and Marathon-specific role settings; `/marathon` is an alias.
+- Source data: `src/data/marathon-seed.json`, containing 130 uniquely identified KASA Life Marathon actions from the previously approved Google Sheet. **Super admin must explicitly invoke initial Firestore import; deployment alone does not seed the database.** The source snapshot is not a live bidirectional Sheets connector.
+- Existing activities can be marked done, re-opened, backdated with actual completion timestamps and supported by notes/evidence. The mutation timestamp and actor are recorded separately in the audit log.
+- Offline: the scoped `/marthon-sw.js` worker caches Marathon shell routes; IndexedDB holds user-specific snapshots and queued edits. On reconnect, server submission checks UUID mutation IDs and source revisions. Conflicts are retained for manual review. Account grants, new-task creation, initial import and recommendation submission require internet.
 
-This module intentionally keeps its initial source data snapshot in the repository; full bidirectional Google Sheets synchronisation would require an authenticated Sheets integration with explicit conflict-resolution rules.
+## Release checks
+1. Pass GitHub CI (security boundary tests, source tests, lint/typecheck and Firestore emulator rules) and Vercel preview build.
+2. Log in as an existing school super admin. Visit **Marathon → Settings & roles**, enter the verified email of an *existing* KASA School user, and assign `kasaClient` or another second role.
+3. Confirm `profiles/{uid}.role` and all school account details remain unchanged; only `marathonAccess` changes. Test multiple existing primary roles.
+4. Confirm unassigned, inactive and unverified users receive 403/401 from every Marathon API, and `kasaAdmin` cannot assign or revoke roles.
+5. Revoke Marathon access; verify the same school credentials still work on the school portal but Marathon requests return 403.
+6. Import approved source checklist from `/marthon/super`, verify 130 records without destructive overwrites, and test historical completion plus offline replay before production promotion.
+
+The real production Firebase database has not been seeded or modified merely by committing this code.
