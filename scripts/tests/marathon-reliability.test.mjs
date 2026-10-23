@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {IDBFactory,IDBObjectStore} from 'fake-indexeddb';
 import {
  queueMarathonEdit,pendingMarathonEdits,claimMarathonEdit,acknowledgeMarathonEdit,
- flagMarathonConflict,resolveMarathonEdit,saveMarathonCache,readMarathonCache
+ flagMarathonConflict,handleMarathonSyncFailure,resolveMarathonEdit,saveMarathonCache,readMarathonCache
 } from '../../src/lib/marathon-offline.ts';
 import {completionChanges} from '../../src/lib/marathon-task-update.ts';
 import {csvEscape,schoolWorkspace} from '../../src/lib/marathon-export.ts';
@@ -84,6 +84,32 @@ test('a stale comparison cannot discard or rebase a newer local change',async()=
  assert.equal(current.changes.notes,'Newer change');
  assert.equal(await resolveMarathonEdit(current),true);
  assert.equal((await pendingMarathonEdits('alice')).length,0);
+});
+
+test('revoked edit permission releases the submitted claim and permits discarding the retained edit',async()=>{
+ await queueMarathonEdit('alice','T001',1,{notes:'Submitted before downgrade'});
+ const sent=await claimMarathonEdit('alice:T001');
+ await queueMarathonEdit('alice','T001',1,{notes:'Newer local note'});
+ assert.equal(await handleMarathonSyncFailure(sent,403,'Your role cannot edit actions.'),true);
+ const [review]=await pendingMarathonEdits('alice');
+ assert.equal(review.submitted,undefined);
+ assert.equal(review.changes.notes,'Newer local note');
+ assert.match(review.conflict,/cannot edit/);
+ assert.equal(await claimMarathonEdit(review.key),null);
+ assert.equal(await resolveMarathonEdit(review),true);
+ assert.deepEqual(await pendingMarathonEdits('alice'),[]);
+});
+
+test('uncertain sync failures retain the original submitted request for an idempotent retry',async()=>{
+ await queueMarathonEdit('alice','T001',1,{notes:'Original request'});
+ const sent=await claimMarathonEdit('alice:T001');
+ await queueMarathonEdit('alice','T001',1,{notes:'Later change'});
+ for(const status of [undefined,401,429,500,503]){
+  assert.equal(await handleMarathonSyncFailure(sent,status,'Try again later.'),false);
+  const retry=await claimMarathonEdit(sent.key);
+  assert.equal(retry.mutationId,sent.mutationId);
+  assert.deepEqual(retry.changes,sent.changes);
+ }
 });
 
 test('a transaction that aborts after request success never reports a saved edit',async()=>{

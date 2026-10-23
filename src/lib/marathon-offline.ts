@@ -96,6 +96,14 @@ export async function flagMarathonConflict(sent:PendingEdit,message:string){
   return {item,result:true};
  });
 }
+export async function handleMarathonSyncFailure(sent:PendingEdit,status:number|undefined,message:string){
+ // These responses reject the write definitively. Release its submitted claim
+ // so it can be reviewed or discarded, including after edit access is revoked.
+ // Preserve the immutable request for transport/server failures with an unknown outcome.
+ if(status===undefined||![400,403,404,409].includes(status))return false;
+ await flagMarathonConflict(sent,message);
+ return true;
+}
 export async function resolveMarathonEdit(edit:PendingEdit,revision?:number){
  return updatePending(edit.key,current=>{
   if(!current||current.mutationId!==edit.mutationId||current.submitted)return {item:current,result:false};

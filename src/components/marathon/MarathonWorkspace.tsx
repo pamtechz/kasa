@@ -13,7 +13,7 @@ import {
 import {authHeaders,getClientAuth,signOutClient} from '@/lib/firebase-client';
 import {
  readMarathonCache,saveMarathonCache,pendingMarathonEdits,queueMarathonEdit,
- claimMarathonEdit,acknowledgeMarathonEdit,flagMarathonConflict,resolveMarathonEdit
+ claimMarathonEdit,acknowledgeMarathonEdit,handleMarathonSyncFailure,resolveMarathonEdit
 } from '@/lib/marathon-offline';
 import type {PendingEdit} from '@/lib/marathon-offline';
 import {csvEscape,schoolWorkspace} from '@/lib/marathon-export';
@@ -140,8 +140,7 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
       await acknowledgeMarathonEdit(edit,result.appliedRevision);
      }catch(e){
       const status=(e as Error&{status?:number}).status;
-      if(status&&[400,404,409].includes(status)){
-       await flagMarathonConflict(edit,errorMessage(e));
+      if(await handleMarathonSyncFailure(edit,status,errorMessage(e))){
        setNotice('A saved edit needs review. Other actions continue syncing. Open Offline edits to compare and resolve it.');
        continue;
       }

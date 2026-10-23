@@ -48,6 +48,8 @@ The real production Firebase database has not been seeded or modified merely by 
 
 Open **Offline edits** to inspect queued changes. Conflicts show the online field values beside the device changes. **Apply my changes** retries against the version that was reviewed; another online update still causes a conflict. **Discard device edit** keeps the online record. A conflict on one action does not stop independent actions syncing.
 
+If an editor loses edit permission, a rejected queued change stops automatic retries and remains available to discard in **Offline edits**. Connection failures and uncertain server responses keep the original submitted request for a safe retry.
+
 Each request is persisted before submission. Requests awaiting confirmation retain their original mutation ID and payload across reloads; later local changes are preserved separately until acknowledgement. All queue read/merge/write operations are atomic, and a write is reported as saved only after IndexedDB commits. Cached server snapshots are overlaid with queued changes on refresh. Online saves remain available when a browser disables device storage.
 
 Editing notes, evidence or another field on an already completed task preserves its completion actor and entry timestamp. An explicit change to the completion date, or a new transition to Done, records the new completion attribution. The drawer sends the completion date only when the user actually changes it, preserving the original seconds on unrelated edits. Quick completion controls toggle Done / Not done.
