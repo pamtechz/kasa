@@ -2,6 +2,7 @@ import {db} from '@/lib/firebase-admin';
 import {fail, json, HttpError} from '@/lib/errors';
 import {requireCapability, newId, safeText, sameOrigin, audit, digest} from '@/lib/security';
 import {invalidateSubmissionsCache} from '@/lib/server-cache';
+import {readApprovedFeeQuote} from '@/lib/approved-fee-quote';
 
 export const runtime = 'nodejs';
 
@@ -15,28 +16,26 @@ export async function GET(req: Request) {
     let totalRevenueExpected = 0;
     let totalPaymentsReceived = 0;
     let totalCdfApproved = 0;
+    let missingFeeQuotes = 0;
+    let outstandingBalance = 0;
 
     const studentLedger = docs.map((x: any) => {
       const answers = x.answers || {};
       const studentName = String(answers['full-name'] || answers['fullNames'] || 'Student Applicant');
       const programme = String(answers['programme-pathway'] || x.formTitle || 'General Agriculture');
 
-      let tuitionFee = 8200; // Default approved tuition fee
-      if (programme.includes('K4,800')) tuitionFee = 4800;
-      else if (programme.includes('K2,600')) tuitionFee = 2600;
-      else if (programme.includes('K3,000')) tuitionFee = 3000;
-
-      const isBoarding = String(answers['package-option'] || answers['attendance'] || '').toLowerCase().includes('boarding');
-      const totalPackage = isBoarding ? tuitionFee + 9000 : tuitionFee;
-
-      totalRevenueExpected += totalPackage;
-
-      const paidAmount = Number(x.paymentVerification?.amount) || 0;
+      // An approved, versioned quote is the only valid source for a due balance.
+      const quote = readApprovedFeeQuote(x.feeQuote);
+      const totalPackage = quote?.total ?? null;
+      if (totalPackage === null) missingFeeQuotes++;
+      else totalRevenueExpected += totalPackage;
+      const recorded = Number(x.paymentVerification?.amount);
+      const paidAmount = Number.isFinite(recorded) && recorded >= 0 ? recorded : 0;
       totalPaymentsReceived += paidAmount;
-
-      if (x.fundingMethod === 'cdf' && ['cdf_approved', 'commission_paid'].includes(x.status)) {
-        totalCdfApproved += totalPackage;
-      }
+      const cdfApproved = x.fundingMethod === 'cdf' && ['cdf_approved','commission_paid'].includes(x.status);
+      if (cdfApproved && totalPackage !== null) totalCdfApproved += totalPackage;
+      const due = totalPackage === null ? null : Math.max(0,totalPackage - paidAmount);
+      if (due !== null && !cdfApproved) outstandingBalance += due;
 
       return {
         id: x.id,
@@ -46,8 +45,9 @@ export async function GET(req: Request) {
         fundingMethod: x.fundingMethod || 'self_funded',
         status: x.status,
         totalPackage,
+        feeStatus: quote ? 'approved' : 'requires_reconciliation',
         paidAmount,
-        outstandingBalance: Math.max(0, totalPackage - paidAmount),
+        outstandingBalance: due,
         paymentReference: x.paymentVerification?.reference || null,
         verifiedAt: x.paymentVerification?.verifiedAt || null,
         submittedAt: x.submittedAt
@@ -58,8 +58,10 @@ export async function GET(req: Request) {
       summary: {
         totalRevenueExpected,
         totalPaymentsReceived,
-        outstandingBalance: Math.max(0, totalRevenueExpected - totalPaymentsReceived - totalCdfApproved),
-        totalCdfApproved
+        outstandingBalance,
+        totalCdfApproved,
+        missingFeeQuotes,
+        financialTotalsPartial: missingFeeQuotes > 0
       },
       ledger: studentLedger
     });
