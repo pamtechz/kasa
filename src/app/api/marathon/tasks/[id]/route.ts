@@ -3,7 +3,8 @@ import {db} from '@/lib/firebase-admin';
 import {fail,json,HttpError} from '@/lib/errors';
 import {marathonIdentity,requireMarathon} from '@/lib/marathon';
 import {sameOrigin} from '@/lib/security';
-import {completionChanges} from '@/lib/marathon-task-update';
+import {completionChanges,preserveSourceCategory} from '@/lib/marathon-task-update';
+import {isMarathonCategorySection} from '@/lib/marathon-categories';
 import type {MarathonTask} from '@/lib/marathon-types';
 export const runtime='nodejs';
 function validId(id:string){return /^(T\d{3}|WEB-\d{2}|M-[0-9a-f-]{36})$/.test(id);}
@@ -23,6 +24,7 @@ const patch=z.object({
  changes:z.object({
   title:z.string().trim().min(3).max(220).optional(),
   lead:z.string().trim().min(1).max(100).optional(),
+  section:z.string().refine(isMarathonCategorySection,'Choose a checklist category.').optional(),
   dueDate:z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/),z.null()]).optional(),
   priority:z.enum(['P1 Act now','P2 Next 30 days','P3 Schedule']).optional(),
   importance:z.enum(['Critical','High','Medium','Low']).optional(),
@@ -63,12 +65,13 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
    if(Number(before.revision)!==expectedRevision)
     throw new HttpError(409,'This action was changed elsewhere. Refresh and review the latest version before retrying.');
    const next={...changes,revision:expectedRevision+1,updatedAt:now,updatedBy:identity.uid} as Record<string,unknown>;
+   Object.assign(next,preserveSourceCategory(before,changes));
    try{Object.assign(next,completionChanges(before as MarathonTask,changes,identity.uid,now));}
    catch{throw new HttpError(400,'Completion date requires Done status.');}
    appliedRevision=expectedRevision+1;
    tx.update(ref,next);
    tx.create(event,{taskId:id,action:'updated',actor:identity.uid,at:now,
-    mutationId,before:{status:before.status,completedAt:before.completedAt||null,revision:before.revision},
+    mutationId,before:{status:before.status,completedAt:before.completedAt||null,revision:before.revision,section:typeof before.section==='string'?before.section:null},
     changes:next});
    updated={id,...before,...next};
   });
