@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import {MarathonLink as Link} from './MarathonLink';
 import {ArrowUpRight,Layers3} from 'lucide-react';
 import {groupMarathonCategories} from '@/lib/marathon-categories';
 import type {MarathonTask} from '@/lib/marathon-types';

@@ -86,3 +86,11 @@ New actions require a known category in both the form and API. Editors can chang
 The operator CLI reports live category counts and rejects uncategorized active records after an apply or an already-imported dry run. Dry-run verification performs reads only.
 
 Category-filtered operations URLs support offline navigation using a cached HTML shell. The worker caches a shared query-free shell only for plain navigation or a single category slug; other query parameters and API requests remain excluded. When an offline root-shell fallback is used, the client restores the requested Marathon view from the address and reads its category parameter.
+
+## Persistent navigation
+
+The authenticated Marathon workspace is mounted once in the `(workspace)` layout. Overview and section route pages are empty outlets; login and bootstrap remain outside that layout. Internal workspace links use Next.js-compatible native history updates to change the view and category without a document reload, server-page fetch, repeat sign-in verification or repeat checklist bootstrap. The URL remains shareable, new-tab navigation still works, and Back/Forward restores the selected view and category.
+
+Account state, task data, filters and saved offline edits remain in the mounted workspace. A view change or window focus revalidates data in the background when the last request is at least one minute old; explicit refresh, reconnection and edit synchronization retain their existing behavior. Server endpoints continue to authorize each request. Returning to KASA School or sign-in uses normal Next.js navigation.
+
+The form editor returns to the forms list with client navigation after deletion. Advertisement links also use client navigation for internal destinations, and click tracking runs without delaying navigation.

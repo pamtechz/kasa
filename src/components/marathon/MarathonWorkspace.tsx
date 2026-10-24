@@ -1,7 +1,7 @@
 'use client';
 import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import Link from 'next/link';
-import {useRouter} from 'next/navigation';
+import {MarathonLink as Link} from './MarathonLink';
+import {useRouter,usePathname,useSearchParams} from 'next/navigation';
 import {onAuthStateChanged} from 'firebase/auth';
 import {
  Activity,ArrowDownRight,ArrowRight,ArrowUpRight,Bell,CalendarDays,Check,CheckCheck,CheckCircle2,
@@ -23,7 +23,7 @@ import {MarathonCategoryBoard} from './MarathonCategoryBoard';
 import {marathonCategories,categoryForSection,categoryForId,isMarathonCategoryId,isMarathonCategorySection,groupMarathonCategories,matchesMarathonFilters} from '@/lib/marathon-categories';
 import type {MarathonSeedInfo} from '@/lib/marathon-seed-import';
 import type {MarathonTask,MarathonRole,MarathonStatus} from '@/lib/marathon-types';
-import {marathonViews as validViews,marathonViewForPath} from '@/lib/marathon-navigation';
+import {marathonViewForPath} from '@/lib/marathon-navigation';
 import type {MarathonView as View} from '@/lib/marathon-navigation';
 
 type Identity={uid:string;email:string;displayName:string;schoolRole:string;role:MarathonRole};
@@ -59,24 +59,19 @@ function sortTasks(tasks:MarathonTask[]){return [...tasks].sort((a,b)=>priorityR
 
 export function MarathonWorkspace({section='overview'}:{section?:string}){
  const router=useRouter();
- const [view,setView]=useState<View>(validViews.includes(section as View)?section as View:'overview');
- useEffect(()=>{
-  // A cached fallback shell can have a different server section. Restore the
-  // visible view from the requested URL without discarding category parameters.
-  const restoreView=()=>setView(marathonViewForPath(window.location.pathname,section));
-  restoreView();window.addEventListener('popstate',restoreView);
-  return ()=>window.removeEventListener('popstate',restoreView);
- },[section]);
+ const pathname=usePathname(),searchParams=useSearchParams();
+ const view=marathonViewForPath(pathname,section);
  const [state,setState]=useState<Bootstrap>(blank),[loading,setLoading]=useState(true),[offline,setOffline]=useState(false);
  const [authError,setAuthError]=useState(''),[notice,setNotice]=useState(''),[queuedEdits,setQueuedEdits]=useState<PendingEdit[]>([]);
  const [drawer,setDrawer]=useState<MarathonTask|null>(null),[newTask,setNewTask]=useState(false),[mobile,setMobile]=useState(false);
  const [saving,setSaving]=useState(false),[query,setQuery]=useState(''),[filterStatus,setFilterStatus]=useState('all');
  const [filterPriority,setFilterPriority]=useState('all'),[filterLead,setFilterLead]=useState('all');
- const [filterCategory,setFilterCategory]=useState('all');
+ const categoryParam=searchParams.get('category');
+ const filterCategory=isMarathonCategoryId(categoryParam)?categoryParam:'all';
  const [events,setEvents]=useState<EventItem[]>([]);
  const [suggestTask,setSuggestTask]=useState(''),[suggestText,setSuggestText]=useState(''),[suggestStatus,setSuggestStatus]=useState<MarathonStatus>('done');
  const [inviteEmail,setInviteEmail]=useState(''),[inviteRole,setInviteRole]=useState<typeof roles[number]>('kasaClient');
- const authUid=useRef(''),syncingRef=useRef(false),initializedUid=useRef(''),suggestionRequest=useRef(0),reviewRequest=useRef(0);
+ const authUid=useRef(''),syncingRef=useRef(false),initializedUid=useRef(''),suggestionRequest=useRef(0),reviewRequest=useRef(0),lastHydrateStarted=useRef(0);
  const [syncing,setSyncing]=useState(false),[reviewEdit,setReviewEdit]=useState<PendingEdit|null>(null);
  const [reviewTask,setReviewTask]=useState<MarathonTask|null>(null),[reviewError,setReviewError]=useState('');
  const [suggestionCursor,setSuggestionCursor]=useState<string|null>(null),[suggestionFilter,setSuggestionFilter]=useState('pending');
@@ -84,6 +79,7 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
  const pending=queuedEdits.map(x=>x.taskId);
  const uid=state.identity.uid;
  const hydrate=useCallback(async(userUid:string)=>{
+  lastHydrateStarted.current=Date.now();
   try{
    const data=await api<Bootstrap>('/api/marathon/bootstrap');
    if(authUid.current!==userUid)return;
@@ -127,6 +123,10 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
   return ()=>{active=false;authUid.current='';unsub();};
  },[hydrate,router]);
  const refresh=useCallback(async()=>{if(uid)await hydrate(uid);},[hydrate,uid]);
+ useEffect(()=>{
+  // Keep long-lived workspaces current without blocking each view switch.
+  if(uid&&!offline&&Date.now()-lastHydrateStarted.current>=60000)void refresh();
+ },[view,uid,offline,refresh]);
  const flush=useCallback(async()=>{
   if(!uid||!navigator.onLine||syncingRef.current)return;
   syncingRef.current=true;setSyncing(true);
@@ -176,7 +176,7 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
   if(!uid)return;
   const online=()=>{void refresh().then(()=>flush());};
   const away=()=>setOffline(true);
-  const focus=()=>{if(navigator.onLine)void flush();};
+  const focus=()=>{if(navigator.onLine)void (Date.now()-lastHydrateStarted.current>=60000?refresh().then(()=>flush()):flush());};
   window.addEventListener('online',online);window.addEventListener('offline',away);window.addEventListener('focus',focus);
   const timer=window.setInterval(()=>{if(navigator.onLine)void flush();},30000);
   if(navigator.onLine)void flush();else setOffline(true);
@@ -224,19 +224,10 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
  const pct=active.length?Math.round(complete/active.length*100):0;
  const daysLeft=Math.max(0,Math.ceil((new Date('2027-03-21T06:00:00+02:00').getTime()-Date.now())/86400000));
  const leads=useMemo(()=>[...new Set(tasks.map(t=>t.lead).filter(Boolean))].sort(),[tasks]);
- useEffect(()=>{
-  const readCategory=()=>{
-   const value=new URLSearchParams(window.location.search).get('category');
-   setFilterCategory(isMarathonCategoryId(value)?value:'all');
-  };
-  readCategory();window.addEventListener('popstate',readCategory);
-  return ()=>window.removeEventListener('popstate',readCategory);
- },[view]);
  function selectCategory(value:string){
-  setFilterCategory(value);
   const url=new URL(window.location.href);
   if(value==='all')url.searchParams.delete('category');else url.searchParams.set('category',value);
-  window.history.replaceState(window.history.state,'',url.pathname+url.search+url.hash);
+  window.history.replaceState(null,'',url.pathname+url.search+url.hash);
  }
  const uncategorizedCount=active.filter(t=>categoryForSection(t.section).id==='uncategorized').length;
  const filtered=useMemo(()=>sortTasks(tasks.filter(t=>matchesMarathonFilters(t,{
@@ -325,13 +316,13 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
  const PageIcon=(menu.find(m=>m.view===view)||nav[0]).icon;
  async function logout(){if(pending.length&&!window.confirm('You have '+pending.length+' unsynced edits stored on this device. Sign out anyway?'))return;await signOutClient();router.replace('/marthon/login');}
 
- if(loading)return <div className="ml-init"><span className="ml-spinner"/><h2>Opening Marathon Command Centre</h2><p>Verifying your account and loading event operations…</p></div>;
+ if(loading)return <div className="ml-init" role="status"><span className="ml-spinner"/><h2>Opening Marathon Command Centre</h2><p>Verifying your account and loading event operations…</p></div>;
  if(authError&&!uid)return <main className="ml-init"><Shield size={32}/><h2>Marathon workspace unavailable</h2><p>{authError}</p><Link className="ml-primary" href="/marthon/login">Return to secure sign in</Link></main>;
  return <div className="ml-app">
   <aside className={'ml-sidebar '+(mobile?'ml-sidebar-open':'')}>
    <Link href="/marthon" className="ml-sidebar-brand" onClick={()=>setMobile(false)}><span className="ml-mark">K</span><span><b>KASA <em>LIFE</em></b><small>MARATHON OPERATIONS</small></span></Link>
    <div className="ml-nav-section">WORKSPACE</div>
-   <nav aria-label="Marathon workspace navigation">{menu.map(item=>{const Icon=item.icon;return <Link key={item.view} href={item.view==='overview'?'/marthon':'/marthon/'+item.view} className={'ml-nav-item '+(view===item.view?'selected':'')} onClick={()=>setMobile(false)}><Icon size={19}/><span>{item.label}</span>{item.view==='recommendations'&&state.suggestions.some(s=>s.status==='pending')&&<i/>}</Link>;})}</nav>
+   <nav aria-label="Marathon workspace navigation">{menu.map(item=>{const Icon=item.icon;return <Link key={item.view} href={item.view==='overview'?'/marthon':'/marthon/'+item.view} className={'ml-nav-item '+(view===item.view?'selected':'')} aria-current={view===item.view?'page':undefined} onClick={()=>setMobile(false)}><Icon size={19}/><span>{item.label}</span>{item.view==='recommendations'&&state.suggestions.some(s=>s.status==='pending')&&<i/>}</Link>;})}</nav>
    <div className="ml-school-switch"><span className="ml-nav-section">YOUR WORKSPACES</span>
     <Link href={schoolDestination} className="ml-nav-item ml-school-link"><ArrowDownRight size={19}/><span>Return to KASA School</span></Link>
    </div>
@@ -408,7 +399,7 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
    </div>
   </main>
   {reviewEdit&&<MarathonSyncReview edit={reviewEdit} current={reviewTask} error={reviewError} busy={saving||syncing} onClose={()=>{reviewRequest.current++;setReviewEdit(null);}} onResolve={retry=>void resolveEdit(retry)}/>}
-  {drawer&&<TaskDrawer task={drawer} editable={state.permissions.edit} saving={saving} queued={pending.includes(drawer.id)} onClose={()=>setDrawer(null)} onSave={changes=>void changeTask(drawer,changes)} onRecommend={()=>{setSuggestTask(drawer.id);setDrawer(null);router.push('/marthon/recommendations');}}/>}
+  {drawer&&<TaskDrawer task={drawer} editable={state.permissions.edit} saving={saving} queued={pending.includes(drawer.id)} onClose={()=>setDrawer(null)} onSave={changes=>void changeTask(drawer,changes)} onRecommend={()=>{setSuggestTask(drawer.id);setDrawer(null);window.history.pushState(null,'','/marthon/recommendations');}}/>}
   {newTask&&<NewTaskModal initialSection={filterCategory==='all'?'':categoryForId(filterCategory).section} saving={saving} onClose={()=>setNewTask(false)} onSave={x=>void createTask(x)}/>}
  </div>;
 }

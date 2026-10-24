@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
-import {marathonViewForPath} from '../../src/lib/marathon-navigation.ts';
+import {marathonViewForPath,isMarathonWorkspacePath} from '../../src/lib/marathon-navigation.ts';
 
 const worker=readFileSync(new URL('../../public/marthon-sw.js',import.meta.url),'utf8');
 function fixture(cached={},network=async()=>{throw new TypeError('Offline');}){
@@ -59,4 +59,13 @@ test('API calls, unrelated query parameters and non-navigation requests are not 
  assert.equal(await app.navigate('/marthon/operations?category=safety',{method:'POST'}),null);
  assert.equal(await app.navigate('/marthon/operations?category=safety',{mode:'cors'}),null);
  assert.deepEqual(app.writes,[]);
+});
+
+test('local navigation only intercepts canonical workspace views and retains category destinations',()=>{
+ for(const href of ['/marthon','/marthon/','/marthon/operations','/marthon/categories','/marthon/operations?category=safety','/marthon/timeline#race-day']){
+  assert.equal(isMarathonWorkspacePath(href),true,href);
+ }
+ for(const href of ['/marthon/login','/marthon/bootstrap','/dashboard','/marthon/operations/nested','//other.test/marthon','https://other.test/marthon','javascript:alert(1)','/marthon-elsewhere','/marthon/unknown']){
+  assert.equal(isMarathonWorkspacePath(href),false,href);
+ }
 });

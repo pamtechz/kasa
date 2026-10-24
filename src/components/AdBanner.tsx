@@ -2,6 +2,7 @@
 
 import {useState, useEffect} from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import {ExternalLink, Megaphone, X} from 'lucide-react';
 
 type Ad = {
@@ -33,22 +34,18 @@ export function AdBanner({placement = 'all', className = ''}: Props) {
 
   if (!ad || dismissed) return null;
 
-  async function handleAdClick() {
-    if (!ad) return;
-    try {
-      await fetch('/api/public/ads', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({id: ad.id})
-      });
-    } catch {}
+  const target = ad.targetUrl || '/';
+  const external = /^https?:\/\//i.test(target);
+  const href = external || (target.startsWith('/') && !target.startsWith('//') && !target.includes('\\')) ? target : '/';
 
-    const target = ad.targetUrl || '/';
-    if (target.startsWith('http://') || target.startsWith('https://')) {
-      window.open(target, '_blank', 'noopener,noreferrer');
-    } else {
-      window.location.href = target;
-    }
+  function handleAdClick() {
+    if (!ad) return;
+    void fetch('/api/public/ads', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({id: ad.id}),
+      keepalive: true
+    }).catch(() => {});
   }
 
   return (
@@ -117,14 +114,16 @@ export function AdBanner({placement = 'all', className = ''}: Props) {
         <p style={{margin: 0, fontSize: 13, color: '#475569', lineHeight: 1.5}}>{ad.description}</p>
       </div>
 
-      <button
-        type="button"
+      <Link
+        href={href}
+        target={external?'_blank':undefined}
+        rel={external?'noopener noreferrer':undefined}
         className="btn btn-sm btn-primary"
         onClick={handleAdClick}
         style={{fontSize: 12, padding: '8px 16px', display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0}}
       >
         {ad.ctaText || 'Learn More'} <ExternalLink size={13} />
-      </button>
+      </Link>
     </div>
   );
 }

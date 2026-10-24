@@ -1,6 +1,6 @@
 'use client';
 import {useEffect,useState} from 'react';
-import {useParams} from 'next/navigation';
+import {useParams,useRouter} from 'next/navigation';
 import {ArrowDown,ArrowUp,Copy,Eye,Plus,Save,Trash2} from 'lucide-react';
 import {api,PageHeader} from '@/components/Portal';
 import {ConfirmModal} from '@/components/ConfirmModal';
@@ -8,6 +8,7 @@ import type {Field,FieldType,FormSchema,Section} from '@/lib/types';
 const types:FieldType[]=['text','textarea','email','tel','number','date','select','radio','checkbox','file','image'];
 function id(){return crypto.randomUUID().slice(0,8)}
 export default function EditForm(){
+ const router=useRouter();
  const {id:formId}=useParams<{id:string}>();const [form,setForm]=useState<FormSchema|null>(null),[err,setErr]=useState(''),[saved,setSaved]=useState(''),[busy,setBusy]=useState(false),[confirmDelete,setConfirmDelete]=useState(false);
  useEffect(()=>{api<{form:FormSchema}>(`/api/admin/forms/${formId}`).then(x=>setForm(x.form)).catch(e=>setErr(e.message));},[formId]);
  function change(fn:(f:FormSchema)=>FormSchema){setForm(f=>f?fn(structuredClone(f)):null);setSaved('');}
@@ -25,7 +26,7 @@ export default function EditForm(){
   setBusy(true); setErr('');
   try{
    await api(`/api/admin/forms/${formId}`,{method:'DELETE'});
-   window.location.href='/dashboard/forms';
+   router.replace('/dashboard/forms');
   }catch(e){setErr(e instanceof Error?e.message:'Unable to delete form.');setBusy(false);}
  }
 
