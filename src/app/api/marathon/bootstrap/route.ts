@@ -3,6 +3,7 @@ import {fail,json} from '@/lib/errors';
 import {marathonIdentity,canReview,canManage,canEdit} from '@/lib/marathon';
 import {marathonRoles} from '@/lib/marathon';
 import type {Profile} from '@/lib/types';
+import {marathonSuggestionsPage} from '@/lib/marathon-suggestions';
 
 export const runtime='nodejs';
 export async function GET(req:Request){
@@ -11,9 +12,7 @@ export async function GET(req:Request){
   const [tasks,meta,suggestions,profiles]=await Promise.all([
    db.collection('marathonTasks').limit(500).get(),
    db.collection('marathonMeta').doc('source').get(),
-   canReview(identity.role)
-    ?db.collection('marathonSuggestions').limit(200).get()
-    :db.collection('marathonSuggestions').where('createdBy','==',identity.uid).limit(100).get(),
+   marathonSuggestionsPage(identity),
    // Super admin manages the second role from this Marathon page, but all roles
    // are stored only in the existing KASA School profiles collection.
    canManage(identity.role)
@@ -24,7 +23,7 @@ export async function GET(req:Request){
    identity,
    tasks:tasks.docs.map(x=>({id:x.id,...x.data()})),
    meta:meta.data()||null,
-   suggestions:suggestions.docs.map(x=>({id:x.id,...x.data()})),
+   ...suggestions,
    members:profiles?profiles.docs.map(d=>{
     const p=d.data() as Profile;
     return {uid:d.id,email:p.email,displayName:p.displayName,schoolRole:p.role,
