@@ -27,8 +27,14 @@ let app,db,admin;
 let stage='database-metadata';
 try{
  admin=new v1.FirestoreAdminClient({projectId,credentials:{client_email:clientEmail,private_key:privateKey},fallback:true});
- const [database]=await admin.getDatabase({name:`projects/${projectId}/databases/(default)`},{timeout:30000});
- console.log('MARATHON_DATABASE '+JSON.stringify({projectId,name:database.name,edition:database.databaseEdition,type:database.type}));
+ const name=`projects/${projectId}/databases/(default)`;
+ await admin.getDatabase({name},{timeout:30000});
+ // Read raw metadata as well: the existing SDK's protobuf predates the edition field.
+ const authClient=await admin.auth.getClient();
+ const {data:database}=await authClient.request({url:'https://firestore.googleapis.com/v1/'+name,timeout:30000});
+ const edition=database.databaseEdition??'STANDARD';
+ console.log('MARATHON_DATABASE '+JSON.stringify({projectId,name:database.name,edition,type:database.type}));
+ if(edition!=='STANDARD'||database.type!=='FIRESTORE_NATIVE')throw Error('The database does not match the existing Standard Native Firestore application.');
  app=initializeApp({credential:cert({projectId,clientEmail,privateKey})});db=getFirestore(app);
  stage=dryRun?'preview':'apply';
  const result=dryRun?await previewChecklistImport(db,seed,legacy,actor):await applyChecklistImport(db,seed,legacy,actor,expectedPlan);
