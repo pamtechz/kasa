@@ -1,5 +1,5 @@
 const CACHE='kasa-marathon-shell-v1';
-const SHELL=['/marthon','/marthon/login'];
+const SHELL=['/marthon','/marthon/login','/marthon/operations','/marthon/categories'];
 self.addEventListener('install',e=>{
   e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL).catch(()=>{})));
   self.skipWaiting();
@@ -11,15 +11,20 @@ self.addEventListener('activate',e=>{
 self.addEventListener('fetch',e=>{
   const request=e.request,url=new URL(request.url);
   if(request.method!=='GET'||url.origin!==self.location.origin||url.pathname.startsWith('/api/'))return;
-  if(request.mode==='navigate'&&url.pathname.startsWith('/marthon')&&!url.search){
+  const categoryNavigation=url.searchParams.size===1&&url.searchParams.has('category')&&/^[a-z][a-z-]{0,31}$/.test(url.searchParams.get('category')||'');
+  const marathonPath=url.pathname==='/marthon'||url.pathname.startsWith('/marthon/');
+  if(request.mode==='navigate'&&marathonPath&&(!url.search||categoryNavigation)){
+    // Category selection is read from the requested URL in the client. Share
+    // the HTML shell across categories without caching other query parameters.
+    const cacheKey=url.origin+url.pathname;
     e.respondWith((async()=>{
       const c=await caches.open(CACHE);
       try{
         const r=await fetch(request);
-        if(r.ok&&r.headers.get('content-type')?.includes('text/html'))await c.put(request,r.clone()).catch(()=>{});
+        if(r.ok&&r.headers.get('content-type')?.includes('text/html'))await c.put(cacheKey,r.clone()).catch(()=>{});
         return r;
       }catch{
-        return await c.match(request)||await c.match('/marthon')||Response.error();
+        return await c.match(request)||await c.match(cacheKey)||await c.match('/marthon')||Response.error();
       }
     })());
     return;

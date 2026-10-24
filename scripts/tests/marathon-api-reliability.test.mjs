@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {stripTypeScriptTypes} from 'node:module';
-import {completionChanges} from '../../src/lib/marathon-task-update.ts';
+import {completionChanges,preserveSourceCategory} from '../../src/lib/marathon-task-update.ts';
+import {marathonCategories,isMarathonCategorySection} from '../../src/lib/marathon-categories.ts';
 import {z} from 'zod';
 
 class HttpError extends Error{constructor(status,message){super(message);this.status=status;}}
@@ -68,7 +69,7 @@ const db={
 };
 const actor={uid:'editor',role:'kasaEditor'};
 const route=await loadModule('src/app/api/marathon/tasks/[id]/route.ts',{
- db,z,HttpError,completionChanges,
+ db,z,HttpError,completionChanges,preserveSourceCategory,isMarathonCategorySection,
  marathonIdentity:async req=>{if(!req.headers.has('authorization'))throw new HttpError(401,'Sign in first.');return actor;},
  requireMarathon:identity=>{if(identity.role==='kasaClient')throw new HttpError(403,'View only.');},
  sameOrigin:()=>{},json:(body,status=200)=>Response.json(body,{status}),fail:error=>Response.json({error:error.message},{status:error.status||500})
@@ -102,4 +103,48 @@ test('the real PATCH rejects stale changes and viewer writes, while GET permits 
  assert.equal((await route.GET(new Request('https://school.test/api/marathon/tasks/T001',{headers:{authorization:'Bearer test-only'}}),context)).status,200);
  assert.equal((await route.GET(new Request('https://school.test/api/marathon/tasks/T001'),context)).status,401);
  actor.role='kasaEditor';
+});
+
+test('the real PATCH validates categories, records the prior category and preserves completion attribution',async()=>{
+ store.clear();
+ const section=marathonCategories[0].section,target=marathonCategories[12].section;
+ store.set('marathonTasks/T001',{...original,section,sourceSnapshot:{title:original.title,lead:'Team',dueDate:null,status:'done'}});
+ const invalid=await route.PATCH(request({section:'Unknown category'}),context);
+ assert.equal(invalid.status,400);assert.equal(store.get('marathonTasks/T001').section,section);
+ const mutation=crypto.randomUUID();
+ const response=await route.PATCH(request({section:target},1,mutation),context);
+ assert.equal(response.status,200);
+ const {task}=await response.json();
+ assert.equal(task.section,target);assert.equal(task.sourceSnapshot.section,section);
+ assert.equal(task.completedAt,original.completedAt);assert.equal(task.completedBy,original.completedBy);
+ assert.equal(task.recordedAt,original.recordedAt);
+ const audit=store.get('marathonAudit/'+mutation);
+ assert.equal(audit.before.section,section);assert.equal(audit.changes.section,target);
+});
+test('the real create endpoint requires a known category and still enforces edit access',async()=>{
+ const saved=[];
+ const createRoute=await loadModule('src/app/api/marathon/tasks/route.ts',{
+  z,HttpError,isMarathonCategorySection,randomUUID:()=>crypto.randomUUID(),
+  db:{collection:name=>({doc:id=>({path:name+'/'+(id||crypto.randomUUID())})}),
+   batch:()=>({create:(ref,value)=>saved.push({path:ref.path,value}),commit:async()=>{}})},
+  marathonIdentity:async()=>actor,
+  requireMarathon:identity=>{if(identity.role==='kasaClient')throw new HttpError(403,'View only.');},
+  sameOrigin:()=>{},json:(body,status=200)=>Response.json(body,{status}),
+  fail:error=>Response.json({error:error.message},{status:error.status||500})
+ });
+ const post=section=>createRoute.POST(new Request('https://school.test/api/marathon/tasks',{
+  method:'POST',body:JSON.stringify({title:'Confirm the category lead',lead:'KASA Team',section})
+ }));
+ for(const section of [undefined,'','Other']){
+  const response=await post(section);
+  assert.equal(response.status,400);assert.match((await response.json()).error,/category/);
+ }
+ assert.equal(saved.length,0);
+ const section=marathonCategories[4].section,response=await post(section);
+ assert.equal(response.status,201);assert.equal((await response.json()).task.section,section);
+ assert.equal(saved.length,2);assert.equal(saved[0].value.section,section);
+ actor.role='kasaClient';
+ try{assert.equal((await post(section)).status,403);}
+ finally{actor.role='kasaEditor';}
+ assert.equal(saved.length,2);
 });

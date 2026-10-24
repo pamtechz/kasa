@@ -9,8 +9,8 @@ export type MarathonSeedInfo={version:string;sourceName:string;itemCount:number;
 type Change={id:string;kind:'created'|'updated'|'archived';before:RecordData|null;after:RecordData};
 export class ChecklistImportError extends Error{status:number;constructor(status:number,message:string){super(message);this.status=status;}}
 const FAMILY='kasa-life-marathon-2027';
-const referenceFields=['title','lead','dueDate'] as const;
-function baseline(task:SeedTask){return {title:task.title,lead:task.lead,dueDate:task.dueDate,status:task.status};}
+const referenceFields=['title','lead','dueDate','section'] as const;
+function baseline(task:SeedTask){return {title:task.title,lead:task.lead,dueDate:task.dueDate,status:task.status,section:task.section};}
 function isLegacyRecord(record:RecordData){return record.origin==='Document'||record.origin==='Added';}
 function canonical(value:unknown):unknown{
  if(Array.isArray(value))return value.map(canonical);
@@ -21,7 +21,7 @@ export function checklistSourceInfo(seed:ChecklistSeed):MarathonSeedInfo{
  return {version:seed.version,sourceName:seed.sourceName,itemCount:seed.items.length,sectionCount:seed.sections.length,correctedDateCount:seed.approvedDateCorrection.count,completedCount:seed.items.filter(t=>t.status==='done').length,eventDate:seed.eventDate,venue:seed.venue};
 }
 export function planChecklistImport(seed:ChecklistSeed,legacy:LegacySeed,records:RecordData[],meta:RecordData|null,actor:string,now:string){
- if(!/^[a-zA-Z0-9-]{1,100}$/.test(seed.version)||!seed.items.length||seed.items.length>250||new Set(seed.items.map(t=>t.id)).size!==seed.items.length||seed.items.some(t=>!/^T\d{3}$/.test(t.id)||!t.title||!t.lead||!['todo','done'].includes(t.status)))throw new ChecklistImportError(500,'The source checklist failed validation.');
+ if(!/^[a-zA-Z0-9-]{1,100}$/.test(seed.version)||!seed.items.length||seed.items.length>250||new Set(seed.items.map(t=>t.id)).size!==seed.items.length||seed.items.some(t=>!/^T\d{3}$/.test(t.id)||!t.title||!t.lead||!['todo','done'].includes(t.status)||!seed.sections.includes(String(t.section))))throw new ChecklistImportError(500,'The source checklist failed validation.');
  const old=new Map(legacy.items.map(t=>[t.id,t]));
  const sourceIds=new Set(seed.items.map(t=>t.id));
  const relevant=records.filter(r=>sourceIds.has(String(r.id))||r.sourceChecklist===FAMILY||(old.has(String(r.id))&&isLegacyRecord(r)));
@@ -32,18 +32,20 @@ export function planChecklistImport(seed:ChecklistSeed,legacy:LegacySeed,records
  if(meta?.version!==seed.version){
   for(const task of seed.items){
    const current=existing.get(task.id);
-   const provenance={sourceChecklist:FAMILY,sourceVersion:seed.version,sourceSnapshot:baseline(task),sourceRetired:false,section:task.section,sourceRow:task.sourceRow,sourceDeadline:task.sourceDeadline,sourceRemarks:task.sourceRemarks,dateBasis:task.dateBasis,dateCorrection:task.dateCorrection??null,cadence:task.cadence};
+   const provenance={sourceChecklist:FAMILY,sourceVersion:seed.version,sourceSnapshot:baseline(task),sourceRetired:false,sourceRow:task.sourceRow,sourceDeadline:task.sourceDeadline,sourceRemarks:task.sourceRemarks,dateBasis:task.dateBasis,dateCorrection:task.dateCorrection??null,cadence:task.cadence};
    if(!current){
     changes.push({id:task.id,kind:'created',before:null,after:{...task,...provenance,revision:1,archived:false,completedAt:null,completedBy:null,recordedAt:task.status==='done'?now:null,updatedAt:now,updatedBy:actor}});
     continue;
    }
    const previous=current.sourceChecklist===FAMILY?current.sourceSnapshot as RecordData|undefined:old.has(task.id)&&isLegacyRecord(current)?old.get(task.id):undefined;
    if(!previous)throw new ChecklistImportError(409,'Source ID '+task.id+' is occupied by an unrecognised record. No data was imported.');
+   const previousValues={...previous};
+   if(current.sourceChecklist===FAMILY&&!Object.prototype.hasOwnProperty.call(previousValues,'section'))previousValues.section=current.section;
    if(!Number.isSafeInteger(current.revision)||Number(current.revision)<1)throw new ChecklistImportError(409,'Review the invalid revision on '+task.id+' before importing.');
    const after:RecordData={...current,...provenance,revision:Number(current.revision)+1,updatedAt:now,updatedBy:actor};
    const retained:string[]=[];
    for(const field of referenceFields){
-    if(current[field]===previous[field])after[field]=task[field];
+    if(current[field]===previousValues[field])after[field]=task[field];
     else if(current[field]!==task[field])retained.push(field);
    }
    // A Done remark supplies status, not the actual completion timestamp.

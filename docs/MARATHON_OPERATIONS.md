@@ -74,3 +74,23 @@ Existing titles, responsible people and deadlines are updated only if they still
 Each changed existing task has a recovery copy under `marathonImports/{version}/before/{taskId}`. Import history also stores the preceding source metadata, and `marathonAudit` records the authenticated importing user and counts. Browser access to these internal recovery records is denied by the existing rules. Repeating the same import is a no-op; an older deployment cannot reapply a previously superseded version.
 
 An authorised deployment operator can also use `scripts/seed-marathon.mjs` with the existing server service account. It requires an explicit live project and exact bundled source version, verifies the default database metadata, and refuses emulator targets. Run `--dry-run` first, review its counts, and supply its exact `--plan-hash` with `--apply`. The service principal is recorded as `service:<client email>`; it does not impersonate a school user or grant roles. No credentials are passed in command arguments or printed. A one-off deployment build may invoke this guarded operator job without changing the normal application build command.
+
+## Checklist categories
+
+The 186 source actions belong to the 15 workstreams in the uploaded checklist. The existing `section` field is the category; category IDs in links are stable slugs and do not change task IDs or import provenance.
+
+The Categories page shows active action counts and completed progress for every workstream. Operations groups actions in checklist order and sorts urgency and due dates within each category. Category selection combines with status, priority, responsible team and search. Timeline entries, recommendation choices and exports retain category context.
+
+New actions require a known category in both the form and API. Editors can change categories using the normal revision check, audit log and offline queue; viewers retain read-only access. Conflict review displays the online and device categories. Older records with a missing or unknown category remain visible under Needs a category. The first edit captures the baseline for records imported before category snapshots existed, so later source updates preserve manual category choices.
+
+The operator CLI reports live category counts and rejects uncategorized active records after an apply or an already-imported dry run. Dry-run verification performs reads only.
+
+Category-filtered operations URLs support offline navigation using a cached HTML shell. The worker caches a shared query-free shell only for plain navigation or a single category slug; other query parameters and API requests remain excluded. When an offline root-shell fallback is used, the client restores the requested Marathon view from the address and reads its category parameter.
+
+## Persistent navigation
+
+The authenticated Marathon workspace is mounted once in the `(workspace)` layout. Overview and section route pages are empty outlets; login and bootstrap remain outside that layout. Internal workspace links use Next.js-compatible native history updates to change the view and category without a document reload, server-page fetch, repeat sign-in verification or repeat checklist bootstrap. The URL remains shareable, new-tab navigation still works, and Back/Forward restores the selected view and category.
+
+Account state, task data, filters and saved offline edits remain in the mounted workspace. A view change or window focus revalidates data in the background when the last request is at least one minute old; explicit refresh, reconnection and edit synchronization retain their existing behavior. Server endpoints continue to authorize each request. Returning to KASA School or sign-in uses normal Next.js navigation.
+
+The form editor returns to the forms list with client navigation after deletion. Advertisement links also use client navigation for internal destinations, and click tracking runs without delaying navigation.
