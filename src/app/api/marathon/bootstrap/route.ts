@@ -4,6 +4,8 @@ import {marathonIdentity,canReview,canManage,canEdit} from '@/lib/marathon';
 import {marathonRoles} from '@/lib/marathon';
 import type {Profile} from '@/lib/types';
 import {marathonSuggestionsPage} from '@/lib/marathon-suggestions';
+import seed from '@/data/marathon-seed.json';
+import {checklistSourceInfo} from '@/lib/marathon-seed-import';
 
 export const runtime='nodejs';
 export async function GET(req:Request){
@@ -23,6 +25,7 @@ export async function GET(req:Request){
    identity,
    tasks:tasks.docs.map(x=>({id:x.id,...x.data()})),
    meta:meta.data()||null,
+   source:checklistSourceInfo(seed),
    ...suggestions,
    members:profiles?profiles.docs.map(d=>{
     const p=d.data() as Profile;

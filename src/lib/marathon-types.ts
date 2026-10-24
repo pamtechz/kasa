@@ -5,4 +5,5 @@ export type MarathonTask={
  status:MarathonStatus;dependencies:string[];nextStep:string;dateBasis?:string;sourceDeadline?:string;
  cadence?:string;origin?:string;completedAt:string|null;completedBy?:string|null;recordedAt?:string|null;
  evidence?:string;notes?:string;archived?:boolean;revision:number;updatedAt:string;updatedBy:string;
+ section?:string;sourceRow?:number;sourceRemarks?:string;dateCorrection?:string|null;
 };

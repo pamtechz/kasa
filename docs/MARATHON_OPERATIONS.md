@@ -29,7 +29,7 @@ Access controls are enforced server-side on all Marathon APIs, not merely hidden
 
 ## Existing Marathon functionality
 - `/marthon` dashboard, `/marthon/operations`, `/marthon/timeline`, `/marthon/recommendations`, `/marthon/archive`, `/marthon/activity`, `/marthon/super` and Marathon-specific role settings; `/marathon` is an alias.
-- Source data: `src/data/marathon-seed.json`, containing 130 uniquely identified KASA Life Marathon actions from the previously approved Google Sheet. **Super admin must explicitly invoke initial Firestore import; deployment alone does not seed the database.** The source snapshot is not a live bidirectional Sheets connector.
+- Source data: `src/data/marathon-seed.json`, containing the 186 actions and 15 workstreams from the updated KASA Life Marathon 2027 Full Checklist. The original 130-action sheet snapshot is retained in `src/data/marathon-seed-2026-10-23.json` for safe upgrades. **An authenticated school super admin reviews and applies the versioned Firestore import from `/marthon/super`; deployment alone does not seed the database.**
 - Existing activities can be marked done, re-opened, backdated with actual completion timestamps and supported by notes/evidence. The mutation timestamp and actor are recorded separately in the audit log.
 - Offline: the scoped `/marthon-sw.js` worker caches Marathon shell routes; IndexedDB holds user-specific snapshots and queued edits. On reconnect, server submission checks UUID mutation IDs and source revisions. Conflicts are retained for manual review. Account grants, new-task creation, initial import and recommendation submission require internet.
 
@@ -39,7 +39,7 @@ Access controls are enforced server-side on all Marathon APIs, not merely hidden
 3. Confirm `profiles/{uid}.role` and all school account details remain unchanged; only `marathonAccess` changes. Test multiple existing primary roles.
 4. Confirm unassigned, inactive and unverified users receive 403/401 from every Marathon API, and `kasaAdmin` cannot assign or revoke roles.
 5. Revoke Marathon access; verify the same school credentials still work on the school portal but Marathon requests return 403.
-6. Import approved source checklist from `/marthon/super`, verify 130 records without destructive overwrites, and test historical completion plus offline replay before production promotion.
+6. Review and apply the updated checklist from `/marthon/super`. For an empty database verify 186 tasks, 15 sections and five source-reported Done tasks with unknown actual completion dates. For a legacy import verify 85 retained IDs, 101 additions and 45 recoverable archives. Test historical completion plus offline replay before production promotion.
 
 The real production Firebase database has not been seeded or modified merely by committing this code.
 
@@ -56,6 +56,21 @@ Editing notes, evidence or another field on an already completed task preserves 
 
 The recommendation desk has status filtering for reviewers and cursor pagination. Other users can page through their own recommendations only. CSV output neutralizes formula-like input. School finance users return to `/dashboard/finance`.
 
-Local verification: 82 source/runtime tests, lint, TypeScript and production build passed on Node 22. Browser fixtures verified phone, tablet and desktop layouts, offline queue persistence, conflict recovery alongside independent updates, and 205 paginated recommendations. Real-account sign-in and the live 130-item Firestore import require separate production verification.
+Local verification: 82 source/runtime tests, lint, TypeScript and production build passed on Node 22. Browser fixtures verified phone, tablet and desktop layouts, offline queue persistence, conflict recovery alongside independent updates, and 205 paginated recommendations. Real-account sign-in and the current live Firestore import require separate production verification.
 
 The production audit passes the high-severity threshold after same-major gRPC and PostCSS updates. Eight pre-existing moderate findings remain in Firebase Admin's transitive dependencies; their upstream major-version migration is outside this Marathon reliability change.
+
+
+## Updated Word checklist import
+
+The source document identifies the event as 21 March 2027 at Showgrounds, Polo Field B, Lusaka. It supplies 186 task rows; blank follow-up-register rows are not actions. Five tasks have Done remarks despite empty checkbox symbols. They are imported as Done with no invented actual completion date or completion actor. Editing notes later preserves an unknown completion date; recording an explicit backdate records the real editor and entry time.
+
+The organiser explicitly approved changing the 65 January–March 2026 deadlines to 2027. Original deadline text is retained in `sourceDeadline`, with a correction explanation on each affected task. Race-day tasks use the explicit event date and identify that date basis; other blank dates and ongoing activities retain no fixed deadline.
+
+Import GET and POST both require the existing verified, active school super admin. Review returns counts and a fingerprint of the source and affected records. Apply requires that exact reviewed source version and fingerprint; concurrent edits return 409 and require a fresh review. The import runs in one Firestore transaction and does not change Auth, profiles, roles or security rules.
+
+Existing titles, responsible people and deadlines are updated only if they still match the preceding source snapshot. User changes to those fields are retained and reported. Existing progress, actual completion attribution, evidence, notes, manual priorities and manual archives are preserved. Source tasks omitted by this revision move to the recoverable archive; manually created actions remain untouched. Unrecognised ID collisions halt the entire transaction.
+
+Each changed existing task has a recovery copy under `marathonImports/{version}/before/{taskId}`. Import history also stores the preceding source metadata, and `marathonAudit` records the authenticated importing user and counts. Browser access to these internal recovery records is denied by the existing rules. Repeating the same import is a no-op; an older deployment cannot reapply a previously superseded version.
+
+An authorised deployment operator can also use `scripts/seed-marathon.mjs` with the existing server service account. It requires an explicit live project and exact bundled source version, verifies the default database metadata, and refuses emulator targets. Run `--dry-run` first, review its counts, and supply its exact `--plan-hash` with `--apply`. The service principal is recorded as `service:<client email>`; it does not impersonate a school user or grant roles. No credentials are passed in command arguments or printed. A one-off deployment build may invoke this guarded operator job without changing the normal application build command.
