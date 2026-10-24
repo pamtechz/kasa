@@ -35,6 +35,7 @@ before(async()=>{
   await setDoc(doc(db,'settings/intake'),{applicationsOpen:true});
   await setDoc(doc(db,'fundingVerifications/private1'),{amount:100});
   await setDoc(doc(db,'commissionPayments/private1'),{amount:100});
+  await setDoc(doc(db,'marathonImports/private1/before/T001'),{task:{notes:'Recovery snapshot'}});
   await uploadBytes(ref(bucket(ctx),'public/brand.png'),new Uint8Array([1,2,3]));
   await uploadBytes(ref(bucket(ctx),'cdf-documents/app1/id.png'),new Uint8Array([1,2,3]));
   await uploadBytes(ref(bucket(ctx),'acceptance-pack/letter.pdf'),new Uint8Array([37,80,68,70,45]));
@@ -74,7 +75,7 @@ test('applicants, guests, and claimed administrators cannot read or forge intern
                    env.authenticatedContext('staff',{role:'super_admin'})]){
   const db=ctx.firestore();
   for(const path of ['submissions/app1','notificationOutbox/private1','settings/intake',
-                     'fundingVerifications/private1','commissionPayments/private1']){
+                     'fundingVerifications/private1','commissionPayments/private1','marathonImports/private1/before/T001']){
    await assertFails(getDoc(doc(db,path)));
    await assertFails(setDoc(doc(db,path),{status:'approved'}));
   }

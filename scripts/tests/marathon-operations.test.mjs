@@ -3,12 +3,19 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const source=(p)=>readFileSync(new URL('../../'+p,import.meta.url),'utf8');
 
-test('130 source actions retain stable IDs',()=>{
+test('the revised document supplies 186 unique actions across 15 workstreams',()=>{
  const s=JSON.parse(source('src/data/marathon-seed.json'));
- assert.equal(s.items.length,130);
- assert.equal(new Set(s.items.map(x=>x.id)).size,130);
- assert(s.items.some(t=>t.id==='WEB-01'&&t.title.includes('web developer')));
- assert(s.items.some(t=>t.id==='WEB-02'&&t.title.includes('web design')));
+ assert.equal(s.items.length,186);
+ assert.equal(new Set(s.items.map(x=>x.id)).size,186);
+ assert.equal(s.sections.length,15);
+ assert.equal(s.items.filter(x=>x.status==='done').length,5);
+ assert.equal(s.items.filter(x=>x.dateCorrection).length,65);
+ assert.equal(s.venue,'Showgrounds, Polo Field B, Lusaka');
+ assert(s.items.some(t=>t.id==='T001'&&t.title==='Confirm event date and Event Sanction'));
+ const old=JSON.parse(source('src/data/marathon-seed-2026-10-23.json'));
+ assert.equal(old.items.length,130);
+ assert(old.items.some(t=>t.id==='WEB-01'));
+ assert(old.items.some(t=>t.id==='WEB-02'));
 });
 
 test('dual workspace roles reside in the existing school profile',()=>{
@@ -52,7 +59,8 @@ test('Marathon task writes require role, audit and concurrency control',()=>{
  assert.match(task,/mutationId/);
  assert.match(task,/HttpError\(409/);
  assert.match(imp,/requireMarathon\(actor,'super'\)/);
- assert.match(imp,/batch\.create/);
+ assert.match(imp,/applyChecklistImport/);
+ assert.match(imp,/planHash/);
 });
 
 test('Marathon direct Firestore writes remain blocked',()=>{

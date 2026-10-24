@@ -144,6 +144,12 @@ test('explicit backdating or completing records the actor and entry time; reopen
  assert.deepEqual(completionChanges(done,{status:'todo'},'coordinator',now),{completedAt:null,completedBy:null,recordedAt:now});
  assert.throws(()=>completionChanges({...done,status:'todo'},{completedAt:done.completedAt},'coordinator',now));
 });
+test('source-reported completion without an actual date stays undated on unrelated edits',()=>{
+ const imported={status:'done',completedAt:null,completedBy:null,recordedAt:'2026-10-24T16:00:00.000Z'};
+ const edited={...imported,...completionChanges(imported,{notes:'Completion date will be confirmed'},'editor',now)};
+ assert.deepEqual(edited,imported);
+ assert.deepEqual(completionChanges(imported,{status:'done',completedAt:'2026-10-20T09:15:00.000Z'},'editor',now),{completedAt:'2026-10-20T09:15:00.000Z',completedBy:'editor',recordedAt:now});
+});
 test('CSV values cannot become spreadsheet formulas and still quote commas, quotes and newlines',()=>{
  for(const value of ['=HYPERLINK("https://example.org")','+1+1','-1+1','@SUM(1,1)','  =1+1','\tcommand','\rcommand','＝1+1']){
   assert.ok(csvEscape(value).startsWith('"\''),value);
