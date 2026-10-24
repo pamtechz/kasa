@@ -23,6 +23,8 @@ import {MarathonCategoryBoard} from './MarathonCategoryBoard';
 import {marathonCategories,categoryForSection,categoryForId,isMarathonCategoryId,isMarathonCategorySection,groupMarathonCategories,matchesMarathonFilters} from '@/lib/marathon-categories';
 import type {MarathonSeedInfo} from '@/lib/marathon-seed-import';
 import type {MarathonTask,MarathonRole,MarathonStatus} from '@/lib/marathon-types';
+import {marathonViews as validViews,marathonViewForPath} from '@/lib/marathon-navigation';
+import type {MarathonView as View} from '@/lib/marathon-navigation';
 
 type Identity={uid:string;email:string;displayName:string;schoolRole:string;role:MarathonRole};
 type Suggestion={id:string;taskId:string;recommendation:string;proposedStatus?:MarathonStatus;status:string;createdBy:string;createdName:string;createdAt:string};
@@ -30,9 +32,7 @@ type Member={uid:string;email:string;displayName:string;schoolRole:string;role:M
 type EventItem={id:string;action:string;actor:string;at:string;taskId?:string;targetUid?:string;changes?:Record<string,unknown>};
 type Permissions={edit:boolean;review:boolean;manage:boolean;super:boolean};
 type Bootstrap={source?:MarathonSeedInfo;identity:Identity;tasks:MarathonTask[];meta:Record<string,unknown>|null;suggestions:Suggestion[];nextSuggestionCursor?:string|null;members:Member[];permissions:Permissions};
-type View='overview'|'categories'|'operations'|'timeline'|'recommendations'|'archive'|'settings'|'team'|'super'|'activity'|'sync';
 type EditChanges=Partial<Pick<MarathonTask,'title'|'lead'|'section'|'dueDate'|'priority'|'importance'|'status'|'nextStep'|'notes'|'evidence'|'completedAt'|'archived'>>;
-const validViews:View[]=['overview','categories','operations','timeline','recommendations','archive','settings','team','super','activity','sync'];
 const blank:Bootstrap={identity:{uid:'',email:'',displayName:'',schoolRole:'student',role:'kasaClient'},tasks:[],meta:null,suggestions:[],members:[],permissions:{edit:false,review:false,manage:false,super:false}};
 const statusLabels:Record<MarathonStatus,string>={todo:'Not started',doing:'In progress',blocked:'Blocked',done:'Completed'};
 const roles=['kasaAdmin','kasaOperations','kasaEditor','kasaReviewer','kasaClient'] as const;
@@ -59,7 +59,14 @@ function sortTasks(tasks:MarathonTask[]){return [...tasks].sort((a,b)=>priorityR
 
 export function MarathonWorkspace({section='overview'}:{section?:string}){
  const router=useRouter();
- const view=validViews.includes(section as View)?section as View:'overview';
+ const [view,setView]=useState<View>(validViews.includes(section as View)?section as View:'overview');
+ useEffect(()=>{
+  // A cached fallback shell can have a different server section. Restore the
+  // visible view from the requested URL without discarding category parameters.
+  const restoreView=()=>setView(marathonViewForPath(window.location.pathname,section));
+  restoreView();window.addEventListener('popstate',restoreView);
+  return ()=>window.removeEventListener('popstate',restoreView);
+ },[section]);
  const [state,setState]=useState<Bootstrap>(blank),[loading,setLoading]=useState(true),[offline,setOffline]=useState(false);
  const [authError,setAuthError]=useState(''),[notice,setNotice]=useState(''),[queuedEdits,setQueuedEdits]=useState<PendingEdit[]>([]);
  const [drawer,setDrawer]=useState<MarathonTask|null>(null),[newTask,setNewTask]=useState(false),[mobile,setMobile]=useState(false);

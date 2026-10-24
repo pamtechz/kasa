@@ -84,3 +84,5 @@ The Categories page shows active action counts and completed progress for every 
 New actions require a known category in both the form and API. Editors can change categories using the normal revision check, audit log and offline queue; viewers retain read-only access. Conflict review displays the online and device categories. Older records with a missing or unknown category remain visible under Needs a category. The first edit captures the baseline for records imported before category snapshots existed, so later source updates preserve manual category choices.
 
 The operator CLI reports live category counts and rejects uncategorized active records after an apply or an already-imported dry run. Dry-run verification performs reads only.
+
+Category-filtered operations URLs support offline navigation using a cached HTML shell. The worker caches a shared query-free shell only for plain navigation or a single category slug; other query parameters and API requests remain excluded. When an offline root-shell fallback is used, the client restores the requested Marathon view from the address and reads its category parameter.
