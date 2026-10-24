@@ -2,5 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "git": {
     "deploymentEnabled": false
-  }
+  },
+  "buildCommand": "npm run build && node --experimental-strip-types scripts/seed-marathon.mjs --dry-run --expected-project=kasa-recruite --source-version=docx-2026-10-24-481407da2b0b-dates2027"
 }
