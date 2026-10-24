@@ -2,5 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "git": {
     "deploymentEnabled": false
-  }
+  },
+  "buildCommand": "npm run test:source && npm run lint && npm run typecheck && npm run build"
 }
