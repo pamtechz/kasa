@@ -49,3 +49,35 @@ button.ml-member-active,button.ml-member-inactive{border:0;cursor:pointer}
 .ml-phase-task small{font-size:9px;color:#64816e}
 @media(max-width:1200px){.ml-category-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:650px){.ml-category-grid{grid-template-columns:minmax(0,1fr)}.ml-category-card h2{min-height:0}.ml-filterbar .ml-category-select{flex:1 1 100%;max-width:100%;min-width:0}.ml-category-group-header{gap:8px}.ml-category-group-header h2{font-size:13px}}
+
+/* Everyday checklist workflow */
+.ml-start-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0 0 22px}
+.ml-start-actions>button,.ml-start-actions>a{display:flex;align-items:center;gap:12px;min-width:0;padding:18px 16px;background:#fff;border:1px solid #dfe9e2;border-radius:12px;color:#294537;text-decoration:none;text-align:left;cursor:pointer;font:inherit}
+.ml-start-actions>button:hover,.ml-start-actions>a:hover{border-color:#91b59e;background:#fbfdfb}
+.ml-start-actions>button>svg:first-child,.ml-start-actions>a>svg:first-child{color:#348864;flex-shrink:0}
+.ml-start-actions>button>svg:last-child,.ml-start-actions>a>svg:last-child{margin-left:auto;flex-shrink:0}
+.ml-start-actions span{display:grid;gap:4px;min-width:0}
+.ml-start-actions b{font-size:13px}.ml-start-actions small{font-size:11px;line-height:1.4;color:#708479}
+.ml-start-actions>button:focus-visible,.ml-start-actions>a:focus-visible,.ml-quick-view:focus-visible,.ml-sync-status:focus-visible{outline:3px solid #348864;outline-offset:3px}
+.ml-quick-views{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:0 0 16px}
+.ml-quick-view{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;min-height:54px;padding:12px;background:#fff;border:1px solid #dfe9e2;border-radius:10px;color:#537060;text-align:left;cursor:pointer;font:inherit}
+.ml-quick-view span{font-size:12px;line-height:1.35}.ml-quick-view b{font-size:18px;color:#2d6d4c}
+.ml-quick-view.selected{color:#fff;background:#24563c;border-color:#24563c}.ml-quick-view.selected b{color:#fff}
+.ml-view-help{margin:-5px 0 16px;color:#60766a;font-size:12px;line-height:1.5}
+.ml-filterbar .ml-filter-toggle{height:40px;white-space:nowrap}
+.ml-filter-toggle b{display:inline-flex;align-items:center;justify-content:center;min-width:18px;min-height:18px;padding:0 4px;background:#e7f1e9;border-radius:5px;color:#2d6d4c;font-size:10px}
+.ml-clear-filters{padding:8px 4px;background:none;border:0;color:#347553;font-size:11px;font-weight:700;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.ml-extra-filters{display:flex;flex-wrap:wrap;gap:14px;padding:16px;margin:-6px 0 18px;background:#f5f9f6;border:1px solid #e0ebe3;border-radius:11px}
+.ml-extra-filters[hidden]{display:none}
+.ml-extra-filters label{display:grid;gap:6px;flex:1;min-width:150px;font-size:11px;font-weight:600;color:#537060}
+.ml-extra-filters select{width:100%;height:40px;border:1px solid #dfe9e2;border-radius:8px;padding:0 10px;background:white;color:#42614e;font:inherit}
+.ml-nav-tools{margin-top:12px;border-top:1px solid #e5ede7;padding-top:8px}
+.ml-nav-tools>summary{display:flex;align-items:center;justify-content:space-between;gap:8px;list-style:none;cursor:pointer;padding:12px 14px;font-size:11px;font-weight:700;color:#718778}
+.ml-nav-tools>summary::-webkit-details-marker{display:none}
+.ml-nav-tools[open]>summary>svg{transform:rotate(180deg)}
+.ml-task-more{padding:14px 0;border-top:1px solid #e5ede7}
+.ml-task-more>summary{cursor:pointer;color:#426c50;font-size:12px;font-weight:700;line-height:1.5}
+.ml-extra-fields{display:grid;gap:16px;padding-top:16px}
+a.ml-sync-status{text-decoration:none}
+@media(max-width:1100px){.ml-start-actions{grid-template-columns:1fr}.ml-start-actions>button,.ml-start-actions>a{padding:14px 16px}.ml-quick-views{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:650px){.ml-quick-views{grid-template-columns:repeat(2,minmax(0,1fr))}.ml-quick-view{min-height:50px}.ml-extra-filters{padding:12px;gap:10px}.ml-extra-filters label{min-width:100%}.ml-filterbar .ml-filter-toggle{flex:1;justify-content:center}}
