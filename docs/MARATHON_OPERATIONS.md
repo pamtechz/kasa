@@ -94,3 +94,13 @@ The authenticated Marathon workspace is mounted once in the `(workspace)` layout
 Account state, task data, filters and saved offline edits remain in the mounted workspace. A view change or window focus revalidates data in the background when the last request is at least one minute old; explicit refresh, reconnection and edit synchronization retain their existing behavior. Server endpoints continue to authorize each request. Returning to KASA School or sign-in uses normal Next.js navigation.
 
 The form editor returns to the forms list with client navigation after deletion. Advertisement links also use client navigation for internal destinations, and click tracking runs without delaying navigation.
+
+## Everyday checklist workflow
+
+Home offers shortcuts to unfinished actions, work that needs attention and the 15 categories. Checklist quick views show All actions, Open, Needs attention, Next 7 days and Completed. Counts reflect the current category, search, priority and team. Selecting a quick view resets the detailed status filter; selecting a detailed status returns to All actions so the filters cannot silently contradict each other.
+
+Needs attention includes open P1 actions, blocked actions and overdue actions. Next 7 days includes open actions due today through six days ahead. Calendar comparisons use Africa/Lusaka, including near UTC midnight. Archived records never contribute to quick-view counts. Reset filters restores all actions and removes the category selection.
+
+Search and category remain visible. Status, priority and responsible team sit under More filters, with an active-filter count. The main navigation contains everyday pages; More tools retains activity, archive, offline edits and permitted administration pages. The sync indicator links directly to saved offline edits.
+
+Task details show the fields needed to identify the action and record progress. Priority, importance, notes, source references and recoverable archive controls remain under More details; archived records expand this section automatically. New actions keep optional fields under Optional details. Hidden fields retain their values when submitted, and server authorization and validation remain unchanged.

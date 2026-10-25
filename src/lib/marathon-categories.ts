@@ -34,12 +34,46 @@ export function groupMarathonCategories(tasks:MarathonTask[],includeEmpty=false)
  }
  return [...groups.values()].filter(g=>g.tasks.length||(includeEmpty&&g.category.id!=='uncategorized')).sort((a,b)=>a.category.order-b.category.order);
 }
-export function matchesMarathonFilters(task:MarathonTask,filters:{category?:string;status?:string;priority?:string;lead?:string;query?:string}){
+export function matchesMarathonFilters(task:MarathonTask,filters:{category?:string;status?:string;priority?:string;lead?:string;query?:string;focus?:MarathonFocus;today?:string}){
  if(task.archived)return false;
  if(filters.category&&filters.category!=='all'&&categoryForSection(task.section).id!==filters.category)return false;
  if(filters.status&&filters.status!=='all'&&task.status!==filters.status)return false;
+ if(filters.focus&&filters.focus!=='all'&&!matchesMarathonFocus(task,filters.focus,filters.today||marathonToday()))return false;
  if(filters.priority&&filters.priority!=='all'&&!task.priority.startsWith(filters.priority))return false;
  if(filters.lead&&filters.lead!=='all'&&task.lead!==filters.lead)return false;
  const needle=[task.id,task.title,task.lead,task.nextStep,task.section,categoryForSection(task.section).label].filter(Boolean).join(' ').toLowerCase();
  return needle.includes((filters.query||'').trim().toLowerCase());
+}
+
+export const marathonFocusViews=[
+ {id:'all',label:'All actions'},
+ {id:'open',label:'Open'},
+ {id:'attention',label:'Needs attention'},
+ {id:'week',label:'Next 7 days'},
+ {id:'done',label:'Completed'}
+] as const;
+export type MarathonFocus=(typeof marathonFocusViews)[number]['id'];
+
+export function marathonToday(now=new Date()):string{
+ const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Africa/Lusaka',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(now);
+ const date=Object.fromEntries(parts.map(part=>[part.type,part.value]));
+ return date.year+'-'+date.month+'-'+date.day;
+}
+export function matchesMarathonFocus(task:MarathonTask,focus:MarathonFocus,today:string):boolean{
+ if(task.archived)return false;
+ if(focus==='all')return true;
+ if(focus==='done')return task.status==='done';
+ if(task.status==='done')return false;
+ if(focus==='open')return true;
+ if(focus==='attention')return task.status==='blocked'||task.priority.startsWith('P1')||!!(task.dueDate&&task.dueDate<today);
+ if(focus==='week'){
+  const end=new Date(Date.parse(today+'T00:00:00Z')+6*86400000).toISOString().slice(0,10);
+  return !!task.dueDate&&task.dueDate>=today&&task.dueDate<=end;
+ }
+ return false;
+}
+export function marathonFocusCounts(tasks:MarathonTask[],today:string):Record<MarathonFocus,number>{
+ const counts:Record<MarathonFocus,number>={all:0,open:0,attention:0,week:0,done:0};
+ for(const task of tasks)for(const view of marathonFocusViews)if(matchesMarathonFocus(task,view.id,today))counts[view.id]++;
+ return counts;
 }
