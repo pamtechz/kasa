@@ -1121,3 +1121,11 @@
   padding:14px 18px;
  }
 }
+
+/* Scrollable School, Student and Agent sidebar menus. Keep sign-out accessible. */
+.sidebar .side-links{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#a9c2b1 transparent}
+.sidebar .side-header,.sidebar .side-label,.sidebar .side-bottom{flex-shrink:0}
+.sidebar .side-bottom{margin-top:0}
+.side-scroll-actions{display:flex;justify-content:center;gap:12px;padding:8px;flex-shrink:0;background:inherit}
+.side-scroll-actions button{border:1px solid #d9e6dc;background:#f4f8f5;color:#245a3b;border-radius:8px;min-height:34px;min-width:42px;display:grid;place-items:center}
+.side-scroll-actions button:focus-visible{outline:3px solid #d9ad52;outline-offset:2px}

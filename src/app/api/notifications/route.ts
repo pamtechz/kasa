@@ -1,4 +1,6 @@
+import {after} from 'next/server';
 import {db} from '@/lib/firebase-admin';
+import {sendSchoolPush} from '@/lib/mobile-push';
 import {operator, newId, safeText, sameOrigin} from '@/lib/security';
 import {fail, json, HttpError} from '@/lib/errors';
 import {getGeneralCache, setGeneralCache, invalidateGeneralCache} from '@/lib/server-cache';
@@ -76,6 +78,9 @@ export async function POST(req: Request) {
     };
 
     await db.collection('notificationOutbox').doc(id).set(docData);
+    // The School notification is already saved; delivery failure must not undo it.
+    after(async()=>{try{await sendSchoolPush(recipient);}
+     catch(error){console.error('School push delivery failed:',error instanceof Error?error.message:'Unknown error');}});
     invalidateGeneralCache('notifications');
     return json({ok: true, id, notification: {id, ...docData}});
   } catch (e) {

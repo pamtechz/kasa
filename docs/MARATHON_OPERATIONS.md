@@ -1,5 +1,14 @@
 # KASA Life Marathon — dual-role profile access
 
+## Shared School + Marathon account creation (26 October 2026)
+
+- **School:** KASA School admins can register a new Firebase Authentication identity and School profile from **Dashboard → Staff**, or update an existing School account. Only the School super administrator can assign School staff roles (`admin` or `reviewer`). Student and agent account creation is available to School admins.
+- **Marathon:** The School super administrator can add a person in **/marthon/team** using email, optional full name, and Marathon role. If the Firebase Auth email already exists, reuse the same UID and School profile. If it does not exist, create an Auth user and School profile with default School role `student`, then assign `marathonAccess` on that same profile. Do not overwrite existing School roles.
+- **Credentials:** Admins never set or see a user's password. New identities are created with a cryptographically random, unrevealed password and `emailVerified:false`. A Firebase Auth password-setup/reset email is requested where the provider is configured. If delivery fails, the recipient uses **Forgot password** on KASA School login. On first login, unverified users are directed to email verification. Neither app grants access before verification.
+- **Security:** Account provisioning requires an authenticated, verified, active authorized School admin or Marathon super admin. School role checks and Marathon secondary role checks remain independent. Firestore profile creation is idempotent by Auth UID; duplicate identities/Marathon membership collections are not created. New users' access is pending until email verification.
+- **Mobile:** The Flutter wrapper's Android application ID is **`com.pamtech.kasa`**. Its native Android build config is enforced by `flutter_app/tool/configure_android.dart` after generating the Flutter runner. Register exactly `com.pamtech.kasa` in Firebase before distributing a signed APK.
+
+
 The Marathon workspace uses **the same Firebase project, Firestore database, Firebase Authentication identities and `profiles/{uid}` documents** as the KASA School app. No separate user database, duplicate login identity or `marathonMembers` collection is used.
 
 The school profile has its original `role` (for example `admin`, `student`, `agent`) and may have an additional optional `marathonAccess` object:

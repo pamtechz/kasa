@@ -1,0 +1,51 @@
+name: KASA mobile API and sidebar validation
+on:
+  pull_request:
+    paths:
+      - 'src/components/SidebarScrollControls.tsx'
+      - 'src/components/MobilePushRegistration.tsx'
+      - 'src/components/Portal.tsx'
+      - 'src/components/AgentPortal.tsx'
+      - 'src/components/StudentPortal.tsx'
+      - 'src/components/marathon/MarathonWorkspace.tsx'
+      - 'src/app/layout.tsx'
+      - 'src/app/globals.css'
+      - 'src/app/marthon/marathon.css'
+      - 'src/app/api/mobile/**'
+      - 'src/app/api/marathon/**'
+      - 'src/app/api/notifications/**'
+      - 'src/app/api/cron/marathon-reminders/**'
+      - 'src/lib/mobile-push.ts'
+      - 'src/lib/account-onboarding.ts'
+      - 'src/app/api/admin/users/provision/route.ts'
+      - 'src/app/(portal)/dashboard/staff/page.tsx'
+      - 'src/app/(site)/login/page.tsx'
+      - 'src/app/marthon/login/page.tsx'
+      - 'scripts/tests/security-boundaries.test.mjs'
+      - 'scripts/tests/marathon-operations.test.mjs'
+      - 'scripts/tests/mobile-marathon-push.test.mjs'
+      - 'vercel.json'
+      - '.github/workflows/kasa-mobile-web.yml'
+  workflow_dispatch:
+
+jobs:
+  api-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies without changing lockfiles
+        run: npm install --no-audit --no-fund --package-lock=false
+      - name: Run source regressions
+        run: npm run test:source
+      - name: Lint source
+        run: npm run lint
+      - name: Typecheck API and UI
+        run: npm run typecheck
+      - name: Build Next.js for production
+        run: npm run build

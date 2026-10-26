@@ -81,3 +81,33 @@ button.ml-member-active,button.ml-member-inactive{border:0;cursor:pointer}
 a.ml-sync-status{text-decoration:none}
 @media(max-width:1100px){.ml-start-actions{grid-template-columns:1fr}.ml-start-actions>button,.ml-start-actions>a{padding:14px 16px}.ml-quick-views{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:650px){.ml-quick-views{grid-template-columns:repeat(2,minmax(0,1fr))}.ml-quick-view{min-height:50px}.ml-extra-filters{padding:12px;gap:10px}.ml-extra-filters label{min-width:100%}.ml-filterbar .ml-filter-toggle{flex:1;justify-content:center}}
+
+/* Marathon navigation remains scrollable independently of its event and account controls. */
+.ml-sidebar{min-height:0;height:100vh;height:100dvh;overflow:hidden}
+.ml-sidebar-brand,.ml-sidebar-event,.ml-sidebar-bottom{flex-shrink:0}
+.ml-sidebar-brand{margin-bottom:25px}
+.ml-sidebar-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#9dbbaa transparent;padding:0 2px}
+.ml-sidebar .side-scroll-actions{background:#fff}
+.ml-sidebar-event{margin:8px 5px 12px}
+.ml-sidebar-scroll:focus-visible{outline:2px solid #d9ad52;outline-offset:-2px;border-radius:8px}
+@media(max-height:700px){.ml-sidebar-event{padding:12px 16px}.ml-sidebar-event strong{font-size:30px;margin:6px 0}.ml-sidebar-brand{margin-bottom:13px}}
+
+/* Action reminders: available within the workspace and readable on narrow phones. */
+.ml-topbar{position:relative}
+.ml-alert-toggle{position:relative}
+.ml-alert-count{position:absolute;right:-8px;top:-6px;min-width:18px;height:18px;border-radius:50px;padding:1px 4px;display:grid;place-items:center;background:#c8772f;color:#fff;font-size:10px;font-weight:900}
+.ml-alert-panel{position:absolute;right:35px;top:calc(100% - 4px);z-index:80;width:min(430px,calc(100vw - 24px));background:#fff;border:1px solid #dce8df;border-radius:15px;box-shadow:0 20px 55px #132c2038;overflow:hidden}
+.ml-alert-heading{padding:16px 18px;border-bottom:1px solid #e6eee7;display:flex;gap:12px;align-items:center;justify-content:space-between}
+.ml-alert-heading b{display:flex;gap:8px;align-items:center;color:#204d34;font-size:14px}
+.ml-alert-heading small{display:block;color:#83958a;margin-top:4px;font-size:11px}
+.ml-alert-heading button{border:0;background:#f3f7f4;padding:7px;border-radius:8px;color:#537562}
+.ml-alert-list{max-height:min(58vh,440px);overflow-y:auto;overscroll-behavior:contain}
+.ml-alert-item{display:flex;width:100%;text-align:left;align-items:center;gap:12px;padding:13px 18px;border:0;border-bottom:1px solid #edf1ed;background:#fff}
+.ml-alert-item:hover,.ml-alert-item:focus-visible{background:#f4f9f4}
+.ml-alert-item>span:nth-child(2){min-width:0}
+.ml-alert-item b{display:block;font-size:12px;color:#254a35;line-height:1.5}
+.ml-alert-item small{display:block;color:#829387;font-size:10px;line-height:1.5;margin-top:4px}
+.ml-alert-icon{width:34px;height:34px;flex-shrink:0;display:grid;place-items:center;background:#fff1dd;color:#b5782f;border-radius:10px}
+.ml-alert-blocked .ml-alert-icon,.ml-alert-overdue .ml-alert-icon{background:#fff0e8;color:#ca6335}
+.ml-alert-empty{padding:22px 18px;margin:0;font-size:12px;color:#72877c}
+@media(max-width:650px){.ml-alert-panel{right:12px;top:calc(100% - 1px);width:calc(100vw - 24px)}}

@@ -1,6 +1,7 @@
 'use client';
 import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {MarathonLink as Link} from './MarathonLink';
+import {SidebarScrollControls} from '@/components/SidebarScrollControls';
 import {useRouter,usePathname,useSearchParams} from 'next/navigation';
 import {onAuthStateChanged} from 'firebase/auth';
 import {
@@ -20,6 +21,7 @@ import {csvEscape,schoolWorkspace} from '@/lib/marathon-export';
 import {MarathonSyncReview} from './MarathonSyncReview';
 import {MarathonSeedImport} from './MarathonSeedImport';
 import {MarathonCategoryBoard} from './MarathonCategoryBoard';
+import {MarathonAlertCenter} from './MarathonAlertCenter';
 import {MarathonQuickViews} from './MarathonQuickViews';
 import {marathonCategories,categoryForSection,categoryForId,isMarathonCategoryId,isMarathonCategorySection,groupMarathonCategories,matchesMarathonFilters,marathonToday,marathonFocusCounts} from '@/lib/marathon-categories';
 import type {MarathonFocus} from '@/lib/marathon-categories';
@@ -66,6 +68,7 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
  const [state,setState]=useState<Bootstrap>(blank),[loading,setLoading]=useState(true),[offline,setOffline]=useState(false);
  const [authError,setAuthError]=useState(''),[notice,setNotice]=useState(''),[queuedEdits,setQueuedEdits]=useState<PendingEdit[]>([]);
  const [drawer,setDrawer]=useState<MarathonTask|null>(null),[newTask,setNewTask]=useState(false),[mobile,setMobile]=useState(false);
+ const [alertsOpen,setAlertsOpen]=useState(false);
  const [saving,setSaving]=useState(false),[query,setQuery]=useState(''),[filterStatus,setFilterStatus]=useState('all');
  const [filterPriority,setFilterPriority]=useState('all'),[filterLead,setFilterLead]=useState('all');
  const [focus,setFocus]=useState<MarathonFocus>('all'),[filtersOpen,setFiltersOpen]=useState(false);
@@ -73,7 +76,7 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
  const filterCategory=isMarathonCategoryId(categoryParam)?categoryParam:'all';
  const [events,setEvents]=useState<EventItem[]>([]);
  const [suggestTask,setSuggestTask]=useState(''),[suggestText,setSuggestText]=useState(''),[suggestStatus,setSuggestStatus]=useState<MarathonStatus>('done');
- const [inviteEmail,setInviteEmail]=useState(''),[inviteRole,setInviteRole]=useState<typeof roles[number]>('kasaClient');
+ const [inviteEmail,setInviteEmail]=useState(''),[inviteName,setInviteName]=useState(''),[inviteRole,setInviteRole]=useState<typeof roles[number]>('kasaClient');
  const authUid=useRef(''),syncingRef=useRef(false),initializedUid=useRef(''),suggestionRequest=useRef(0),reviewRequest=useRef(0),lastHydrateStarted=useRef(0);
  const [syncing,setSyncing]=useState(false),[reviewEdit,setReviewEdit]=useState<PendingEdit|null>(null);
  const [reviewTask,setReviewTask]=useState<MarathonTask|null>(null),[reviewError,setReviewError]=useState('');
@@ -132,6 +135,16 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
   return ()=>{active=false;authUid.current='';unsub();};
  },[hydrate,router]);
  const refresh=useCallback(async()=>{if(uid)await hydrate(uid);},[hydrate,uid]);
+ useEffect(()=>{
+  if(!uid)return;
+  // Near-live authorized revalidation, without granting raw Firestore access.
+  // Skip hidden/offline tabs and leave queued local edits intact.
+  const timer=window.setInterval(()=>{
+   if(document.visibilityState==='visible'&&navigator.onLine&&!syncingRef.current&&
+     Date.now()-lastHydrateStarted.current>=60000)void refresh();
+  },15000);
+  return ()=>window.clearInterval(timer);
+ },[uid,refresh]);
  useEffect(()=>{
   // Keep long-lived workspaces current without blocking each view switch.
   if(uid&&!offline&&Date.now()-lastHydrateStarted.current>=60000)void refresh();
@@ -227,6 +240,10 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
  const today=marathonToday();
  const complete=tasks.filter(t=>t.status==='done'&&!t.archived).length;
  const active=tasks.filter(t=>!t.archived);
+ const fiveDayDeadline=new Date(Date.parse(today+'T12:00:00Z')+5*86400000).toISOString().slice(0,10);
+ const attentionTasks=active.filter(t=>t.status!=='done'&&
+   (t.status==='blocked'||t.priority.startsWith('P1')||
+    Boolean(t.dueDate&&t.dueDate<=fiveDayDeadline)));
  const overdue=active.filter(t=>t.status!=='done'&&t.dueDate&&t.dueDate<today).length;
  const inProgress=active.filter(t=>t.status==='doing').length;
  const critical=active.filter(t=>t.status!=='done'&&t.importance==='Critical').length;
@@ -320,9 +337,9 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
  async function invite(e:React.FormEvent){
   e.preventDefault();setSaving(true);
   try{
-   const result=await api<{member:Member}>('/api/marathon/members',{method:'POST',body:JSON.stringify({email:inviteEmail,role:inviteRole})});
+   const result=await api<{member:Member;message:string;verificationPending:boolean;onboardingEmailSent:boolean}>('/api/marathon/members',{method:'POST',body:JSON.stringify({email:inviteEmail,displayName:inviteName,role:inviteRole})});
    setState(x=>({...x,members:[...x.members.filter(y=>y.uid!==result.member.uid),result.member]}));
-   setInviteEmail('');setNotice('Marathon membership updated.');
+   setInviteEmail('');setInviteName('');setNotice(result.message);
   }catch(e){setNotice(errorMessage(e));}finally{setSaving(false);}
  }
  function exportCSV(){
@@ -347,18 +364,20 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
  return <div className="ml-app">
   <aside id="ml-workspace-menu" className={'ml-sidebar '+(mobile?'ml-sidebar-open':'')}>
    <Link href="/marthon" className="ml-sidebar-brand" onClick={()=>setMobile(false)}><span className="ml-mark">K</span><span><b>KASA <em>LIFE</em></b><small>MARATHON OPERATIONS</small></span></Link>
+   <div className="ml-sidebar-scroll" tabIndex={0} aria-label="Scrollable Marathon navigation">
    <div className="ml-nav-section">WORKSPACE</div>
    <nav aria-label="Marathon workspace navigation">{dailyMenu.map(navigationItem)}</nav>
    <details className="ml-nav-tools" open={toolMenu.some(item=>item.view===view)||undefined}><summary>More tools <ChevronDown size={15}/></summary><nav aria-label="Other Marathon tools">{toolMenu.map(navigationItem)}</nav></details>
    <div className="ml-school-switch"><span className="ml-nav-section">YOUR WORKSPACES</span>
     <Link href={schoolDestination} className="ml-nav-item ml-school-link"><ArrowDownRight size={19}/><span>Return to KASA School</span></Link>
    </div>
+   </div><SidebarScrollControls targetSelector=".ml-sidebar-scroll"/>
    <div className="ml-sidebar-event"><div className="ml-sidebar-event-top"><span className="ml-event-kicker"><span className="ml-pulse"/> EVENT COUNTDOWN</span><CalendarDays size={18}/></div><strong>{daysLeft}<small> days</small></strong><span>Sunday, 21 March 2027</span><div className="ml-event-line"><span style={{width:Math.max(5,100-daysLeft/150*100)+'%'}}/></div></div>
    <div className="ml-sidebar-bottom"><div className="ml-sidebar-person"><span className="ml-avatar">{displayName.slice(0,2).toUpperCase()}</span><div><b>{displayName}</b><small>School: {state.identity.schoolRole} · Marathon: {state.identity.role}</small></div><button title="Sign out" aria-label="Sign out" onClick={()=>void logout()}><LogOut size={18}/></button></div></div>
   </aside>
   {mobile&&<button className="ml-mobile-overlay" aria-label="Close menu" onClick={()=>setMobile(false)}/>}
   <main className="ml-main">
-   <header className="ml-topbar"><div className="ml-top-left"><button className="ml-mobile-menu" aria-label="Open navigation" aria-controls="ml-workspace-menu" aria-expanded={mobile} onClick={()=>setMobile(true)}><Menu size={22}/></button><span className="ml-breadcrumb">KASA Life Marathon</span><ChevronRight size={15}/><strong>{menu.find(x=>x.view===view)?.label||'Home'}</strong></div><div className="ml-top-actions"><Link href="/marthon/sync" className={'ml-sync-status '+(offline?'off':'')} aria-label={pending.length?pending.length+' saved edits. Open offline edits.':'View offline edits'}>{offline?<WifiOff size={15}/>:pending.length?<CloudOff size={15}/>:<Cloud size={15}/>} {syncing?'Syncing…':offline?'Offline':pending.length?pending.length+' pending':'Synced'}</Link><button aria-label="Refresh" title="Refresh data" onClick={()=>void refresh().then(()=>flush())}><RefreshCcw size={18}/></button><span className="ml-top-divider"/><span className="ml-avatar ml-avatar-small">{displayName.slice(0,2).toUpperCase()}</span></div></header>
+   <header className="ml-topbar"><div className="ml-top-left"><button className="ml-mobile-menu" aria-label="Open navigation" aria-controls="ml-workspace-menu" aria-expanded={mobile} onClick={()=>setMobile(true)}><Menu size={22}/></button><span className="ml-breadcrumb">KASA Life Marathon</span><ChevronRight size={15}/><strong>{menu.find(x=>x.view===view)?.label||'Home'}</strong></div><div className="ml-top-actions"><Link href="/marthon/sync" className={'ml-sync-status '+(offline?'off':'')} aria-label={pending.length?pending.length+' saved edits. Open offline edits.':'View offline edits'}>{offline?<WifiOff size={15}/>:pending.length?<CloudOff size={15}/>:<Cloud size={15}/>} {syncing?'Syncing…':offline?'Offline':pending.length?pending.length+' pending':'Synced'}</Link><button className="ml-alert-toggle" type="button" aria-label={'Reminders: '+attentionTasks.length+' actions need attention'} title="Action reminders" aria-expanded={alertsOpen} onClick={()=>setAlertsOpen(v=>!v)}><Bell size={18}/>{attentionTasks.length>0&&<span className="ml-alert-count">{attentionTasks.length>99?'99+':attentionTasks.length}</span>}</button><button aria-label="Refresh" title="Refresh data" onClick={()=>void refresh().then(()=>flush())}><RefreshCcw size={18}/></button><span className="ml-top-divider"/><span className="ml-avatar ml-avatar-small">{displayName.slice(0,2).toUpperCase()}</span></div>{alertsOpen&&<MarathonAlertCenter tasks={tasks} today={today} onOpen={setDrawer} onClose={()=>setAlertsOpen(false)}/>}</header>
    <div className="ml-content">
     {!!notice&&<div className="ml-notice" role="status"><span>{notice}</span><button onClick={()=>setNotice('')} aria-label="Dismiss notification"><X size={17}/></button></div>}
     {!!authError&&uid&&<div className="ml-notice ml-warning"><AlertTriangle size={17}/>{authError}</div>}
@@ -418,8 +437,8 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
      <div className="ml-panel ml-activity-panel">{events.length?events.map(e=><div className="ml-activity-item" key={e.id}><span className="ml-activity-icon"><Activity size={17}/></span><div><b>{e.action==='updated'?'Action updated':e.action==='created'?'Action created':e.action==='member.assigned'?'Member assigned':e.action.replaceAll('.',' ')}</b><p>{e.taskId||e.targetUid||'Team access'} · {e.actor||'System'}</p></div><time>{formatDate(e.at)}</time></div>):<EmptyState text="No activity has been recorded yet, or the audit log is offline."/>}</div>
     </>}
     {(view==='settings'||view==='team')&&state.permissions.super&&<>
-     <div className="ml-heading-row"><div><span className="ml-eyebrow">ACCESS & RESPONSIBILITY</span><h1>Marathon settings & roles</h1><p>Assign a second workspace role to an existing KASA School profile. The original school role is never changed.</p></div></div>
-     {state.permissions.super&&<div className="ml-panel ml-team-invite"><div className="ml-panel-head"><div><span className="ml-eyebrow">SUPER ADMIN CONTROL</span><h3>Grant a second role on a KASA School profile</h3></div><UserPlus size={22}/></div><form onSubmit={invite} className="ml-invite-form"><label>Email address<input type="email" required placeholder="Verified KASA account email" value={inviteEmail} onChange={e=>setInviteEmail(e.target.value)}/></label><label>Marathon role<select value={inviteRole} onChange={e=>setInviteRole(e.target.value as typeof inviteRole)}>{roles.map(r=><option key={r} value={r}>{r}</option>)}</select></label><button className="ml-primary" disabled={saving}>Assign role <ArrowRight size={17}/></button></form><p className="ml-form-help">Use the existing verified KASA School email for this person. Only the school super administrator may assign Marathon access here; no separate account is created.</p></div>}
+     <div className="ml-heading-row"><div><span className="ml-eyebrow">ACCESS & RESPONSIBILITY</span><h1>Marathon settings & roles</h1><p>Add a new team member or link an existing School account automatically. The original School role is preserved.</p></div></div>
+     {state.permissions.super&&<div className="ml-panel ml-team-invite"><div className="ml-panel-head"><div><span className="ml-eyebrow">SUPER ADMIN CONTROL</span><h3>Register or add a Marathon team member</h3></div><UserPlus size={22}/></div><form onSubmit={invite} className="ml-invite-form"><label>Full name (for new accounts)<input type="text" maxLength={120} placeholder="Full name" value={inviteName} onChange={e=>setInviteName(e.target.value)}/></label><label>Email address<input type="email" required placeholder="Member email address" value={inviteEmail} onChange={e=>setInviteEmail(e.target.value)}/></label><label>Marathon role<select value={inviteRole} onChange={e=>setInviteRole(e.target.value as typeof inviteRole)}>{roles.map(r=><option key={r} value={r}>{r}</option>)}</select></label><button className="ml-primary" disabled={saving}>Add member <ArrowRight size={17}/></button></form><p className="ml-form-help">If the email does not exist, this creates one shared KASA School account (default School role: student) and assigns the selected Marathon role. New members set their own passwords and verify their email before signing in. Existing School roles are unchanged. Only the School super administrator can assign Marathon access.</p></div>}
      <div className="ml-panel"><div className="ml-panel-head"><h3>Team directory</h3><span className="ml-count-badge">{state.members.length}</span></div><div className="ml-members">{state.members.map(m=><div className="ml-member" key={m.uid}><span className="ml-avatar">{m.displayName.slice(0,2).toUpperCase()}</span><div><b>{m.displayName}</b><small>{m.email}</small><small>School: {m.schoolRole} · Marathon: {m.role}</small></div>{state.permissions.super?<select className="ml-member-role-select" value={m.role} aria-label={'Role for '+m.email} onChange={e=>void updateMember(m,{role:e.target.value as MarathonRole})}>{roles.map(role=><option key={role}>{role}</option>)}</select>:<span className="ml-role-tag">{m.role}</span>}{state.permissions.super?<button className={m.active?'ml-member-active':'ml-member-inactive'} onClick={()=>void updateMember(m,{active:!m.marathonActive})}>{m.marathonActive?'Disable Marathon':'Enable Marathon'}</button>:<span className={m.active?'ml-member-active':'ml-member-inactive'}>{m.active?'Active':m.schoolActive?'Marathon disabled':'School account disabled'}</span>}</div>)}{!state.members.length&&<EmptyState text={state.permissions.super?'No Marathon team members have been added yet.':'Team membership can be managed by the super administrator.'}/>}</div></div>
     </>}
     {view==='super'&&state.permissions.super&&<>

@@ -1,6 +1,7 @@
 import './globals.css';
 import type {Metadata, Viewport} from 'next';
 import {PwaRegister} from '@/components/PwaRegister';
+import {MobilePushRegistration} from '@/components/MobilePushRegistration';
 
 export const viewport: Viewport = {
   themeColor: '#103f2c',
@@ -25,6 +26,7 @@ export default function RootLayout({children}:{children:React.ReactNode}){
   <html lang="en">
    <body suppressHydrationWarning>
     <PwaRegister />
+    <MobilePushRegistration />
     {children}
    </body>
   </html>

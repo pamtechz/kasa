@@ -3,6 +3,7 @@ import {useEffect,useState} from 'react';
 import {onAuthStateChanged} from 'firebase/auth';
 import {useRouter,usePathname} from 'next/navigation';
 import Link from 'next/link';
+import {SidebarScrollControls} from '@/components/SidebarScrollControls';
 import {BarChart3,ChevronLeft,ChevronRight,ClipboardList,FilePlus2,FileCheck,LayoutDashboard,LogOut,Menu,Settings,Users,X,Bell,BookOpen,Newspaper,CalendarDays,Database,User,Wallet} from 'lucide-react';
 import {auth,authHeaders,firebaseConfigured,signOutClient} from '@/lib/firebase-client';
 import type {Profile} from '@/lib/types';
@@ -105,7 +106,7 @@ export function Portal({children}:{children:React.ReactNode}){
   ...(allowed('settings.manage')?[{name:'Settings',href:'/dashboard/settings',icon:Settings}]:[]),
   ...(allowed('staff.manage')?[{name:'Staff roles',href:'/dashboard/staff',icon:Users}]:[]),
   ...(allowed('bootstrap.manage')?[{name:'Data setup',href:'/dashboard/setup',icon:Database}]:[]),
-  ...(role==='super_admin'?[{name:'KASA Life Marathon',href:'/marthon',icon:CalendarDays}]:[]),
+  ...(role==='super_admin'||profile?.marathonAccess?.active===true?[{name:'KASA Life Marathon',href:'/marthon',icon:CalendarDays}]:[]),
   ...(allowed('profile.read')?[{name:'My profile',href:'/dashboard/profile',icon:User}]:[])
  ];
  if(loading)return <main className="page-loader" role="status">Loading your secure workspace…</main>;
@@ -113,6 +114,7 @@ export function Portal({children}:{children:React.ReactNode}){
  return <div className="portal-shell"><aside id="kasa-admin-navigation" className={`sidebar ${collapsed?'collapsed':''} ${mobile?'mobile-open':''}`}>
   <div className="side-header"><Link href="/dashboard" className="brand"><BrandLogo size={48}/>{(!collapsed||mobile)&&<span><strong>KASA</strong><small>Administration</small></span>}</Link><button className="icon-btn toggle-collapse-top" type="button" onClick={toggleSidebar} title={collapsed?"Expand sidebar":"Collapse sidebar"} aria-label={collapsed?"Expand sidebar":"Collapse sidebar"}><ChevronLeft size={18} style={{transform:collapsed?'rotate(180deg)':undefined}}/></button><button className="icon-btn close-mobile" onClick={()=>setMobile(false)} aria-label="Close menu"><X size={20}/></button></div>
   <div className="side-label">{!collapsed||mobile?'WORKSPACE':'·'}</div><nav className="side-links" aria-label="Administration">{links.map(l=>{const I=l.icon;return <Link key={l.href} title={l.name} className={`side-link ${path===l.href||l.href!=='/dashboard'&&path.startsWith(l.href+'/')?'active':''}`} aria-current={path===l.href||l.href!=='/dashboard'&&path.startsWith(l.href+'/')?'page':undefined} href={l.href} onClick={()=>setMobile(false)}><I size={19}/>{(!collapsed||mobile)&&<span>{l.name}</span>}</Link>})}</nav>
+  <SidebarScrollControls targetSelector=".side-links"/>
   <div className="side-bottom"><button className="side-link" type="button" onClick={toggleSidebar} aria-label={collapsed?"Expand sidebar":"Collapse sidebar"}><ChevronLeft size={18} style={{transform:collapsed?'rotate(180deg)':undefined}}/>{(!collapsed||mobile)&&'Collapse sidebar'}</button><button className="side-link" onClick={()=>void logOut()}><LogOut size={18}/>{(!collapsed||mobile)&&'Sign out'}</button></div>
  </aside>{mounted&&mobile&&<button className="sidebar-overlay" onClick={()=>setMobile(false)} aria-label="Close menu"/>}<div className="portal-body"><header className="portal-top"><div className="top-title"><button onClick={()=>setMobile(true)} className="icon-btn menu-button" aria-label="Open administration menu" aria-expanded={mobile} aria-controls="kasa-admin-navigation"><Menu size={20}/></button><button onClick={toggleSidebar} className="icon-btn desktop-collapse-button" aria-label={collapsed?"Expand sidebar":"Collapse sidebar"} title={collapsed?"Expand sidebar":"Collapse sidebar"}><Menu size={20}/></button><span>Enrollment Operations</span><ChevronRight size={14}/><span className="muted">{links.find(l=>path.startsWith(l.href)&&l.href!=='/dashboard')?.name||'Overview'}</span></div><Link href="/dashboard/profile" className="avatar-area" title="Manage my profile and account" style={{textDecoration:'none',color:'inherit'}}><span className="role-pill">{profile.role.replace('_',' ')}</span><div className="mini-avatar">{(profile.displayName||profile.email)[0].toUpperCase()}</div><span className="profile-name">{profile.displayName||profile.email}</span></Link></header><div className="portal-main">{children}</div></div></div>;
 }

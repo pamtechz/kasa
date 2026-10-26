@@ -32,7 +32,7 @@ export default function UserAndStaffManagement() {
   const [provRole, setProvRole] = useState<'student' | 'agent' | 'admin' | 'reviewer'>('student');
   const [provDistrict, setProvDistrict] = useState('');
   const [provPhone, setProvPhone] = useState('');
-  const [provResult, setProvResult] = useState<{email: string; displayName: string; role: string; agentCode?: string} | null>(null);
+  const [provResult, setProvResult] = useState<{email: string; displayName: string; role: string; agentCode?: string; verificationPending?:boolean;onboardingEmailSent?:boolean} | null>(null);
 
   // Editing User Modal States
   const [editingUser, setEditingUser] = useState<UserItem | null>(null);
@@ -71,7 +71,7 @@ export default function UserAndStaffManagement() {
     if (!provEmail.trim() || !provName.trim()) return;
     setBusy(true); setError(''); setNotice(''); setProvResult(null);
     try {
-      const res = await api<{ok: boolean; email: string; displayName: string; role: string; agentCode?: string; message: string}>('/api/admin/users/provision', {
+      const res = await api<{ok: boolean; email: string; displayName: string; role: string; agentCode?: string; message: string;verificationPending?:boolean;onboardingEmailSent?:boolean}>('/api/admin/users/provision', {
         method: 'POST',
         body: JSON.stringify({
           email: provEmail,
@@ -160,17 +160,17 @@ export default function UserAndStaffManagement() {
     <>
       <PageHeader
         title="User & Staff Account Management"
-        subtitle="Manage verified identities, account roles, staff territories, and account access. Password recovery is self-service."
+        subtitle="Register accounts, manage School roles and staff access. Marathon membership uses the same Firebase account."
       />
 
       {/* 1. Account Provisioning Section */}
       <section className="panel pad-panel" style={{borderLeft: '4px solid var(--green, #103f2c)', marginBottom: 24}}>
         <div style={{display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12}}>
           <UserPlus size={20} style={{color: 'var(--green)'}} />
-          <h2 style={{margin: 0, fontSize: 18}}>Provision New Account (Student, Agent or Staff)</h2>
+          <h2 style={{margin: 0, fontSize: 18}}>Register or Update School Account (Student, Agent or Staff)</h2>
         </div>
         <p className="muted" style={{fontSize: 13, marginBottom: 16}}>
-          Assign a portal role to an existing registered user whose email address has been verified. New users must register and verify their own email first. No temporary passwords are generated.
+          Create a School account directly, or assign a School role to an existing account. New users receive password setup instructions where Firebase email delivery is configured and must verify their own email. Accounts use the same sign-in across School and Marathon.
         </p>
 
         <form onSubmit={e => void provisionUser(e)}>
@@ -215,7 +215,7 @@ export default function UserAndStaffManagement() {
             <div style={{fontSize: 13, lineHeight: 1.6, color: 'var(--ink)'}}>
               Email: <strong>{provResult.email}</strong><br />
               {provResult.agentCode && <>Unique Referral Code: <strong>{provResult.agentCode}</strong><br /></>}
-              <small className="muted">The user can sign in with their own verified credentials at <Link href="/login" style={{textDecoration: 'underline', fontWeight: 700}}>KASA Login</Link>. Password recovery remains under their control.</small>
+              <small className="muted">{provResult.verificationPending ? 'The new user must set their password (check email or use Forgot password), verify their address, and then sign in at' : 'The user can sign in with their own verified credentials at'} <Link href="/login" style={{textDecoration: 'underline', fontWeight: 700}}>KASA Login</Link>. Password recovery remains under their control.</small>
             </div>
           </div>
         )}

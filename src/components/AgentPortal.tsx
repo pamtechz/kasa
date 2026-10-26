@@ -4,6 +4,7 @@ import {useEffect, useState} from 'react';
 import {onAuthStateChanged} from 'firebase/auth';
 import {useRouter, usePathname} from 'next/navigation';
 import Link from 'next/link';
+import {SidebarScrollControls} from '@/components/SidebarScrollControls';
 import {
   LayoutDashboard, Users, PlusCircle, BarChart3, User, LogOut, ChevronLeft, ChevronRight,
   Menu, X, MapPin, Award, Wallet, Share2
@@ -152,6 +153,7 @@ export function AgentPortal({children}: {children: React.ReactNode}) {
           })}
         </nav>
 
+        <SidebarScrollControls targetSelector=".side-links"/>
         <div className="side-bottom">
           <button className="side-link" type="button" onClick={toggleSidebar}>
             <ChevronLeft size={18} style={{transform: collapsed ? 'rotate(180deg)' : undefined}} />

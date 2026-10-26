@@ -12,7 +12,7 @@ function readableAuthError(error: unknown): string {
   if (['auth/invalid-credential', 'auth/wrong-password', 'auth/user-not-found', 'auth/invalid-email'].includes(code)) return 'Incorrect email or password. Check your details and try again.';
   if (code === 'auth/network-request-failed') return 'Unable to reach Firebase Authentication. Check your internet connection.';
   if (code === 'auth/too-many-requests') return 'Too many attempts. Wait a few minutes before retrying.';
-  if (code === 'auth/email-already-in-use') return 'This email is already registered. Please sign in.';
+  if (code === 'auth/email-already-in-use') return 'This email already has a KASA School account. If an administrator registered you, use Forgot password to set your own password, then verify your email.';
   if (code === 'auth/weak-password') return 'Choose a stronger password with at least 8 characters.';
   return error instanceof Error ? error.message : 'Authentication failed. Please try again.';
 }

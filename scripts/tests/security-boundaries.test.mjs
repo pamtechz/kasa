@@ -33,11 +33,19 @@ test('Anonymous application form cannot create an already-verified Firebase acco
  assert.doesNotMatch(route,/tempPassword/);
  assert.match(route,/applicantUid=claims\.uid/);
 });
-test('Provisioning no longer persists or returns plaintext passwords',()=>{
+test('School and Marathon registration create one unverified Firebase identity, without exposing passwords',()=>{
  const route=source('src/app/api/admin/users/provision/route.ts');
- assert.doesNotMatch(route,/adminAuth\.createUser\(/);
+ const grant=source('src/app/api/marathon/members/route.ts');
+ const helper=source('src/lib/account-onboarding.ts');
+ assert.match(route,/ensureSchoolIdentity\(/);
+ assert.match(grant,/ensureSchoolIdentity\(/);
+ assert.match(helper,/adminAuth\.createUser\(/);
+ assert.match(helper,/emailVerified:false/);
+ assert.match(helper,/randomBytes\(48\)/);
+ assert.match(helper,/tx\.create\(profileRef,\{/);
+ assert.match(helper,/requestType:'PASSWORD_RESET'/);
+ assert.doesNotMatch(helper,/emailVerified:true/);
  assert.doesNotMatch(route,/Math\.random/);
- assert.match(route,/if \(!authUser\.emailVerified\)/);
  assert.match(route,/tempPassword: null/);
  assert.doesNotMatch(route,/Temporary password:/);
 });

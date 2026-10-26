@@ -33,7 +33,7 @@ test('dual workspace roles reside in the existing school profile',()=>{
  assert.match(list,/db\.collection\('profiles'\)\.where\('marathonAccess\.role'/);
 });
 
-test('only existing school super admin may assign secondary role',()=>{
+test('only School super admin may assign secondary role and auto-create School identity',()=>{
  const grant=source('src/app/api/marathon/members/route.ts');
  const change=source('src/app/api/marathon/members/[uid]/route.ts');
  const auth=source('src/lib/marathon.ts');
@@ -45,8 +45,9 @@ test('only existing school super admin may assign secondary role',()=>{
   assert.match(code,/marathonAudit/);
   assert.doesNotMatch(code,/collection\('marathonMembers'\)/);
  }
- assert.match(grant,/getUserByEmail\(email\)/);
- assert.match(grant,/emailVerified/);
+ assert.match(grant,/ensureSchoolIdentity\(/);
+ assert.match(grant,/verificationPending/);
+ assert.match(grant,/schoolAccountCreated/);
  assert.match(grant,/if\(!snap.exists\)/);
  assert.match(change,/uid===actor.uid/);
 });
@@ -80,4 +81,5 @@ test('Marathon login shares KASA Auth and distinguishes credential rejection fro
  assert.match(login,/auth\/unauthorized-domain/);
  assert.match(login,/login\?next=%2Fmarthon/);
  assert.match(login,/sendPasswordResetEmail/);
+ assert.match(login,/sendEmailVerification\(result\.user\)/);
 });

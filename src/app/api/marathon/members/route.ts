@@ -1,30 +1,37 @@
 import {z} from 'zod';
-import {adminAuth,db} from '@/lib/firebase-admin';
+import {db} from '@/lib/firebase-admin';
 import {fail,json,HttpError} from '@/lib/errors';
 import {marathonIdentity,requireMarathon,marathonRoles} from '@/lib/marathon';
+import {ensureSchoolIdentity} from '@/lib/account-onboarding';
 import type {Profile} from '@/lib/types';
 import {sameOrigin} from '@/lib/security';
 
 export const runtime='nodejs';
-const schema=z.object({email:z.string().trim().email().max(240),role:z.enum(marathonRoles)}).strict();
+const schema=z.object({
+ email:z.string().trim().email().max(240),
+ displayName:z.string().trim().max(120).optional(),
+ role:z.enum(marathonRoles)
+}).strict();
+
 export async function POST(req:Request){
  try{
   sameOrigin(req);
   const actor=await marathonIdentity(req);
   requireMarathon(actor,'super');
   const parsed=schema.safeParse(await req.json());
-  if(!parsed.success)throw new HttpError(400,'Provide a registered KASA School email and Marathon role.');
-  const email=parsed.data.email.toLowerCase();
-  const authUser=await adminAuth.getUserByEmail(email).catch(()=>null);
-  if(!authUser||!authUser.emailVerified)
-   throw new HttpError(400,'This person must first sign up with KASA School and verify their email.');
-  if(authUser.uid===actor.uid)throw new HttpError(403,'The school super admin already has inherited Marathon access.');
-  const profileRef=db.collection('profiles').doc(authUser.uid);
+  if(!parsed.success)throw new HttpError(400,'Provide an email, name and valid Marathon role.');
+  const email=parsed.data.email.trim().toLowerCase();
+  const account=await ensureSchoolIdentity({
+   email,displayName:parsed.data.displayName,
+   schoolRole:'student',actorUid:actor.uid
+  });
+  if(account.uid===actor.uid)throw new HttpError(403,'The school super admin already has inherited Marathon access.');
+  const profileRef=db.collection('profiles').doc(account.uid);
   const now=new Date().toISOString();
   let member:Record<string,unknown>|null=null;
   await db.runTransaction(async tx=>{
    const snap=await tx.get(profileRef);
-   if(!snap.exists)throw new HttpError(404,'This account has no KASA School profile.');
+   if(!snap.exists)throw new HttpError(404,'KASA School profile could not be created.');
    const profile=snap.data() as Profile;
    if(profile.active!==true)throw new HttpError(403,'The KASA School profile is inactive.');
    if(profile.role==='super_admin')throw new HttpError(403,'School super administrators already inherit Marathon access.');
@@ -34,17 +41,30 @@ export async function POST(req:Request){
     assignedAt:previous?.assignedAt||now,assignedBy:previous?.assignedBy||actor.uid,
     updatedAt:now,updatedBy:actor.uid
    };
-   // Atomic partial update: never replace school role, school profile, or contact details.
+   // Shared School profile: this only modifies Marathon access, not the School role.
    tx.update(profileRef,{marathonAccess:secondary});
    tx.create(db.collection('marathonAudit').doc(),{
-    action:'profile.marathonRole.assigned',at:now,actor:actor.uid,targetUid:authUser.uid,
-    previousRole:previous?.role||null,role:secondary.role
+    action:'profile.marathonRole.assigned',at:now,actor:actor.uid,targetUid:account.uid,
+    previousRole:previous?.role||null,role:secondary.role,
+    schoolAccountCreated:account.authCreated
    });
    member={
-    uid:authUser.uid,email:profile.email||email,displayName:profile.displayName||authUser.displayName||email,
-    schoolRole:profile.role,role:secondary.role,schoolActive:true,marathonActive:secondary.active,active:secondary.active
+    uid:account.uid,email:profile.email||email,displayName:profile.displayName||email,
+    schoolRole:profile.role,role:secondary.role,schoolActive:true,
+    marathonActive:secondary.active,active:secondary.active,
+    verificationPending:account.verificationPending
    };
   });
-  return json({member},201);
+  return json({
+   member,
+   schoolAccountCreated:account.authCreated,
+   onboardingEmailSent:account.onboardingEmailSent,
+   verificationPending:account.verificationPending,
+   message:account.verificationPending
+    ?account.onboardingEmailSent
+      ?'School and Marathon access created. A password setup email was requested; the member must verify their email before signing in.'
+      :'School and Marathon access created. Ask the member to use Forgot password at KASA School login, then verify their email.'
+    :'Existing verified School account linked to Marathon access.'
+  },201);
  }catch(e){return fail(e);}
 }

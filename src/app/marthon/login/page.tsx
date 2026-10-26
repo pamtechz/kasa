@@ -2,7 +2,7 @@
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import {useRouter} from 'next/navigation';
-import {onAuthStateChanged,sendPasswordResetEmail,signInWithEmailAndPassword,signOut} from 'firebase/auth';
+import {onAuthStateChanged,sendEmailVerification,sendPasswordResetEmail,signInWithEmailAndPassword,signOut} from 'firebase/auth';
 import {ArrowRight,ArrowLeft,ShieldCheck,CalendarDays,LockKeyhole,Eye,EyeOff} from 'lucide-react';
 import {firebaseConfigured,requireClientAuth} from '@/lib/firebase-client';
 
@@ -36,7 +36,14 @@ export default function MarathonLogin(){
    const a=requireClientAuth();
    const result=await signInWithEmailAndPassword(a,email.trim().toLowerCase(),password);
    await result.user.reload();
-   if(!result.user.emailVerified){await signOut(a);throw Error('Please verify your email address before signing in.');}
+   if(!result.user.emailVerified){
+    let verificationSent=false;
+    try{await sendEmailVerification(result.user);verificationSent=true;}catch{/* Firebase can rate-limit repeated requests. */}
+    await signOut(a);
+    throw Error(verificationSent
+      ?'Please verify your KASA School email before signing in. A verification email has been requested; check your inbox and spam folder.'
+      :'Your KASA School account is waiting for email verification. Use the main School login to request a new verification email.');
+   }
    const res=await fetch('/api/marathon/bootstrap',{headers:{Authorization:'Bearer '+await result.user.getIdToken()},cache:'no-store'});
    if(!res.ok){const data=await res.json().catch(()=>({}));throw Error(data.error||'You do not have Marathon workspace access yet.');}
    router.replace('/marthon');
