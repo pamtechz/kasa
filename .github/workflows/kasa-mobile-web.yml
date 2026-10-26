@@ -16,6 +16,13 @@ on:
       - 'src/app/api/notifications/**'
       - 'src/app/api/cron/marathon-reminders/**'
       - 'src/lib/mobile-push.ts'
+      - 'src/lib/account-onboarding.ts'
+      - 'src/app/api/admin/users/provision/route.ts'
+      - 'src/app/(portal)/dashboard/staff/page.tsx'
+      - 'src/app/(site)/login/page.tsx'
+      - 'src/app/marthon/login/page.tsx'
+      - 'scripts/tests/security-boundaries.test.mjs'
+      - 'scripts/tests/marathon-operations.test.mjs'
       - 'scripts/tests/mobile-marathon-push.test.mjs'
       - 'vercel.json'
       - '.github/workflows/kasa-mobile-web.yml'
@@ -36,6 +43,8 @@ jobs:
         run: npm install --no-audit --no-fund --package-lock=false
       - name: Run source regressions
         run: npm run test:source
+      - name: Lint source
+        run: npm run lint
       - name: Typecheck API and UI
         run: npm run typecheck
       - name: Build Next.js for production
