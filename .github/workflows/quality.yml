@@ -13,15 +13,13 @@ concurrency:
 
 jobs:
   check:
-    # The KASA runner is Windows x64. Always use eligible self-hosted hardware.
-    # Do not execute untrusted fork PR code on a persistent self-hosted machine.
+    # Hosted, ephemeral runner: tests cannot be held indefinitely by KASAINSTITUTE downtime.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [self-hosted, Windows, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 50
-    # Windows PowerShell 5.1 is installed on the runner; pwsh 7 is not.
     defaults:
       run:
-        shell: powershell
+      shell: bash
     steps:
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
