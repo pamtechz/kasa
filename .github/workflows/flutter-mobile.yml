@@ -43,6 +43,11 @@ jobs:
         run: flutter test
       - name: Build debug Android APK
         run: flutter build apk --debug --dart-define=KASA_PORTAL_URL=https://kasaschool.vercel.app
+      - name: Assert packaged Android application ID
+        run: |
+          aapt_bin=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)
+          test -n "$aapt_bin"
+          "$aapt_bin" dump badging build/app/outputs/flutter-apk/app-debug.apk | grep -F "package: name='com.pamtech.kasa'"
       - uses: actions/upload-artifact@v4
         with:
           name: kasa-mobile-debug-apk
