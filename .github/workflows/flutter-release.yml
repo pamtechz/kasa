@@ -1,0 +1,85 @@
+name: KASA Android signed release verification
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  signed-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+        working-directory: flutter_app
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@dded0888837ed1f317902acf8a20df0ad188d165
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@fd55f4c5af5b953cc57a2be44cb082c8f6635e8e
+        with:
+          channel: stable
+          cache: true
+      - name: Generate Android runner
+        run: flutter create --platforms=android --org com.pamtech --project-name kasa_mobile .
+      - name: Load registered School Firebase config and upload keystore
+        env:
+          FIREBASE_JSON_B64: ${{ secrets.KASA_FIREBASE_ANDROID_JSON_B64 }}
+          KEYSTORE_B64: ${{ secrets.KASA_ANDROID_KEYSTORE_B64 }}
+          KASA_FIREBASE_PROJECT_ID: ${{ vars.KASA_FIREBASE_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$FIREBASE_JSON_B64" || -z "$KEYSTORE_B64" || -z "$KASA_FIREBASE_PROJECT_ID" ]]; then
+            echo "::error::Configure the registered School Android JSON/keystore secrets and Firebase project ID repository variable."
+            exit 1
+          fi
+          printf '%s' "$FIREBASE_JSON_B64" | base64 --decode > android/app/google-services.json
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > android/app/kasa-release.jks
+          chmod 600 android/app/google-services.json android/app/kasa-release.jks
+      - name: Configure native Firebase and fail on mismatched Android registration
+        env:
+          KASA_REQUIRE_NATIVE_FIREBASE: '1'
+          KASA_FIREBASE_PROJECT_ID: ${{ vars.KASA_FIREBASE_PROJECT_ID }}
+        run: dart run tool/configure_android.dart
+      - name: Configure genuine release signing
+        env:
+          KASA_ANDROID_KEY_ALIAS: ${{ secrets.KASA_ANDROID_KEY_ALIAS }}
+          KASA_ANDROID_KEY_PASSWORD: ${{ secrets.KASA_ANDROID_KEY_PASSWORD }}
+          KASA_ANDROID_STORE_PASSWORD: ${{ secrets.KASA_ANDROID_STORE_PASSWORD }}
+        run: dart run tool/configure_release.dart
+      - name: Validate exact app ID and Google Services integration
+        run: |
+          grep -q 'applicationId = "com.pamtech.kasa"' android/app/build.gradle.kts
+          grep -q 'id("com.google.gms.google-services")' android/app/build.gradle.kts
+          grep -q 'signingConfig = signingConfigs.getByName("kasaRelease")' android/app/build.gradle.kts
+      - name: Install packages and validate Flutter
+        run: |
+          rm -f test/widget_test.dart
+          flutter pub get
+          flutter analyze
+          flutter test
+      - name: Build signed release Android APK
+        env:
+          KASA_ANDROID_KEY_ALIAS: ${{ secrets.KASA_ANDROID_KEY_ALIAS }}
+          KASA_ANDROID_KEY_PASSWORD: ${{ secrets.KASA_ANDROID_KEY_PASSWORD }}
+          KASA_ANDROID_STORE_PASSWORD: ${{ secrets.KASA_ANDROID_STORE_PASSWORD }}
+        run: flutter build apk --release --dart-define=KASA_PORTAL_URL=https://kasaschool.vercel.app
+      - name: Verify Android APK identity and cryptographic signing
+        run: |
+          set -euo pipefail
+          aapt_bin=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)
+          apksigner_bin=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)
+          test -n "$aapt_bin" && test -n "$apksigner_bin"
+          "$aapt_bin" dump badging build/app/outputs/flutter-apk/app-release.apk | grep -F "package: name='com.pamtech.kasa'"
+          "$apksigner_bin" verify --verbose build/app/outputs/flutter-apk/app-release.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kasa-android-signed-release-apk
+          path: flutter_app/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 7
