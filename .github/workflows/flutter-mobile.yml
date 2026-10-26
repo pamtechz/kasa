@@ -27,6 +27,8 @@ jobs:
           cache: true
       - name: Generate Android runner
         run: flutter create --platforms=android --project-name kasa_mobile .
+      - name: Remove template counter widget test
+        run: rm -f test/widget_test.dart
       - name: Install Flutter packages
         run: flutter pub get
       - name: Static analysis
