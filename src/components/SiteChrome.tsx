@@ -36,6 +36,7 @@ export function SiteChrome({children}:{children:React.ReactNode}){
      if(role==='agent')setDashboardHref('/dashboard/referrals');
      else if(role==='reviewer')setDashboardHref('/dashboard/applications');
      else if(role==='student')setDashboardHref('/my-applications');
+     else if(role==='marathon_only')setDashboardHref('/marthon');
      else setDashboardHref('/dashboard');
     }catch{
      setDashboardHref('/dashboard');
@@ -82,7 +83,7 @@ export function SiteChrome({children}:{children:React.ReactNode}){
     return <Link key={href} href={href} className={isActive?'active':''} onClick={()=>setMobile(false)}>{label}</Link>;
    })}
    {userLoggedIn?<>
-    <Link href="/my-applications" className={pathname==='/my-applications'?'active':''} onClick={()=>setMobile(false)}>My applications</Link>
+    {dashboardHref!=='/marthon'&&<Link href="/my-applications" className={pathname==='/my-applications'?'active':''} onClick={()=>setMobile(false)}>My applications</Link>}
     <Link className="site-login" href={dashboardHref} onClick={()=>setMobile(false)} style={{fontWeight:700,background:'var(--gold)',color:'#19382c'}}>Dashboard <ArrowRight size={15}/></Link>
    </>:<>
     <Link href="/login" onClick={()=>setMobile(false)}>Sign in</Link>
