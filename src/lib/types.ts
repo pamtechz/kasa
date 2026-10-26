@@ -20,7 +20,7 @@ export type ApplicantRecord = {id:string;reference:string;formId:string;formTitl
   documents?:Record<string,{kind:string;label:string;path:string;fileName:string;contentType:string;size:number;uploadedAt:string;uploadedBy:string;verifiedAt:string|null;verifiedBy:string|null}>;
   commission?:{amount:number;currency:string;trigger?:'cdf_approval'|'payment';approvedAt?:string;paidAt?:string;paymentReference?:string};
 };
-export type Role = 'super_admin'|'admin'|'reviewer'|'agent'|'student'|'finance';
+export type Role = 'super_admin'|'admin'|'reviewer'|'agent'|'student'|'finance'|'marathon_only';
 /** Optional second workspace role. The existing school role stays authoritative for school routes. */
 export type MarathonAccess = {
  role:'kasaAdmin'|'kasaOperations'|'kasaEditor'|'kasaReviewer'|'kasaClient';
