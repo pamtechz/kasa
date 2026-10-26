@@ -21,6 +21,8 @@ function readableAuthError(error: unknown): string {
 export default function Login() {
   const [email, setEmail] = useState(''), [password, setPassword] = useState(''), [name, setName] = useState(''), [mode, setMode] = useState<'sign-in' | 'register'>('sign-in'), [busy, setBusy] = useState(false), [message, setMessage] = useState('');
   const router = useRouter();
+  const [marathonEntry,setMarathonEntry]=useState(false);
+  useEffect(()=>{setMarathonEntry(new URLSearchParams(window.location.search).get('next')?.startsWith('/marthon')===true);},[]);
   async function go(e: React.FormEvent) {
     e.preventDefault(); setMessage(''); setBusy(true); try {
       const firebaseAuth = requireClientAuth();
@@ -89,7 +91,7 @@ export default function Login() {
       <div className="login-card">
         <span className="login-symbol"><LockKeyhole /></span>
         <h2>{mode === 'sign-in' ? 'Sign in to KASA' : 'Create your KASA account'}</h2>
-        <p>One secure sign-in for KASA School and Marathon. Access is separated by role.</p>
+        <p>{marathonEntry?'Sign in to your assigned KASA Life Marathon account. Student accounts cannot access event operations.':'One secure sign-in for KASA School and Marathon. Access is separated by role.'}</p>
         <form onSubmit={e => void go(e)}>
           {mode === 'register' && <div className="field"><label>Full name</label><input value={name} onChange={e => setName(e.target.value)} required /></div>}
           <div className="field"><label>Email address</label><input type="email" name="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} required /></div>
@@ -98,9 +100,9 @@ export default function Login() {
           <button className="btn btn-primary btn-full" disabled={busy}>{busy ? 'Please wait…' : mode === 'sign-in' ? 'Sign in' : 'Create account'} <ArrowRight size={16} /></button>
         </form>
         <div className="auth-bottom">
-          <button onClick={() => { setMode(mode === 'sign-in' ? 'register' : 'sign-in'); setMessage(''); }}>{mode === 'sign-in' ? 'Need an account? Register' : 'Already registered? Sign in'}</button>
+          {!marathonEntry&&<button onClick={() => { setMode(mode === 'sign-in' ? 'register' : 'sign-in'); setMessage(''); }}>{mode === 'sign-in' ? 'Need an account? Register' : 'Already registered? Sign in'}</button>}
           {mode === 'sign-in' && <button onClick={() => void reset()}>Forgot password?</button>}
-        </div><Link href="/student-portal" className="back-link">Go to Student Portal</Link>
+        </div>{marathonEntry?<p className="back-link">Marathon membership is assigned by the KASA administrator. If invited, use Forgot password to set up your account.</p>:<Link href="/student-portal" className="back-link">Go to Student Portal</Link>}
         <Link href="/" className="back-link" style={{display: 'inline-flex', alignItems: 'center', gap: 6}}><ArrowLeft size={14} /> Return to KASA website</Link>
       </div>
     </div>
