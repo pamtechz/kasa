@@ -29,6 +29,27 @@ jobs:
         run: flutter create --platforms=android --org com.pamtech --project-name kasa_mobile .
       - name: Configure Android permissions
         run: dart run tool/configure_android.dart
+      - name: Verify exact Android package identity
+        run: |
+          grep -q 'applicationId = "com.pamtech.kasa"' android/app/build.gradle.kts
+          grep -q 'namespace = "com.pamtech.kasa"' android/app/build.gradle.kts
+          grep -q '^package com.pamtech.kasa
+        run: rm -f test/widget_test.dart
+      - name: Install Flutter packages
+        run: flutter pub get
+      - name: Static analysis
+        run: flutter analyze
+      - name: Unit tests
+        run: flutter test
+      - name: Build debug Android APK
+        run: flutter build apk --debug --dart-define=KASA_PORTAL_URL=https://kasaschool.vercel.app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kasa-mobile-debug-apk
+          path: flutter_app/build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
+ android/app/src/main/kotlin/com/pamtech/kasa/MainActivity.kt
       - name: Remove template counter widget test
         run: rm -f test/widget_test.dart
       - name: Install Flutter packages
