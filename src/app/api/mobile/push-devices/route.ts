@@ -20,6 +20,13 @@ export async function POST(req:Request){
   const body=await req.json();
   const token=validateToken(body?.token);
   const ref=db.collection('mobilePushDevices').doc(deviceId(token));
+  // Prevent a single authenticated account from registering unlimited fake devices.
+  // Keep the existing device eligible for token refresh or account changes.
+  const [existing,registered]=await Promise.all([
+   ref.get(),
+   db.collection('mobilePushDevices').where('uid','==',profile.uid).limit(9).get()
+  ]);
+  if(!existing.exists&&registered.size>=8)throw new HttpError(429,'Too many devices registered for this account.');
   const now=new Date().toISOString();
   const marathon=profile.role==='super_admin'||profile.marathonAccess?.active===true;
   await ref.set({uid:profile.uid,token,platform:'flutter',marathon,updatedAt:now},{merge:true});
