@@ -32,23 +32,23 @@ export async function ensureSchoolIdentity(input:{
  }
  const profileRef=db.collection('profiles').doc(user.uid);
  const now=new Date().toISOString();
- let profile:Profile|null=null;
  let profileCreated=false;
  await db.runTransaction(async tx=>{
   const snap=await tx.get(profileRef);
   if(snap.exists){
    const existing=snap.data() as Profile;
    if(existing.active!==true)throw new HttpError(403,'School account inactive. Ask the School administrator to reactivate it.');
-   profile=existing;
    return;
   }
   profileCreated=true;
-  profile={
+  const profile:Profile={
    uid:user.uid,email,displayName:displayName||user.displayName||email.split('@')[0],
    role:input.schoolRole||'student',active:true,createdAt:now,updatedAt:now
   };
   tx.create(profileRef,profile);
  });
+ const finalSnap=await profileRef.get();
+ const profile=finalSnap.data() as Profile|undefined;
  if(!profile)throw new Error('Unable to load the School profile.');
  // Only email the initial password-set link when account creation was initiated
  // here, or when an unfinished provisioning action is completed by retry.
