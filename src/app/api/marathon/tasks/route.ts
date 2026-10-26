@@ -1,4 +1,5 @@
 import {randomUUID} from 'node:crypto';
+import {sendMarathonPush} from '@/lib/mobile-push';
 import {z} from 'zod';
 import {db} from '@/lib/firebase-admin';
 import {fail,json,HttpError} from '@/lib/errors';
@@ -31,6 +32,10 @@ export async function POST(req:Request){
   batch.create(db.collection('marathonTasks').doc(id),task);
   batch.create(db.collection('marathonAudit').doc(),{taskId:id,action:'created',at:now,actor:identity.uid,changes:parsed.data});
   await batch.commit();
+  if(task.priority==='P1 Act now'){
+   try{await sendMarathonPush('KASA Life Marathon — urgent action','A new high-priority checklist action needs attention.');}
+   catch(error){console.error('Marathon push delivery failed after task creation',error instanceof Error?error.message:'Unknown delivery error');}
+  }
   return json({task},201);
  }catch(e){return fail(e);}
 }
