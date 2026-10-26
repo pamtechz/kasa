@@ -1,4 +1,5 @@
 import {z} from 'zod';
+import {sendMarathonPush} from '@/lib/mobile-push';
 import {db} from '@/lib/firebase-admin';
 import {fail,json,HttpError} from '@/lib/errors';
 import {marathonIdentity,requireMarathon} from '@/lib/marathon';
@@ -75,7 +76,12 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
     changes:next});
    updated={id,...before,...next};
   });
+  const newMutation=Boolean(updated);
   if(!updated){const latest=await ref.get();updated={id,...latest.data()};}
+  if(newMutation&&(changes.status==='blocked'||changes.priority==='P1 Act now')){
+   try{await sendMarathonPush('KASA Life Marathon — action requires attention','A checklist action has been marked blocked or high priority.');}
+   catch(error){console.error('Marathon push delivery failed after task update',error instanceof Error?error.message:'Unknown delivery error');}
+  }
   return json({task:updated,appliedRevision});
  }catch(e){return fail(e);}
 }
