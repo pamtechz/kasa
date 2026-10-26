@@ -35,6 +35,7 @@ export async function POST(req: Request) {
       actorUid:actor.uid
     });
     const previousRole = account.profile.role;
+    if(previousRole==='marathon_only')throw new HttpError(409,'This is a Marathon-only account. Manage its access from Marathon Team; it cannot be assigned a School role through School provisioning.');
     if (previousRole === 'super_admin') throw new HttpError(403, 'Super administrator accounts cannot be provisioned here.');
     if (actor.role !== 'super_admin' && ['admin','reviewer'].includes(previousRole)) {
       throw new HttpError(403, 'Only a super administrator can modify staff accounts.');
