@@ -18,7 +18,8 @@ export async function GET(req: Request) {
       snap = await db.collection('profiles').limit(400).get();
     }
 
-    let users = snap.docs.map(d => ({uid: d.id, ...d.data()}));
+    // Marathon-only members are managed from Marathon Team, never the School staff list.
+    let users = snap.docs.map(d => ({uid: d.id, ...d.data()})).filter(u => u.role !== 'marathon_only');
 
     if (search) {
       users = users.filter((u: any) =>
