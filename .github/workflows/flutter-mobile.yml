@@ -62,6 +62,8 @@ jobs:
         run: rm -f test/widget_test.dart
       - name: Install Flutter packages
         run: flutter pub get
+      - name: Generate official KASA Android launcher icons
+        run: dart run flutter_launcher_icons
       - name: Static analysis
         run: flutter analyze
       - name: Unit tests
