@@ -57,13 +57,13 @@ test('Android release cannot silently omit Firebase registration or use debug si
  const release=read('flutter_app/tool/configure_release.dart');
  const workflow=read('.github/workflows/flutter-release.yml');
  assert.match(setup,/KASA_REQUIRE_NATIVE_FIREBASE/);
- assert.match(setup,/androidPackage='com\\.pamtech\\.kasa'/);
+ assert.ok(setup.includes("const androidPackage='com.pamtech.kasa'"));
  assert.match(setup,/android_client_info/);
  assert.match(setup,/KASA_FIREBASE_PROJECT_ID/);
- assert.match(setup,/com\\.google\\.gms\\.google-services/);
+ assert.ok(setup.includes("com.google.gms.google-services"));
  assert.match(release,/kasaRelease/);
  assert.match(release,/KASA_ANDROID_KEY_ALIAS/);
- assert.match(release,/android\\/app\\/kasa-release\\.jks/);
+ assert.ok(release.includes("android/app/kasa-release.jks"));
  assert.match(workflow,/KASA_FIREBASE_ANDROID_JSON_B64/);
  assert.match(workflow,/KASA_ANDROID_KEYSTORE_B64/);
  assert.match(workflow,/apksigner/);
