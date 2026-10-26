@@ -133,7 +133,7 @@ void main() {
         stderr.writeln('Unable to register Google Services Gradle plugin.');exitCode=2;return;
       }
       settingsText=settingsText.replaceFirst('id("com.android.application")',
-          '$pluginDecl\\n    id("com.android.application")');
+          '$pluginDecl\n    id("com.android.application")');
       settings.writeAsStringSync(settingsText);
     }
     if(!build.contains('id("com.google.gms.google-services")')){
@@ -141,7 +141,7 @@ void main() {
         stderr.writeln('Unable to apply Google Services Gradle plugin.');exitCode=2;return;
       }
       build=build.replaceFirst('id("dev.flutter.flutter-gradle-plugin")',
-          'id("dev.flutter.flutter-gradle-plugin")\\n    id("com.google.gms.google-services")');
+          'id("dev.flutter.flutter-gradle-plugin")\n    id("com.google.gms.google-services")');
       gradle.writeAsStringSync(build);
     }
     stdout.writeln('Native Firebase enabled for $androidPackage (project: $actualProject).');
