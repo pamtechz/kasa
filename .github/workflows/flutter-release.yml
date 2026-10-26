@@ -7,6 +7,7 @@ permissions:
 
 jobs:
   signed-android:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     defaults:
