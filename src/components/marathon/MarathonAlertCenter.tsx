@@ -24,15 +24,15 @@ export function MarathonAlertCenter({tasks,today,onOpen,onClose}:{
    (a.task.dueDate||'9999').localeCompare(b.task.dueDate||'9999')||
    a.task.id.localeCompare(b.task.id));
  },[tasks,today]);
- return <section className="ml-alert-panel" role="dialog" aria-label="Marathon reminders and urgent actions">
+ return <section className="ml-alert-panel" role="dialog" aria-label="Marathon reminders and urgent actions" onKeyDown={event=>{if(event.key==='Escape')onClose();}}>
   <div className="ml-alert-heading">
    <div><b><Bell size={16}/> Action reminders</b><small>{alerts.length} open actions need attention</small></div>
    <button type="button" onClick={onClose} aria-label="Close reminders"><X size={18}/></button>
   </div>
   {alerts.length===0?<p className="ml-alert-empty">No urgent, blocked or upcoming actions right now.</p>:
-   <div className="ml-alert-list" role="list">
+   <div className="ml-alert-list">
     {alerts.slice(0,30).map(alert=><button type="button" key={alert.task.id}
-      className={'ml-alert-item ml-alert-'+alert.kind} role="listitem"
+      className={'ml-alert-item ml-alert-'+alert.kind}
       onClick={()=>{onClose();onOpen(alert.task);}}>
       <span className="ml-alert-icon">{alert.kind==='blocked'?<AlertTriangle size={17}/>:alert.kind==='priority'?<Bell size={17}/>:alert.kind==='overdue'?<Clock3 size={17}/>:<CalendarDays size={17}/>}</span>
       <span><b>{alert.task.title}</b><small>{alert.title}{alert.task.dueDate?' · '+alert.task.dueDate:''} · {alert.task.lead}</small></span>
