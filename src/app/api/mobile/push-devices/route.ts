@@ -5,7 +5,7 @@ import {fail,json,HttpError} from '@/lib/errors';
 import type {Profile} from '@/lib/types';
 
 export const runtime='nodejs';
-const roles=['super_admin','admin','reviewer','finance','agent','student'] as const;
+const roles=['super_admin','admin','reviewer','finance','agent','student','marathon_only'] as const;
 function deviceId(token:string){return createHash('sha256').update(token).digest('hex');}
 function validateToken(token:unknown):string{
  if(typeof token!=='string'||token.length<30||token.length>4096||!/^[-_:.A-Za-z0-9]+$/.test(token))
@@ -28,7 +28,7 @@ export async function POST(req:Request){
   ]);
   if(!existing.exists&&registered.size>=8)throw new HttpError(429,'Too many devices registered for this account.');
   const now=new Date().toISOString();
-  const marathon=profile.role==='super_admin'||profile.marathonAccess?.active===true;
+  const marathon=profile.role==='super_admin'||(profile.role!=='student'&&profile.marathonAccess?.active===true);
   await ref.set({uid:profile.uid,token,platform:'flutter',marathon,updatedAt:now},{merge:true});
   return json({ok:true,marathon});
  }catch(error){return fail(error);}

@@ -22,6 +22,7 @@ export async function PATCH(
     if (!snap.exists) throw new HttpError(404, 'User profile not found.');
 
     const currentData = snap.data() as Profile;
+    if(currentData.role==='marathon_only')throw new HttpError(403,'Marathon-only members are managed in Marathon Team, not School users.');
 
     // Super Admin protection
     const privilegedRoles = ['super_admin','admin','reviewer','finance'];
@@ -136,6 +137,7 @@ export async function DELETE(
     if (!snap.exists) throw new HttpError(404, 'User profile not found.');
 
     const userData = snap.data() as Profile;
+    if(userData.role==='marathon_only')throw new HttpError(403,'Marathon-only members must be managed through Marathon Team.');
 
     if (userData.role === 'super_admin') {
       throw new HttpError(403, 'Super Administrator accounts cannot be deleted.');

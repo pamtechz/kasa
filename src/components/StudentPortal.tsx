@@ -68,6 +68,11 @@ export function StudentPortal({children}: {children: React.ReactNode}) {
         const data = await res.json();
         if (active) {
           if (res.ok && data.profile) {
+            if(data.profile.role!=='student'){
+              setProfile(null);
+              router.replace(data.profile.role==='marathon_only'?'/marthon':'/dashboard');
+              return;
+            }
             setProfile(data.profile);
             setSessionError('');
           } else {

@@ -8,7 +8,7 @@ import type {Profile} from '@/lib/types';
 type Device={id:string;uid:string;token:string;marathon:boolean};
 type Audience='marathon'|'school';
 function activeMarathonMember(profile:Profile){
- return profile.active===true&&(profile.role==='super_admin'||
+ return profile.active===true&&profile.role!=='student'&&(profile.role==='super_admin'||
   (profile.marathonAccess?.active===true&&marathonRoles.includes(profile.marathonAccess.role)));
 }
 async function sendPush(audience:Audience,title:string,body:string,path:string,recipient='all',recipientUid?:string){

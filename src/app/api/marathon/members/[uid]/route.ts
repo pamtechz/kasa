@@ -27,6 +27,7 @@ export async function PATCH(req:Request,{params}:{params:Promise<{uid:string}>})
    if(!snap.exists)throw new HttpError(404,'KASA School profile not found.');
    const profile=snap.data() as Profile;
    if(profile.role==='super_admin')throw new HttpError(403,'Global school super admin access cannot be edited here.');
+   if(profile.role==='student')throw new HttpError(403,'Students cannot be granted or restored Marathon access.');
    if(!profile.marathonAccess||!marathonRoles.includes(profile.marathonAccess.role))
     throw new HttpError(404,'This school profile has no Marathon role. Assign one first.');
    if(parsed.data.active===true&&profile.active!==true)

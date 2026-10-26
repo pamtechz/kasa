@@ -72,6 +72,10 @@ export function Portal({children}:{children:React.ReactNode}){
       router.replace('/my-applications');
       return;
      }
+     if(result.profile.role==='marathon_only'){
+      router.replace('/marthon');
+      return;
+     }
      setProfile(result.profile);
      setSessionError('');
     }

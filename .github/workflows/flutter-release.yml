@@ -78,6 +78,8 @@ jobs:
           flutter pub get
           flutter analyze
           flutter test
+      - name: Generate official KASA Android launcher icons
+        run: dart run flutter_launcher_icons
       - name: Build signed release Android APK
         env:
           KASA_ANDROID_KEY_ALIAS: ${{ secrets.KASA_ANDROID_KEY_ALIAS }}

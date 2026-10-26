@@ -1,6 +1,7 @@
 import {db} from '@/lib/firebase-admin';
 import {fail, json, HttpError} from '@/lib/errors';
 import {requireCapability} from '@/lib/security';
+import type {Profile} from '@/lib/types';
 
 export const runtime = 'nodejs';
 
@@ -18,7 +19,8 @@ export async function GET(req: Request) {
       snap = await db.collection('profiles').limit(400).get();
     }
 
-    let users = snap.docs.map(d => ({uid: d.id, ...d.data()}));
+    // Marathon-only members are managed from Marathon Team, never the School staff list.
+    let users = snap.docs.map(d => ({...(d.data() as Profile), uid:d.id})).filter(u => u.role !== 'marathon_only');
 
     if (search) {
       users = users.filter((u: any) =>

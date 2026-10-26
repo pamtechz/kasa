@@ -42,8 +42,10 @@ test('Auth is explicitly nullable and sign-out is guarded',()=>{
 test('secure login requires initialized Firebase Auth and preserves allowlisted routes',()=>{
  const login=source('src/app/(site)/login/page.tsx');
  assert.match(login,/requireClientAuth\(\)/);
- assert.match(login,/requested==='\/bootstrap'/);
- assert.match(login,/requested==='\/my-applications'/);
+ const routing=source('src/lib/workspace-routing.ts');
+ assert.match(login,/workspaceDestination\(data\.profile as Profile,requested\)/);
+ assert.match(routing,/next==='\/bootstrap'/);
+ assert.match(routing,/\['\/student-portal','\/my-applications'\]/);
  assert.doesNotMatch(login,/signInWithEmailAndPassword\(auth,/);
 });
 test('Vercel automatic Git deployment is explicitly disabled',()=>{

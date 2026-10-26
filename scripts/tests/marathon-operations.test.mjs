@@ -74,12 +74,16 @@ test('Marathon CI imports do not initialize Firebase Admin services',()=>{
  assert.doesNotMatch(auth,/export const marathonCollection\s*=\s*db\.collection\(/);
  assert.match(auth,/export function marathonCollection\(\)/);
 });
-test('Marathon login shares KASA Auth and distinguishes credential rejection from config errors',()=>{
- const login=source('src/app/marthon/login/page.tsx');
- assert.match(login,/signInWithEmailAndPassword\(a,/);
- assert.match(login,/auth\/invalid-credential/);
- assert.match(login,/auth\/unauthorized-domain/);
- assert.match(login,/login\?next=%2Fmarthon/);
- assert.match(login,/sendPasswordResetEmail/);
- assert.match(login,/sendEmailVerification\(result\.user\)/);
+test('Marathon shares one KASA login and redirects only after server-verified role lookup',()=>{
+ const redirect=source('src/app/marthon/login/page.tsx');
+ const login=source('src/app/(site)/login/page.tsx');
+ const routing=source('src/lib/workspace-routing.ts');
+ assert.match(redirect,/redirect\('\/login\?next=%2Fmarthon'\)/);
+ assert.doesNotMatch(redirect,/signInWithEmailAndPassword/);
+ assert.match(login,/signInWithEmailAndPassword\(firebaseAuth,/);
+ assert.match(login,/sendEmailVerification\(credential\.user\)/);
+ assert.match(login,/workspaceDestination\(data\.profile as Profile,requested\)/);
+ assert.match(routing,/role==='marathon_only'/);
+ assert.match(routing,/profile\.role!=='student'/);
 });
+

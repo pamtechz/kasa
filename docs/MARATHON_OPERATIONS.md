@@ -1,9 +1,20 @@
-# KASA Life Marathon — dual-role profile access
+# KASA Life Marathon — shared authentication with separate workspace roles
+
+## Unified KASA login and Marathon-only authorization (26 October 2026)
+
+- **One sign-in:** `/login` is the only Firebase email/password sign-in. `/marthon/login` redirects to `/login?next=/marthon` (URL encoded). Verified users land on the correct workspace based on the active `profiles/{uid}` record. A query parameter never creates or elevates a role.
+- **Marathon-only:** When the KASA super administrator adds a *new* person from Marathon Team, the shared Firebase Auth identity and Firestore profile receive School role `marathon_only` and a separate, active `marathonAccess` role. They see the public website and Marathon operations, **not** the School staff, Agent or Student portals. School capability mapping grants `marathon_only` no permissions. All privileged School APIs independently check School roles.
+- **Dual-role School staff:** Verified existing non-student School users keep their School role and may receive the secondary Marathon role. The global School super admin inherits Marathon access.
+- **School students:** Explicitly denied Marathon APIs, even if an old `marathonAccess` assignment exists. New Marathon membership requests for existing student accounts fail with HTTP 409 rather than granting event privileges or silently converting a student's School account.
+- **Legacy Marathon invitations:** Previously invited users created as `student` need administrative review before any manual role migration. Do not automatically convert actual student accounts; confirm their institutional status first.
+- **Native branding:** The School shield at `public/kasa-logo-white.png` is used in the shared login, the Marathon navigation and generated Android launcher icon.
+- **Provisioning:** New users choose their password through Firebase Auth's verified account recovery procedure. They must verify their email before accessing authenticated workspaces.
+
 
 ## Shared School + Marathon account creation (26 October 2026)
 
 - **School:** KASA School admins can register a new Firebase Authentication identity and School profile from **Dashboard → Staff**, or update an existing School account. Only the School super administrator can assign School staff roles (`admin` or `reviewer`). Student and agent account creation is available to School admins.
-- **Marathon:** The School super administrator can add a person in **/marthon/team** using email, optional full name, and Marathon role. If the Firebase Auth email already exists, reuse the same UID and School profile. If it does not exist, create an Auth user and School profile with default School role `student`, then assign `marathonAccess` on that same profile. Do not overwrite existing School roles.
+- **Marathon:** The School super administrator can add a person in **/marthon/team** using email, optional full name, and Marathon role. If the Firebase Auth email already exists, reuse the same UID and School profile. If it does not exist, create an Auth user and profile with role `marathon_only` (no School permissions), then assign `marathonAccess` on that same profile. Do not overwrite existing School roles.
 - **Credentials:** Admins never set or see a user's password. New identities are created with a cryptographically random, unrevealed password and `emailVerified:false`. A Firebase Auth password-setup/reset email is requested where the provider is configured. If delivery fails, the recipient uses **Forgot password** on KASA School login. On first login, unverified users are directed to email verification. Neither app grants access before verification.
 - **Security:** Account provisioning requires an authenticated, verified, active authorized School admin or Marathon super admin. School role checks and Marathon secondary role checks remain independent. Firestore profile creation is idempotent by Auth UID; duplicate identities/Marathon membership collections are not created. New users' access is pending until email verification.
 - **Mobile:** The Flutter wrapper's Android application ID is **`com.pamtech.kasa`**. Its native Android build config is enforced by `flutter_app/tool/configure_android.dart` after generating the Flutter runner. Register exactly `com.pamtech.kasa` in Firebase before distributing a signed APK.

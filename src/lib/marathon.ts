@@ -25,7 +25,7 @@ export function canManage(role:MarathonRole){return role==='super_admin';}
 
 export async function marathonIdentity(req:Request):Promise<MarathonIdentity>{
  const raw=req.headers.get('authorization')||'';
- if(!raw.startsWith('Bearer '))throw new HttpError(401,'Sign in with your existing KASA School account.');
+ if(!raw.startsWith('Bearer '))throw new HttpError(401,'Sign in with your KASA account.');
  let verified;
  try{verified=await adminAuth.verifyIdToken(raw.slice(7),true);}
  catch{throw new HttpError(401,'Your session has expired. Sign in again.');}
@@ -34,7 +34,8 @@ export async function marathonIdentity(req:Request):Promise<MarathonIdentity>{
  const profile=profileSnapshot.data() as Profile|undefined;
  // Marathon may only use an existing, active KASA School profile. No shadow membership.
  if(!profileSnapshot.exists||!profile||profile.active!==true)
-  throw new HttpError(403,'An active KASA School profile is required for Marathon access.');
+  throw new HttpError(403,'An active KASA account is required for Marathon access.');
+ if(profile.role==='student')throw new HttpError(403,'Student accounts cannot access Marathon operations.');
  if(profile.role==='super_admin'){
   return {uid:verified.uid,email:verified.email||profile.email,displayName:profile.displayName||verified.name||'',schoolRole:profile.role,role:'super_admin'};
  }

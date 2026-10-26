@@ -30,7 +30,7 @@ export async function GET(req:Request){
    members:profiles?profiles.docs.map(d=>{
     const p=d.data() as Profile;
     return {uid:d.id,email:p.email,displayName:p.displayName,schoolRole:p.role,
-      role:p.marathonAccess?.role,schoolActive:p.active===true,marathonActive:p.marathonAccess?.active===true,active:p.active===true&&p.marathonAccess?.active===true};
+      role:p.marathonAccess?.role,schoolActive:p.role!=='marathon_only'&&p.active===true,marathonActive:p.marathonAccess?.active===true,active:p.role!=='student'&&p.active===true&&p.marathonAccess?.active===true};
    }):[],
    permissions:{edit:canEdit(identity.role),review:canReview(identity.role),
     manage:canManage(identity.role),super:identity.role==='super_admin'}
