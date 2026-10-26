@@ -31,7 +31,10 @@ test('notifications are opt-in, do not embed personal data, and reminders are cr
  assert.match(bridge,/user\.getIdToken\(\)/);
  const cron=read('src/app/api/cron/marathon-reminders/route.ts');
  assert.match(cron,/process\.env\.CRON_SECRET/);
- assert.match(cron,/tx\.create\(runRef/);
+ assert.match(cron,/tx\.set\(runRef/);
+ assert.match(cron,/leaseExpiresAt/);
+ assert.match(cron,/data\.status==='complete'/);
+ assert.match(cron,/today>EVENT_DATE/);
  assert.match(cron,/sendMarathonPush/);
  const config=JSON.parse(read('vercel.json'));
  assert.ok(config.crons.some(c=>c.path==='/api/cron/marathon-reminders'&&c.schedule==='0 6 * * *'));
