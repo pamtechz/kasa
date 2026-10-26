@@ -48,7 +48,16 @@ jobs:
           JSON
           KASA_REQUIRE_NATIVE_FIREBASE=1 KASA_FIREBASE_PROJECT_ID=kasa-ci-fixture dart run tool/configure_android.dart
           grep -q 'id("com.google.gms.google-services")' android/app/build.gradle.kts
-          grep -q '^    id("com.google.gms.google-services") version "4.5.0" apply false
+          grep -Fqx '    id("com.google.gms.google-services") version "4.5.0" apply false' android/settings.gradle.kts
+          grep -Fqx '    id("com.google.gms.google-services")' android/app/build.gradle.kts
+          if grep -Fq '\n    id(' android/settings.gradle.kts; then
+            echo "Literal backslash-n found in settings.gradle.kts"
+            exit 1
+          fi
+          if grep -Fq '\n    id(' android/app/build.gradle.kts; then
+            echo "Literal backslash-n found in build.gradle.kts"
+            exit 1
+          fi
       - name: Remove template counter widget test
         run: rm -f test/widget_test.dart
       - name: Install Flutter packages
