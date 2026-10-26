@@ -5,7 +5,7 @@ import {fail,json,HttpError} from '@/lib/errors';
 import type {Profile} from '@/lib/types';
 
 export const runtime='nodejs';
-const roles=['super_admin','admin','reviewer','finance','agent','student'] as const;
+const roles=['super_admin','admin','reviewer','finance','agent','student','marathon_only'] as const;
 function deviceId(token:string){return createHash('sha256').update(token).digest('hex');}
 function validateToken(token:unknown):string{
  if(typeof token!=='string'||token.length<30||token.length>4096||!/^[-_:.A-Za-z0-9]+$/.test(token))
