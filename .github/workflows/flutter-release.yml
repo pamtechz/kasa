@@ -1,6 +1,11 @@
 name: KASA Android signed release verification
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'flutter_app/**'
+      - '.github/workflows/flutter-release.yml'
 
 permissions:
   contents: read
