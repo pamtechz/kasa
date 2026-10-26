@@ -81,3 +81,13 @@ button.ml-member-active,button.ml-member-inactive{border:0;cursor:pointer}
 a.ml-sync-status{text-decoration:none}
 @media(max-width:1100px){.ml-start-actions{grid-template-columns:1fr}.ml-start-actions>button,.ml-start-actions>a{padding:14px 16px}.ml-quick-views{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:650px){.ml-quick-views{grid-template-columns:repeat(2,minmax(0,1fr))}.ml-quick-view{min-height:50px}.ml-extra-filters{padding:12px;gap:10px}.ml-extra-filters label{min-width:100%}.ml-filterbar .ml-filter-toggle{flex:1;justify-content:center}}
+
+/* Marathon navigation remains scrollable independently of its event and account controls. */
+.ml-sidebar{min-height:0;height:100vh;height:100dvh;overflow:hidden}
+.ml-sidebar-brand,.ml-sidebar-event,.ml-sidebar-bottom{flex-shrink:0}
+.ml-sidebar-brand{margin-bottom:25px}
+.ml-sidebar-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#9dbbaa transparent;padding:0 2px}
+.ml-sidebar .side-scroll-actions{background:#fff}
+.ml-sidebar-event{margin:8px 5px 12px}
+.ml-sidebar-scroll:focus-visible{outline:2px solid #d9ad52;outline-offset:-2px;border-radius:8px}
+@media(max-height:700px){.ml-sidebar-event{padding:12px 16px}.ml-sidebar-event strong{font-size:30px;margin:6px 0}.ml-sidebar-brand{margin-bottom:13px}}
