@@ -68,6 +68,11 @@ export function AgentPortal({children}: {children: React.ReactNode}) {
         const data = await res.json();
         if (active) {
           if (res.ok && data.profile) {
+            if (data.profile.role === 'marathon_only'){
+              setProfile(null);
+              router.replace('/marthon');
+              return;
+            }
             if (data.profile.role !== 'agent' && data.profile.role !== 'super_admin' && data.profile.role !== 'admin') {
               setSessionError('District Agent access required. Sign in with an active agent account.');
             } else {
