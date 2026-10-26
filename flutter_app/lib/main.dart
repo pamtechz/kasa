@@ -104,10 +104,13 @@ class _KasaWorkspaceState extends State<KasaWorkspace> {
           // for validating the selected file type, ownership and size.
           if (params.mode == FileSelectorMode.save) return <String>[];
           try {
-            final files = await FilePicker.pickFiles(
-              type: FileType.any,
-              allowMultiple: params.mode == FileSelectorMode.openMultiple,
-            );
+            List<PlatformFile> files;
+            if (params.mode == FileSelectorMode.openMultiple) {
+              files = await FilePicker.pickFiles(type: FileType.any);
+            } else {
+              final selected = await FilePicker.pickFile(type: FileType.any);
+              files = selected == null ? <PlatformFile>[] : <PlatformFile>[selected];
+            }
             return files
                 .where((file) => file.path != null && file.path!.isNotEmpty)
                 .map((file) => Uri.file(file.path!).toString())
