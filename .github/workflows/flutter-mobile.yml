@@ -26,7 +26,9 @@ jobs:
           channel: stable
           cache: true
       - name: Generate Android runner
-        run: flutter create --platforms=android --project-name kasa_mobile .
+        run: flutter create --platforms=android --org com.pamtechz --project-name kasa_mobile .
+      - name: Configure Android permissions
+        run: dart run tool/configure_android.dart
       - name: Remove template counter widget test
         run: rm -f test/widget_test.dart
       - name: Install Flutter packages
