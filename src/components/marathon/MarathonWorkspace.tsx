@@ -1,6 +1,7 @@
 'use client';
 import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {MarathonLink as Link} from './MarathonLink';
+import {SidebarScrollControls} from '@/components/SidebarScrollControls';
 import {useRouter,usePathname,useSearchParams} from 'next/navigation';
 import {onAuthStateChanged} from 'firebase/auth';
 import {
@@ -347,12 +348,14 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
  return <div className="ml-app">
   <aside id="ml-workspace-menu" className={'ml-sidebar '+(mobile?'ml-sidebar-open':'')}>
    <Link href="/marthon" className="ml-sidebar-brand" onClick={()=>setMobile(false)}><span className="ml-mark">K</span><span><b>KASA <em>LIFE</em></b><small>MARATHON OPERATIONS</small></span></Link>
+   <div className="ml-sidebar-scroll" tabIndex={0} aria-label="Scrollable Marathon navigation">
    <div className="ml-nav-section">WORKSPACE</div>
    <nav aria-label="Marathon workspace navigation">{dailyMenu.map(navigationItem)}</nav>
    <details className="ml-nav-tools" open={toolMenu.some(item=>item.view===view)||undefined}><summary>More tools <ChevronDown size={15}/></summary><nav aria-label="Other Marathon tools">{toolMenu.map(navigationItem)}</nav></details>
    <div className="ml-school-switch"><span className="ml-nav-section">YOUR WORKSPACES</span>
     <Link href={schoolDestination} className="ml-nav-item ml-school-link"><ArrowDownRight size={19}/><span>Return to KASA School</span></Link>
    </div>
+   </div><SidebarScrollControls targetSelector=".ml-sidebar-scroll"/>
    <div className="ml-sidebar-event"><div className="ml-sidebar-event-top"><span className="ml-event-kicker"><span className="ml-pulse"/> EVENT COUNTDOWN</span><CalendarDays size={18}/></div><strong>{daysLeft}<small> days</small></strong><span>Sunday, 21 March 2027</span><div className="ml-event-line"><span style={{width:Math.max(5,100-daysLeft/150*100)+'%'}}/></div></div>
    <div className="ml-sidebar-bottom"><div className="ml-sidebar-person"><span className="ml-avatar">{displayName.slice(0,2).toUpperCase()}</span><div><b>{displayName}</b><small>School: {state.identity.schoolRole} · Marathon: {state.identity.role}</small></div><button title="Sign out" aria-label="Sign out" onClick={()=>void logout()}><LogOut size={18}/></button></div></div>
   </aside>
