@@ -42,7 +42,7 @@ test('School and Marathon registration create one unverified Firebase identity, 
  assert.match(helper,/adminAuth\.createUser\(/);
  assert.match(helper,/emailVerified:false/);
  assert.match(helper,/randomBytes\(48\)/);
- assert.match(helper,/tx\.create\(profileRef,profile\)/);
+ assert.match(helper,/tx\.create\(profileRef,\{/);
  assert.match(helper,/requestType:'PASSWORD_RESET'/);
  assert.doesNotMatch(helper,/emailVerified:true/);
  assert.doesNotMatch(route,/Math\.random/);
