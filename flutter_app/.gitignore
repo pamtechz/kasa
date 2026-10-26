@@ -14,3 +14,9 @@ ios/Pods/
 ios/Flutter/Generated.xcconfig
 ios/Flutter/flutter_export_environment.sh
 firebase_options.dart
+
+# Never commit mobile Firebase configuration or release signing material
+android/app/kasa-release.jks
+android/app/*.keystore
+android/app/*.jks
+android/app/src/**/google-services.json
