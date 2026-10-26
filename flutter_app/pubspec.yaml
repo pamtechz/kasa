@@ -1,0 +1,19 @@
+name: kasa_mobile
+description: KASA School and Life Marathon mobile app - shared secure web workspace with native FCM
+publish_to: none
+version: 0.1.0+1
+environment:
+  sdk: '>=3.6.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  firebase_core: ^4.15.0
+  firebase_messaging: ^16.7.0
+  webview_flutter: ^4.13.1
+  url_launcher: ^6.3.2
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+flutter:
+  uses-material-design: true
