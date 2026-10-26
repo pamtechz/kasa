@@ -27,6 +27,8 @@ const superAdmin:readonly Capability[]=[
  'notifications.read','profile.read','profile.edit'
 ];
 const matrix:Record<Role,readonly Capability[]>={
+ // Auth identity may exist only for KASA Life Marathon, with zero School privileges.
+ marathon_only:[],
  super_admin:superAdmin,
  admin:superAdmin.filter(c=>!['staff.manage','bootstrap.manage'].includes(c)),
  reviewer:[
