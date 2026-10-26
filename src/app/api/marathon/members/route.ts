@@ -23,7 +23,7 @@ export async function POST(req:Request){
   const email=parsed.data.email.trim().toLowerCase();
   const account=await ensureSchoolIdentity({
    email,displayName:parsed.data.displayName,
-   schoolRole:'student',actorUid:actor.uid
+   schoolRole:'marathon_only',actorUid:actor.uid
   });
   if(account.uid===actor.uid)throw new HttpError(403,'The school super admin already has inherited Marathon access.');
   const profileRef=db.collection('profiles').doc(account.uid);
@@ -35,6 +35,7 @@ export async function POST(req:Request){
    const profile=snap.data() as Profile;
    if(profile.active!==true)throw new HttpError(403,'The KASA School profile is inactive.');
    if(profile.role==='super_admin')throw new HttpError(403,'School super administrators already inherit Marathon access.');
+   if(profile.role==='student')throw new HttpError(409,'This email belongs to a School student. Student accounts cannot join Marathon operations; use a separate non-student email.');
    const previous=profile.marathonAccess;
    const secondary={
     role:parsed.data.role,active:true,
@@ -62,9 +63,9 @@ export async function POST(req:Request){
    verificationPending:account.verificationPending,
    message:account.verificationPending
     ?account.onboardingEmailSent
-      ?'School and Marathon access created. A password setup email was requested; the member must verify their email before signing in.'
-      :'School and Marathon access created. Ask the member to use Forgot password at KASA School login, then verify their email.'
-    :'Existing verified School account linked to Marathon access.'
+      ?'Marathon-only access created. A password setup email was requested; the member must verify their email before signing in.'
+      :'Marathon-only access created. Ask the member to use Forgot password at the unified KASA login, then verify their email.'
+    :'Existing eligible KASA account linked to Marathon access.'
   },201);
  }catch(e){return fail(e);}
 }
