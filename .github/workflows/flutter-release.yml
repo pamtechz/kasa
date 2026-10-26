@@ -37,7 +37,8 @@ jobs:
         env:
           FIREBASE_JSON_B64: ${{ secrets.KASA_FIREBASE_ANDROID_JSON_B64 }}
           KEYSTORE_B64: ${{ secrets.KASA_ANDROID_KEYSTORE_B64 }}
-          KASA_FIREBASE_PROJECT_ID: ${{ vars.KASA_FIREBASE_PROJECT_ID || secrets.KASA_FIREBASE_PROJECT_ID }}
+          KASA_FIREBASE_PROJECT_ID: 'kasa-recruite'
+          KASA_GITHUB_PROJECT_ID: ${{ vars.KASA_FIREBASE_PROJECT_ID || secrets.KASA_FIREBASE_PROJECT_ID }}
         run: |
           set -euo pipefail
           if [[ -z "$FIREBASE_JSON_B64" ]]; then
@@ -48,8 +49,8 @@ jobs:
             echo "::error::Missing Actions secret KASA_ANDROID_KEYSTORE_B64"
             exit 1
           fi
-          if [[ -z "$KASA_FIREBASE_PROJECT_ID" ]]; then
-            echo "::error::Missing KASA_FIREBASE_PROJECT_ID in both Actions Variables and Actions Secrets"
+          if [[ -n "$KASA_GITHUB_PROJECT_ID" && "$KASA_GITHUB_PROJECT_ID" != "$KASA_FIREBASE_PROJECT_ID" ]]; then
+            echo "::error::GitHub Firebase Project ID does not match the KASA School production Firebase project"
             exit 1
           fi
           printf '%s' "$FIREBASE_JSON_B64" | base64 --decode > android/app/google-services.json
@@ -58,7 +59,7 @@ jobs:
       - name: Configure native Firebase and fail on mismatched Android registration
         env:
           KASA_REQUIRE_NATIVE_FIREBASE: '1'
-          KASA_FIREBASE_PROJECT_ID: ${{ vars.KASA_FIREBASE_PROJECT_ID || secrets.KASA_FIREBASE_PROJECT_ID }}
+          KASA_FIREBASE_PROJECT_ID: 'kasa-recruite'
         run: dart run tool/configure_android.dart
       - name: Configure genuine release signing
         env:
