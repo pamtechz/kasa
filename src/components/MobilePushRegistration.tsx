@@ -1,6 +1,6 @@
 'use client';
 import {useEffect} from 'react';
-import {onAuthStateChanged} from 'firebase/auth';
+import {beforeAuthStateChanged,onAuthStateChanged} from 'firebase/auth';
 import {getClientAuth} from '@/lib/firebase-client';
 
 declare global {interface Window {__KASA_FCM_TOKEN?:string}}
@@ -38,10 +38,26 @@ export function MobilePushRegistration(){
    deviceToken=detail.token;
    void register();
   };
+  // Unregister when leaving an account; never block a sign-out if offline.
+  const stopBefore=beforeAuthStateChanged(auth,async nextUser=>{
+   const previous=auth.currentUser;
+   if(!previous||previous.uid===nextUser?.uid||!deviceToken)return;
+   const controller=new AbortController();
+   const timeout=setTimeout(()=>controller.abort(),1500);
+   try{
+    const bearer=await previous.getIdToken();
+    await fetch('/api/mobile/push-devices',{
+     method:'DELETE',headers:{'Content-Type':'application/json',Authorization:'Bearer '+bearer},
+     body:JSON.stringify({token:deviceToken}),signal:controller.signal
+    });
+   }catch{/* Revoked or offline sessions are independently checked server-side. */}
+   finally{clearTimeout(timeout);}
+   lastKey='';
+  });
   const unSub=onAuthStateChanged(auth,()=>{lastKey='';void register();});
   window.addEventListener('kasa:fcm-token',onToken);
   void register();
-  return ()=>{unSub();window.removeEventListener('kasa:fcm-token',onToken);};
+  return ()=>{stopBefore();unSub();window.removeEventListener('kasa:fcm-token',onToken);};
  },[]);
  return null;
 }
