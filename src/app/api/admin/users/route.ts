@@ -20,7 +20,7 @@ export async function GET(req: Request) {
     }
 
     // Marathon-only members are managed from Marathon Team, never the School staff list.
-    let users = snap.docs.map(d => ({uid: d.id, ...(d.data() as Profile)})).filter(u => u.role !== 'marathon_only');
+    let users = snap.docs.map(d => ({...(d.data() as Profile), uid:d.id})).filter(u => u.role !== 'marathon_only');
 
     if (search) {
       users = users.filter((u: any) =>
