@@ -9,6 +9,6 @@ String? safeInternalPath(String? raw) {
   if (raw == null || !raw.startsWith('/') ||
       raw.startsWith('//') || raw.contains('\\') ||
       raw.contains('..') || raw.contains('?redirect=') ||
-      raw.length > 500) return null;
+      raw.length > 500) { return null; }
   return raw;
 }
