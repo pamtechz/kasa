@@ -65,7 +65,7 @@ export async function POST(req: Request) {
     const noticeId = newId();
     await db.collection('notificationOutbox').doc(noticeId).set({
       title: `Account Provisioned (${role.toUpperCase()} PORTAL)`,
-      message: `Existing verified user ${displayName} (${email}) was assigned the ${role} role.`,
+      message: `${account.authCreated ? 'New' : 'Existing'} School user ${displayName} (${email}) was assigned the ${role} role${account.verificationPending ? ' (pending email verification)' : ''}.`,
       reference: agentCode || studentCode || 'ADMIN-PROVISION',
       recipient: 'admin',
       recipientUid: null,
