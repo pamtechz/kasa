@@ -17,6 +17,8 @@ test('new members have Marathon-only School profile and are never students',()=>
  assert.match(identity,/if\(profile\.role==='student'\)throw new HttpError\(403/);
  assert.match(edit,/if\(profile\.role==='student'\)throw new HttpError\(403/);
  assert.match(source('src/lib/permissions.ts'),/marathon_only:\[\]/);
+ assert.match(source('src/app/api/admin/users/provision/route.ts'),/previousRole==='marathon_only'/);
+ assert.match(source('src/app/api/admin/users/[id]/route.ts'),/currentData.role==='marathon_only'/);
  assert.match(source('src/lib/student-access.ts'),/profile\.data\(\)\?\.role!=='student'/);
  assert.match(source('src/app/api/mobile/push-devices/route.ts'),/'marathon_only'/);
  assert.match(source('src/lib/mobile-push.ts'),/profile\.role!=='student'/);
