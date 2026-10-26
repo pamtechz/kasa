@@ -28,7 +28,7 @@ export async function POST(req:Request){
   ]);
   if(!existing.exists&&registered.size>=8)throw new HttpError(429,'Too many devices registered for this account.');
   const now=new Date().toISOString();
-  const marathon=profile.role==='super_admin'||profile.marathonAccess?.active===true;
+  const marathon=profile.role==='super_admin'||(profile.role!=='student'&&profile.marathonAccess?.active===true);
   await ref.set({uid:profile.uid,token,platform:'flutter',marathon,updatedAt:now},{merge:true});
   return json({ok:true,marathon});
  }catch(error){return fail(error);}
