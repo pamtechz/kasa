@@ -15,6 +15,7 @@ export async function GET(req:Request){
         const h = req.headers.get('authorization')||'';
         if(h.startsWith('Bearer ')){
           const token = await adminAuth.verifyIdToken(h.slice(7), true);
+          if(!token.email_verified)throw new HttpError(403,'Verify your email before accessing a KASA workspace.');
           const doc = await db.collection('profiles').doc(token.uid).get();
           if(doc.exists){
             const data = doc.data() as Profile;
