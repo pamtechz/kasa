@@ -3,9 +3,11 @@ import 'dart:convert';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 import 'navigation_policy.dart';
 
@@ -95,6 +97,27 @@ class _KasaWorkspaceState extends State<KasaWorkspace> {
         },
       ))
       ..loadRequest(_portal);
+    if (_web.platform is AndroidWebViewController) {
+      unawaited((_web.platform as AndroidWebViewController).setOnShowFileSelector(
+        (params) async {
+          // Android needs an explicit chooser; the server remains responsible
+          // for validating the selected file type, ownership and size.
+          if (params.mode == FileSelectorMode.save) return <String>[];
+          try {
+            final files = await FilePicker.pickFiles(
+              type: FileType.any,
+              allowMultiple: params.mode == FileSelectorMode.openMultiple,
+            );
+            return files
+                .where((file) => file.path != null && file.path!.isNotEmpty)
+                .map((file) => Uri.file(file.path!).toString())
+                .toList();
+          } catch (_) {
+            return <String>[];
+          }
+        },
+      ));
+    }
     if (widget.firebaseReady) unawaited(_initializePush());
   }
 
