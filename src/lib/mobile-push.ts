@@ -40,8 +40,12 @@ async function sendPush(audience:Audience,title:string,body:string,path:string,r
    const uid=profileIds[i+index];
    if(!p||!p.active)return;
    if(audience==='marathon'&&activeMarathonMember(p))authorized.add(uid);
+   // The current school notification API excludes student/agent reference notices,
+   // and finance cannot access its inbox. Never push inaccessible notices.
    if(audience==='school'&&(
-     (recipientUid?uid===recipientUid:(recipient==='all'||p.role===recipient))
+     recipientUid?uid===recipientUid:
+     ['super_admin','admin','reviewer'].includes(p.role)&&
+     (p.role==='super_admin'||p.role==='admin'||recipient==='all'||p.role===recipient)
    ))authorized.add(uid);
   });
  }
