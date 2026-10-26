@@ -81,4 +81,5 @@ test('Marathon login shares KASA Auth and distinguishes credential rejection fro
  assert.match(login,/auth\/unauthorized-domain/);
  assert.match(login,/login\?next=%2Fmarthon/);
  assert.match(login,/sendPasswordResetEmail/);
+ assert.match(login,/sendEmailVerification\(result\.user\)/);
 });
