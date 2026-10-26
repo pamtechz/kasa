@@ -39,3 +39,15 @@ test('notifications are opt-in, do not embed personal data, and reminders are cr
  const config=JSON.parse(read('vercel.json'));
  assert.ok(config.crons.some(c=>c.path==='/api/cron/marathon-reminders'&&c.schedule==='0 6 * * *'));
 });
+
+test('Marathon alert center shows only open blocked, urgent, overdue and next-five-day actions',()=>{
+ const component=read('src/components/marathon/MarathonAlertCenter.tsx');
+ const workspace=read('src/components/marathon/MarathonWorkspace.tsx');
+ assert.match(component,/task\.status==='done'/);
+ assert.match(component,/task\.status==='blocked'/);
+ assert.match(component,/task\.dueDate<=fiveDays/);
+ assert.match(component,/task\.priority\.startsWith\('P1'\)/);
+ assert.match(workspace,/MarathonAlertCenter tasks=\{tasks\}/);
+ assert.match(workspace,/document\.visibilityState==='visible'/);
+ assert.match(workspace,/lastHydrateStarted\.current>=60000/);
+});
