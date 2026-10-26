@@ -1,4 +1,5 @@
-import {adminAuth, db} from '@/lib/firebase-admin';
+import {db} from '@/lib/firebase-admin';
+import {ensureSchoolIdentity} from '@/lib/account-onboarding';
 import {fail, json, HttpError} from '@/lib/errors';
 import {operator, newId, sameOrigin, safeText, audit} from '@/lib/security';
 import {FieldValue} from 'firebase-admin/firestore';
@@ -27,19 +28,19 @@ export async function POST(req: Request) {
       throw new HttpError(400, 'Full name is required.');
     }
 
-    // Role assignment is only allowed to an existing, genuinely verified
-    // Firebase identity. New users must sign up and verify their own email.
-    const authUser = await adminAuth.getUserByEmail(email).catch(() => null);
-    if (!authUser) throw new HttpError(409, 'Ask the user to register and verify their email before provisioning.');
-    if (!authUser.emailVerified) throw new HttpError(403, 'The user must verify their email before role assignment.');
-    const existing = await db.collection('profiles').doc(authUser.uid).get();
-    const previousRole = String(existing.data()?.role || '');
+    // A School admin can create a real Firebase Auth account and School profile.
+    // Users choose their own passwords and must verify their own email.
+    const account=await ensureSchoolIdentity({
+      email,displayName,schoolRole:role as 'student'|'agent'|'admin'|'reviewer',
+      actorUid:actor.uid
+    });
+    const previousRole = account.profile.role;
     if (previousRole === 'super_admin') throw new HttpError(403, 'Super administrator accounts cannot be provisioned here.');
     if (actor.role !== 'super_admin' && ['admin','reviewer'].includes(previousRole)) {
       throw new HttpError(403, 'Only a super administrator can modify staff accounts.');
     }
 
-    const uid = authUser.uid;
+    const uid = account.uid;
     const now = new Date().toISOString();
     const agentCode = role === 'agent' ? `KASA-AGT-${uid.slice(0, 6).toUpperCase()}` : undefined;
     const studentCode = role === 'student' ? `KASA-STU-${uid.slice(0, 6).toUpperCase()}` : undefined;
@@ -78,7 +79,7 @@ export async function POST(req: Request) {
       createdUid: actor.uid
     });
 
-    await audit(actor.uid, 'user.provisioned', uid, {email, role, district, ...(agentCode ? {agentCode} : {})});
+    await audit(actor.uid, 'user.provisioned', uid, {email, role, district, accountCreated:account.authCreated, ...(agentCode ? {agentCode} : {})});
 
     return json({
       ok: true,
@@ -87,8 +88,15 @@ export async function POST(req: Request) {
       displayName,
       role,
       tempPassword: null,
+      accountCreated: account.authCreated,
+      onboardingEmailSent: account.onboardingEmailSent,
+      verificationPending: account.verificationPending,
       agentCode: agentCode || studentCode || null,
-      message: `Existing verified account updated for ${displayName} (${role.toUpperCase()}).`
+      message: account.verificationPending
+        ? account.onboardingEmailSent
+          ? `School account created for ${displayName}; password setup email requested. The user must verify their email before sign-in.`
+          : `School account prepared for ${displayName}. Ask the user to select Forgot password on KASA School login, then verify their email.`
+        : `School account updated for ${displayName} (${role.toUpperCase()}).`
     }, 201);
   } catch (e) {
     return fail(e);
