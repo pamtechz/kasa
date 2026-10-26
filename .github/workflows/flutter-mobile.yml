@@ -37,6 +37,18 @@ jobs:
           grep -q 'applicationId = "com.pamtech.kasa"' android/app/build.gradle.kts
           grep -q 'namespace = "com.pamtech.kasa"' android/app/build.gradle.kts
           grep -q '^package com.pamtech.kasa$' android/app/src/main/kotlin/com/pamtech/kasa/MainActivity.kt
+      - name: Exercise native Firebase wiring with synthetic config only
+        run: |
+          set -euo pipefail
+          cp android/app/build.gradle.kts /tmp/kasa-build.gradle.kts
+          cp android/settings.gradle.kts /tmp/kasa-settings.gradle.kts
+          trap 'rm -f android/app/google-services.json; cp /tmp/kasa-build.gradle.kts android/app/build.gradle.kts; cp /tmp/kasa-settings.gradle.kts android/settings.gradle.kts' EXIT
+          cat > android/app/google-services.json <<'JSON'
+          {"project_info":{"project_id":"kasa-ci-fixture"},"client":[{"client_info":{"android_client_info":{"package_name":"com.pamtech.kasa"}}}]}
+          JSON
+          KASA_REQUIRE_NATIVE_FIREBASE=1 KASA_FIREBASE_PROJECT_ID=kasa-ci-fixture dart run tool/configure_android.dart
+          grep -q 'id("com.google.gms.google-services")' android/app/build.gradle.kts
+          grep -q 'id("com.google.gms.google-services") version' android/settings.gradle.kts
       - name: Remove template counter widget test
         run: rm -f test/widget_test.dart
       - name: Install Flutter packages
