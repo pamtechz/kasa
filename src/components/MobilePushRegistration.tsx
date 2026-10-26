@@ -1,6 +1,6 @@
 'use client';
 import {useEffect} from 'react';
-import {beforeAuthStateChanged,onAuthStateChanged} from 'firebase/auth';
+import {beforeAuthStateChanged,onIdTokenChanged} from 'firebase/auth';
 import {getClientAuth} from '@/lib/firebase-client';
 
 declare global {interface Window {__KASA_FCM_TOKEN?:string}}
@@ -13,13 +13,14 @@ export function MobilePushRegistration(){
   if(!auth)return;
   let deviceToken=window.__KASA_FCM_TOKEN||'';
   let lastKey='';
+  let lastRegisteredAt=0;
   let running=false;
   let pending=false;
   const register=async()=>{
    const user=auth.currentUser;
    if(!deviceToken||!user?.emailVerified)return;
    const key=user.uid+':'+deviceToken;
-   if(key===lastKey)return;
+   if(key===lastKey&&Date.now()-lastRegisteredAt<24*60*60*1000)return;
    if(running){pending=true;return;}
    running=true;
    try{
@@ -28,7 +29,7 @@ export function MobilePushRegistration(){
      method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},
      body:JSON.stringify({token:deviceToken})
     });
-    if(res.ok)lastKey=key;
+    if(res.ok){lastKey=key;lastRegisteredAt=Date.now();}
    }catch{/* Network may be offline; a later page load or token refresh retries. */}
    finally{running=false;if(pending){pending=false;void register();}}
   };
@@ -54,7 +55,7 @@ export function MobilePushRegistration(){
    finally{clearTimeout(timeout);}
    lastKey='';
   });
-  const unSub=onAuthStateChanged(auth,()=>{lastKey='';void register();});
+  const unSub=onIdTokenChanged(auth,()=>{void register();});
   window.addEventListener('kasa:fcm-token',onToken);
   void register();
   return ()=>{stopBefore();unSub();window.removeEventListener('kasa:fcm-token',onToken);};
