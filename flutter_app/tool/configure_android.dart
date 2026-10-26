@@ -1,7 +1,6 @@
 import 'dart:io';
 
 const androidPackage='com.pamtech.kasa';
-const oldPackage='com.pamtech.kasa_mobile';
 
 /// Configure generated Flutter Android runner for KASA's stable Play Store ID.
 /// Idempotent; this runs *after* flutter create and before APK builds.
@@ -45,8 +44,8 @@ void main() {
     return;
   }
   var build=gradle.readAsStringSync();
-  final namespace=RegExp(r'namespace\s*=\s*["\'][^"\']+["\']');
-  final appId=RegExp(r'applicationId\s*=\s*["\'][^"\']+["\']');
+  final namespace=RegExp(r'''namespace\s*=\s*["'][^"']+["']''');
+  final appId=RegExp(r'''applicationId\s*=\s*["'][^"']+["']''');
   if(!namespace.hasMatch(build)||!appId.hasMatch(build)){
     stderr.writeln('Could not identify the generated applicationId and namespace.');
     exitCode=2;
