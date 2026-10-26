@@ -17,5 +17,14 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.4
 flutter:
   uses-material-design: true
+
+# The official School logo is the same icon for the Android app and both portals.
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "../public/kasa-logo-white.png"
+  adaptive_icon_background: "#174B36"
+  adaptive_icon_foreground: "../public/kasa-logo-white.png"
