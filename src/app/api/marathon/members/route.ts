@@ -51,7 +51,7 @@ export async function POST(req:Request){
    });
    member={
     uid:account.uid,email:profile.email||email,displayName:profile.displayName||email,
-    schoolRole:profile.role,role:secondary.role,schoolActive:true,
+    schoolRole:profile.role,role:secondary.role,schoolActive:profile.role!=='marathon_only',
     marathonActive:secondary.active,active:secondary.active,
     verificationPending:account.verificationPending
    };
