@@ -19,6 +19,8 @@ test('new members have Marathon-only School profile and are never students',()=>
  assert.match(source('src/lib/permissions.ts'),/marathon_only:\[\]/);
  assert.match(source('src/lib/student-access.ts'),/profile\.data\(\)\?\.role!=='student'/);
  assert.match(source('src/app/api/mobile/push-devices/route.ts'),/'marathon_only'/);
+ assert.match(source('src/lib/mobile-push.ts'),/profile\.role!=='student'/);
+ assert.match(source('src/app/api/mobile/push-devices/route.ts'),/profile\.role!=='student'/);
 });
 test('Marathon-only identities route to the event, not to School or Student portals',()=>{
  assert.equal(mayAccessSchool('marathon_only'),false);
