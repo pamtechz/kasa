@@ -14,7 +14,7 @@ Native Firebase Cloud Messaging (FCM) connects through the website's authenticat
 4. Android: run `dart run tool/configure_android.dart` after generation to add `android.permission.INTERNET` and `android.permission.POST_NOTIFICATIONS` to the release manifest. Use the Android application ID `com.pamtechz.kasa_mobile` when registering the Firebase Android app, then add the matching Google Services file and plugin. For iOS, configure APNs capability, Push Notifications and Background Modes with valid Apple signing.
 5. `flutter pub get`, `flutter test`, `flutter analyze`, and `flutter build apk --release --dart-define=KASA_PORTAL_URL=https://kasaschool.vercel.app`.
 
-The public portal domain may be changed by `--dart-define` only to a trusted deployment that already has the proper Firebase configuration. Android/iOS FCM integration **cannot be tested** until signed platform applications and Firebase registrations exist. Android sign-in is currently best supported with email and password in the WebView; external OAuth flows need platform-specific deep-link testing.
+Android native file selection is wired through `webview_flutter_android` and the platform file picker, so KASA document and image inputs can open a phone file selector. Device acceptance testing remains required for large uploads, camera capture, and content providers.\n\nThe public portal domain may be changed by `--dart-define` only to a trusted deployment that already has the proper Firebase configuration. Android/iOS FCM integration **cannot be tested** until signed platform applications and Firebase registrations exist. Android sign-in is currently best supported with email and password in the WebView; external OAuth flows need platform-specific deep-link testing.
 
 ## Notifications
 
