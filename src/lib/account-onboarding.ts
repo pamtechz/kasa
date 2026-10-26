@@ -32,20 +32,19 @@ export async function ensureSchoolIdentity(input:{
  }
  const profileRef=db.collection('profiles').doc(user.uid);
  const now=new Date().toISOString();
- let profileCreated=false;
- await db.runTransaction(async tx=>{
+ const profileCreated=await db.runTransaction(async tx=>{
   const snap=await tx.get(profileRef);
   if(snap.exists){
    const existing=snap.data() as Profile;
    if(existing.active!==true)throw new HttpError(403,'School account inactive. Ask the School administrator to reactivate it.');
-   return;
+   return false;
   }
-  profileCreated=true;
   const profile:Profile={
    uid:user.uid,email,displayName:displayName||user.displayName||email.split('@')[0],
    role:input.schoolRole||'student',active:true,createdAt:now,updatedAt:now
   };
-  tx.create(profileRef,profile);
+  tx.create(profileRef,{...profile,createdBy:input.actorUid});
+  return true;
  });
  const finalSnap=await profileRef.get();
  const profile=finalSnap.data() as Profile|undefined;
