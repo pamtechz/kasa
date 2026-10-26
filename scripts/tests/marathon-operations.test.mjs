@@ -33,7 +33,7 @@ test('dual workspace roles reside in the existing school profile',()=>{
  assert.match(list,/db\.collection\('profiles'\)\.where\('marathonAccess\.role'/);
 });
 
-test('only existing school super admin may assign secondary role',()=>{
+test('only School super admin may assign secondary role and auto-create School identity',()=>{
  const grant=source('src/app/api/marathon/members/route.ts');
  const change=source('src/app/api/marathon/members/[uid]/route.ts');
  const auth=source('src/lib/marathon.ts');
