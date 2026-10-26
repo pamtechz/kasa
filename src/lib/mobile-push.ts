@@ -22,7 +22,10 @@ async function sendPush(audience:Audience,title:string,body:string,path:string,r
   if(snap.empty)break;
   for(const doc of snap.docs){
    const value=doc.data();
-   if(typeof value.uid==='string'&&typeof value.token==='string')
+   // Do not keep sending notifications to long-abandoned WebView sessions.
+   const refreshedAt=Date.parse(String(value.updatedAt||''));
+   if(typeof value.uid==='string'&&typeof value.token==='string'&&
+     Number.isFinite(refreshedAt)&&refreshedAt>=Date.now()-35*86400000)
     devices.push({id:doc.id,uid:value.uid,token:value.token,marathon:value.marathon===true});
   }
   cursor=snap.docs[snap.docs.length-1].id;
