@@ -21,6 +21,7 @@ import {csvEscape,schoolWorkspace} from '@/lib/marathon-export';
 import {MarathonSyncReview} from './MarathonSyncReview';
 import {MarathonSeedImport} from './MarathonSeedImport';
 import {MarathonCategoryBoard} from './MarathonCategoryBoard';
+import {MarathonAlertCenter} from './MarathonAlertCenter';
 import {MarathonQuickViews} from './MarathonQuickViews';
 import {marathonCategories,categoryForSection,categoryForId,isMarathonCategoryId,isMarathonCategorySection,groupMarathonCategories,matchesMarathonFilters,marathonToday,marathonFocusCounts} from '@/lib/marathon-categories';
 import type {MarathonFocus} from '@/lib/marathon-categories';
@@ -67,6 +68,7 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
  const [state,setState]=useState<Bootstrap>(blank),[loading,setLoading]=useState(true),[offline,setOffline]=useState(false);
  const [authError,setAuthError]=useState(''),[notice,setNotice]=useState(''),[queuedEdits,setQueuedEdits]=useState<PendingEdit[]>([]);
  const [drawer,setDrawer]=useState<MarathonTask|null>(null),[newTask,setNewTask]=useState(false),[mobile,setMobile]=useState(false);
+ const [alertsOpen,setAlertsOpen]=useState(false);
  const [saving,setSaving]=useState(false),[query,setQuery]=useState(''),[filterStatus,setFilterStatus]=useState('all');
  const [filterPriority,setFilterPriority]=useState('all'),[filterLead,setFilterLead]=useState('all');
  const [focus,setFocus]=useState<MarathonFocus>('all'),[filtersOpen,setFiltersOpen]=useState(false);
@@ -133,6 +135,16 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
   return ()=>{active=false;authUid.current='';unsub();};
  },[hydrate,router]);
  const refresh=useCallback(async()=>{if(uid)await hydrate(uid);},[hydrate,uid]);
+ useEffect(()=>{
+  if(!uid)return;
+  // Near-live authorized revalidation, without granting raw Firestore access.
+  // Skip hidden/offline tabs and leave queued local edits intact.
+  const timer=window.setInterval(()=>{
+   if(document.visibilityState==='visible'&&navigator.onLine&&!syncingRef.current&&
+     Date.now()-lastHydrateStarted.current>=60000)void refresh();
+  },15000);
+  return ()=>window.clearInterval(timer);
+ },[uid,refresh]);
  useEffect(()=>{
   // Keep long-lived workspaces current without blocking each view switch.
   if(uid&&!offline&&Date.now()-lastHydrateStarted.current>=60000)void refresh();
@@ -228,6 +240,10 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
  const today=marathonToday();
  const complete=tasks.filter(t=>t.status==='done'&&!t.archived).length;
  const active=tasks.filter(t=>!t.archived);
+ const fiveDayDeadline=new Date(Date.parse(today+'T12:00:00Z')+5*86400000).toISOString().slice(0,10);
+ const attentionTasks=active.filter(t=>t.status!=='done'&&
+   (t.status==='blocked'||t.priority.startsWith('P1')||
+    Boolean(t.dueDate&&t.dueDate<=fiveDayDeadline)));
  const overdue=active.filter(t=>t.status!=='done'&&t.dueDate&&t.dueDate<today).length;
  const inProgress=active.filter(t=>t.status==='doing').length;
  const critical=active.filter(t=>t.status!=='done'&&t.importance==='Critical').length;
@@ -361,7 +377,7 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
   </aside>
   {mobile&&<button className="ml-mobile-overlay" aria-label="Close menu" onClick={()=>setMobile(false)}/>}
   <main className="ml-main">
-   <header className="ml-topbar"><div className="ml-top-left"><button className="ml-mobile-menu" aria-label="Open navigation" aria-controls="ml-workspace-menu" aria-expanded={mobile} onClick={()=>setMobile(true)}><Menu size={22}/></button><span className="ml-breadcrumb">KASA Life Marathon</span><ChevronRight size={15}/><strong>{menu.find(x=>x.view===view)?.label||'Home'}</strong></div><div className="ml-top-actions"><Link href="/marthon/sync" className={'ml-sync-status '+(offline?'off':'')} aria-label={pending.length?pending.length+' saved edits. Open offline edits.':'View offline edits'}>{offline?<WifiOff size={15}/>:pending.length?<CloudOff size={15}/>:<Cloud size={15}/>} {syncing?'Syncing…':offline?'Offline':pending.length?pending.length+' pending':'Synced'}</Link><button aria-label="Refresh" title="Refresh data" onClick={()=>void refresh().then(()=>flush())}><RefreshCcw size={18}/></button><span className="ml-top-divider"/><span className="ml-avatar ml-avatar-small">{displayName.slice(0,2).toUpperCase()}</span></div></header>
+   <header className="ml-topbar"><div className="ml-top-left"><button className="ml-mobile-menu" aria-label="Open navigation" aria-controls="ml-workspace-menu" aria-expanded={mobile} onClick={()=>setMobile(true)}><Menu size={22}/></button><span className="ml-breadcrumb">KASA Life Marathon</span><ChevronRight size={15}/><strong>{menu.find(x=>x.view===view)?.label||'Home'}</strong></div><div className="ml-top-actions"><Link href="/marthon/sync" className={'ml-sync-status '+(offline?'off':'')} aria-label={pending.length?pending.length+' saved edits. Open offline edits.':'View offline edits'}>{offline?<WifiOff size={15}/>:pending.length?<CloudOff size={15}/>:<Cloud size={15}/>} {syncing?'Syncing…':offline?'Offline':pending.length?pending.length+' pending':'Synced'}</Link><button className="ml-alert-toggle" type="button" aria-label={'Reminders: '+attentionTasks.length+' actions need attention'} title="Action reminders" aria-expanded={alertsOpen} onClick={()=>setAlertsOpen(v=>!v)}><Bell size={18}/>{attentionTasks.length>0&&<span className="ml-alert-count">{attentionTasks.length>99?'99+':attentionTasks.length}</span>}</button><button aria-label="Refresh" title="Refresh data" onClick={()=>void refresh().then(()=>flush())}><RefreshCcw size={18}/></button><span className="ml-top-divider"/><span className="ml-avatar ml-avatar-small">{displayName.slice(0,2).toUpperCase()}</span></div>{alertsOpen&&<MarathonAlertCenter tasks={tasks} today={today} onOpen={setDrawer} onClose={()=>setAlertsOpen(false)}/>}</header>
    <div className="ml-content">
     {!!notice&&<div className="ml-notice" role="status"><span>{notice}</span><button onClick={()=>setNotice('')} aria-label="Dismiss notification"><X size={17}/></button></div>}
     {!!authError&&uid&&<div className="ml-notice ml-warning"><AlertTriangle size={17}/>{authError}</div>}
