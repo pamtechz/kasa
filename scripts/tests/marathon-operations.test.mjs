@@ -45,8 +45,9 @@ test('only School super admin may assign secondary role and auto-create School i
   assert.match(code,/marathonAudit/);
   assert.doesNotMatch(code,/collection\('marathonMembers'\)/);
  }
- assert.match(grant,/getUserByEmail\(email\)/);
- assert.match(grant,/emailVerified/);
+ assert.match(grant,/ensureSchoolIdentity\(/);
+ assert.match(grant,/verificationPending/);
+ assert.match(grant,/schoolAccountCreated/);
  assert.match(grant,/if\(!snap.exists\)/);
  assert.match(change,/uid===actor.uid/);
 });
