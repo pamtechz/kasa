@@ -32,6 +32,9 @@ export default function UserAndStaffManagement() {
   const [provRole, setProvRole] = useState<'student' | 'agent' | 'admin' | 'reviewer'>('student');
   const [provDistrict, setProvDistrict] = useState('');
   const [provPhone, setProvPhone] = useState('');
+  const [provInitialPassword,setProvInitialPassword]=useState('');
+  const [actorSuper,setActorSuper]=useState(false);
+  useEffect(()=>{void api<{profile:{role:string}}>('/api/me').then(x=>setActorSuper(x.profile.role==='super_admin')).catch(()=>{});},[]);
   const [provResult, setProvResult] = useState<{email: string; displayName: string; role: string; agentCode?: string; verificationPending?:boolean;onboardingEmailSent?:boolean} | null>(null);
 
   // Deleting User Modal States
@@ -68,12 +71,13 @@ export default function UserAndStaffManagement() {
           displayName: provName,
           role: provRole,
           district: provDistrict,
-          phone: provPhone
+          phone: provPhone,
+          ...(actorSuper&&provInitialPassword?{initialPassword:provInitialPassword}:{})
         })
       });
       setProvResult(res);
       setNotice(res.message);
-      setProvEmail(''); setProvName(''); setProvDistrict(''); setProvPhone('');
+      setProvEmail(''); setProvName(''); setProvDistrict(''); setProvPhone(''); setProvInitialPassword('');
       await loadUsers();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Provisioning failed.');
@@ -121,7 +125,7 @@ export default function UserAndStaffManagement() {
           <h2 style={{margin: 0, fontSize: 18}}>Register or Update School Account (Student, Agent or Staff)</h2>
         </div>
         <p className="muted" style={{fontSize: 13, marginBottom: 16}}>
-          Create a School account directly, or assign a School role to an existing account. New users receive password setup instructions where Firebase email delivery is configured and must verify their own email. Accounts use the same sign-in across School and Marathon.
+          Create a School account directly, or assign a School role to an existing account. Super administrators may specify an initial password for new accounts (no password reset email). An admin-provisioned member can sign in before verification for 30 days. Otherwise, new users receive their own password setup email.
         </p>
 
         <form onSubmit={e => void provisionUser(e)}>
@@ -147,6 +151,9 @@ export default function UserAndStaffManagement() {
               <label>Assigned District (for Agents)</label>
               <input placeholder="E.g. Lusaka, Chisamba" value={provDistrict} onChange={e => setProvDistrict(e.target.value)} />
             </div>
+            {actorSuper&&<div className="field full"><label>Initial password (optional for new accounts)</label>
+              <input type="password" autoComplete="new-password" minLength={12} maxLength={128} value={provInitialPassword} onChange={e=>setProvInitialPassword(e.target.value)} placeholder="12+ characters including upper, lower, number and symbol"/>
+              <small>Do not use this field for an existing account. Use its dedicated account editor to intentionally change credentials.</small></div>}
             <div className="field full">
               <label>Phone Number (optional)</label>
               <input type="tel" placeholder="+260 97X XXX XXX" value={provPhone} onChange={e => setProvPhone(e.target.value)} />
@@ -166,7 +173,7 @@ export default function UserAndStaffManagement() {
             <div style={{fontSize: 13, lineHeight: 1.6, color: 'var(--ink)'}}>
               Email: <strong>{provResult.email}</strong><br />
               {provResult.agentCode && <>Unique Referral Code: <strong>{provResult.agentCode}</strong><br /></>}
-              <small className="muted">{provResult.verificationPending ? 'The new user must set their password (check email or use Forgot password), verify their address, and then sign in at' : 'The user can sign in with their own verified credentials at'} <Link href="/login" style={{textDecoration: 'underline', fontWeight: 700}}>KASA Login</Link>. Password recovery remains under their control.</small>
+              <small className="muted">{provResult.verificationPending ? 'If you provided an initial password, share it privately and ask the user to verify the email within 30 days. Otherwise, the user must check their verification and password setup email. Sign in at' : 'The user can sign in with their existing credentials at'} <Link href="/login" style={{textDecoration: 'underline', fontWeight: 700}}>KASA Login</Link>. Existing users keep their passwords when roles are linked.</small>
             </div>
           </div>
         )}
@@ -180,7 +187,7 @@ export default function UserAndStaffManagement() {
         <div className="panel-title" style={{flexWrap: 'wrap', gap: 12}}>
           <div>
             <h2>Registered System Accounts</h2>
-            <p>Open a dedicated account page to edit profile and role. Only the super administrator can initiate another member&apos;s password reset email.</p>
+            <p>Open a dedicated account page to edit profile and role. Only the global super administrator can assign an initial password to another account.</p>
           </div>
           <div className="table-controls" style={{margin: 0, padding: 0, background: 'transparent', border: 'none'}}>
             <label className="search-box">
