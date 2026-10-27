@@ -271,7 +271,7 @@ export function VisualPdfCoordinateMapper({config, onChange, onPreviewPdf, previ
             onClick={onPreviewPdf}
             style={{display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13}}
           >
-            <Eye size={16} /> {previewing ? 'Generating…' : 'Full PDF Preview ↗'}
+            <Eye size={16} /> {previewing ? 'Generating…' : 'Full PDF Preview'}
           </button>
         </div>
       </div>
