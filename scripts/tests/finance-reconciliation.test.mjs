@@ -31,7 +31,9 @@ test('finance does not fabricate fees or accept unquoted receipts',()=>{
  assert.match(ledger,/Math\.round\(newPaidTotal \* 100\)/);
  assert.match(ledger,/financialTotalsPartial/);
  assert.match(ledger,/truncated/);
- assert.match(ui,/FinanceQuoteReconcile/);
+ assert.match(ui,/\/dashboard\/finance\//);
+ const editor=read('src/app/(portal)/dashboard/finance/[id]/[action]/page.tsx');
+ assert.match(editor,/FinanceQuoteReconcile/);
  assert.doesNotMatch(ledger,/tuitionFee = 8200/);
  assert.doesNotMatch(ui,/: '1000'/);
 });
