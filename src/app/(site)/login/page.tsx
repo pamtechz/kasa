@@ -40,7 +40,13 @@ export default function Login() {
         const token = await credential.user.getIdToken(true);
         const resp = await fetch('/api/me', {headers:{Authorization:`Bearer ${token}`},cache:'no-store'});
         const data = await resp.json().catch(() => ({}));
-        if (!resp.ok || !data?.profile) throw Error(data.error || 'Your KASA account has no active workspace.');
+        if (!resp.ok || !data?.profile) {
+          if(!credential.user.emailVerified){
+            try{await sendEmailVerification(credential.user);}catch{}
+            await signOut(firebaseAuth);
+          }
+          throw Error(data.error || 'Your KASA account has no active workspace. Check Inbox or Spam for verification instructions.');
+        }
         if(!credential.user.emailVerified && !data.profile.adminPasswordProvisionedAt){
           await signOut(firebaseAuth);
           throw Error('Verify your email address before signing in. Check Inbox and Spam for your verification message.');
