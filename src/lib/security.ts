@@ -10,16 +10,14 @@ const operatorRoles:Role[]=['super_admin','admin','reviewer'];
 export async function operator(req:Request, allowed:Role[]=operatorRoles):Promise<Profile>{
  const value=req.headers.get('authorization')||'';
  if(!value.startsWith('Bearer ')) throw new HttpError(401,'Authentication required.');
- let uid='';
- try{const token=await adminAuth.verifyIdToken(value.slice(7),true);uid=token.uid;
-  (req as Request & {kasaEmailVerified?:boolean;kasaEmail?:string}).kasaEmailVerified=Boolean(token.email_verified);
-  (req as Request & {kasaEmail?:string}).kasaEmail=token.email;}
+ let uid='',email='',emailVerified=false;
+ try{const token=await adminAuth.verifyIdToken(value.slice(7),true);
+  uid=token.uid;email=token.email||'';emailVerified=Boolean(token.email_verified);}
  catch {throw new HttpError(401,'Session expired. Sign in again.');}
  const snapshot=await db.collection('profiles').doc(uid).get();
  const p=snapshot.data() as Profile|undefined;
  if(!p || !p.active || !allowed.includes(p.role)) throw new HttpError(403,'Access denied.');
- if(!(req as Request & {kasaEmailVerified?:boolean}).kasaEmailVerified &&
-  !canUseUnverifiedProvisionedAccount(p,(req as Request & {kasaEmail?:string}).kasaEmail))
+ if(!emailVerified&&!canUseUnverifiedProvisionedAccount(p,email))
   throw new HttpError(403,'Please verify your email before continuing. Open the verification message in your Inbox or Spam folder.');
  const pathname=new URL(req.url).pathname;
  if(pathname.startsWith('/api/admin/')||pathname.startsWith('/api/agent/')){
