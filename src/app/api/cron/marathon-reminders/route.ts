@@ -36,8 +36,9 @@ export async function GET(req:Request){
   const now=new Date();
   const {today,hour}=lusakaParts(now);
   if(today>EVENT_DATE)return json({ok:true,eventComplete:true,actions:0});
-  if(!SLOTS.some(slot=>slot===hour))return json({ok:true,skipped:true,reason:'Outside Lusaka reminder windows'});
-  const runRef=db.collection('marathonReminderRuns').doc(today+'-'+hour);
+  const slot=[...SLOTS].reverse().find(value=>hour>=value);
+  if(!slot)return json({ok:true,skipped:true,reason:'Before first Lusaka reminder window'});
+  const runRef=db.collection('marathonReminderRuns').doc(today+'-'+slot);
   const runId=randomUUID();
   const claimed=await db.runTransaction(async tx=>{
    const snap=await tx.get(runRef);
@@ -48,7 +49,7 @@ export async function GET(req:Request){
     leaseExpiresAt:new Date(now.getTime()+LEASE_MS).toISOString(),attempts:Number(data.attempts||0)+1},{merge:true});
    return true;
   });
-  if(!claimed)return json({ok:true,alreadyProcessed:true,slot:hour});
+  if(!claimed)return json({ok:true,alreadyProcessed:true,slot});
   const finish=async(status:'complete'|'failed',details:Record<string,unknown>)=>{
    await db.runTransaction(async tx=>{
     const snap=await tx.get(runRef);
@@ -74,7 +75,7 @@ export async function GET(req:Request){
      '/marathon/operations',uid);
     delivered+=result.delivered;failed+=result.failed;
    }
-   await finish('complete',{completedAt:new Date().toISOString(),slot:hour,
+   await finish('complete',{completedAt:new Date().toISOString(),slot,
     actions:tasks.length,recipients:recipients.size,delivered,failed});
    return json({ok:true,slot:hour,actions:tasks.length,recipients:recipients.size,delivered,failed});
   }catch(error){
