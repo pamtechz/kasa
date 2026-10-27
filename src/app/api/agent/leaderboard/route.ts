@@ -8,14 +8,12 @@ type AgentTier = 'Bronze' | 'Silver' | 'Gold' | 'Diamond';
 
 function calculateAgentTier(enrollmentsCount: number): {
   tier: AgentTier;
-  badgeEmoji: string;
   eligibleForBonus: boolean;
   bonusAmount: number;
 } {
   if (enrollmentsCount >= 20) {
     return {
       tier: 'Diamond',
-      badgeEmoji: '💎',
       eligibleForBonus: true,
       bonusAmount: 1000 // ZMW 1,000 flat bonus
     };
@@ -23,7 +21,6 @@ function calculateAgentTier(enrollmentsCount: number): {
   if (enrollmentsCount >= 13) {
     return {
       tier: 'Gold',
-      badgeEmoji: '🥇',
       eligibleForBonus: false,
       bonusAmount: 0
     };
@@ -31,14 +28,12 @@ function calculateAgentTier(enrollmentsCount: number): {
   if (enrollmentsCount >= 6) {
     return {
       tier: 'Silver',
-      badgeEmoji: '🥈',
       eligibleForBonus: false,
       bonusAmount: 0
     };
   }
   return {
     tier: 'Bronze',
-    badgeEmoji: '🥉',
     eligibleForBonus: false,
     bonusAmount: 0
   };
