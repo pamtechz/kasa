@@ -1,0 +1,67 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const read=path=>readFileSync(new URL('../../'+path,import.meta.url),'utf8');
+
+test('initial passwords require globally authenticated super admin, immutable identity, and never email a reset link',()=>{
+ const endpoint=read('src/app/api/admin/users/[id]/initial-password/route.ts');
+ const helper=read('src/lib/admin-initial-password.ts');
+ const policy=read('src/lib/permissions.ts');
+ assert.match(endpoint,/operator\(req,\['super_admin'\]\)/);
+ assert.match(endpoint,/sameOrigin\(req\)/);
+ assert.match(endpoint,/body\.confirm!==true/);
+ assert.match(helper,/adminAuth\.updateUser\(uid,\{password\}\)/);
+ assert.match(helper,/profile\.role==='super_admin'/);
+ assert.match(helper,/uid===actorUid/);
+ assert.match(helper,/user\.email\.toLowerCase\(\)!==String\(profile\.email\)\.toLowerCase\(\)/);
+ assert.match(helper,/adminPasswordProvisionedAt/);
+ assert.match(helper,/adminAuth\.revokeRefreshTokens\(uid\)/);
+ assert.match(policy,/initial-password/);
+ assert.doesNotMatch(helper,/sendOobCode|PASSWORD_RESET/);
+ assert.doesNotMatch(helper,/password:\s*password.*db\./);
+});
+test('unverified workspace access requires a recent super admin password provisioning marker',()=>{
+ const gate=read('src/lib/provisioned-sign-in.ts');
+ const operator=read('src/lib/security.ts');
+ const marathon=read('src/lib/marathon.ts');
+ const me=read('src/app/api/me/route.ts');
+ const login=read('src/app/(site)/login/page.tsx');
+ assert.match(gate,/PROVISIONAL_DAYS=30/);
+ assert.match(gate,/profile\.adminPasswordProvisionedAt/);
+ assert.match(gate,/profile\.email\?\.trim\(\)\.toLowerCase\(\)!==email\.trim\(\)\.toLowerCase\(\)/);
+ assert.match(operator,/canUseUnverifiedProvisionedAccount/);
+ assert.match(marathon,/canUseUnverifiedProvisionedAccount/);
+ assert.match(me,/canUseUnverifiedProvisionedAccount/);
+ assert.match(login,/adminPasswordProvisionedAt/);
+ const notice=read('src/components/EmailVerificationNudge.tsx');
+ assert.match(notice,/sendEmailVerification\(user\)/);
+ assert.match(notice,/FOUR_HOURS/);
+ assert.match(notice,/Spam\/Junk/);
+});
+test('shared School account is linked by exact email without duplicate Firebase user',()=>{
+ const search=read('src/app/api/marathon/members/search/route.ts');
+ const members=read('src/app/api/marathon/members/route.ts');
+ const onboarding=read('src/lib/account-onboarding.ts');
+ const editor=read('src/app/api/marathon/members/[uid]/account/route.ts');
+ assert.match(search,/requireMarathon\(actor,'super'\)/);
+ assert.match(search,/getUserByEmail\(email\)/);
+ assert.match(search,/p\.role==='student'/);
+ assert.match(onboarding,/adminAuth\.getUserByEmail\(email\)/);
+ assert.match(onboarding,/requireExistingOrPassword/);
+ assert.match(members,/marathonAccess:secondary/);
+ assert.match(editor,/requireMarathon\(actor,'super'\)/);
+ assert.match(editor,/role:'super_admin'|profile\.role==='super_admin'/);
+});
+test('School and Marathon have routed account editors with secure password and verification guidance',()=>{
+ const school=read('src/app/(portal)/dashboard/staff/[uid]/edit/page.tsx');
+ const marathon=read('src/app/marathon/settings/members/[uid]/page.tsx');
+ const workspace=read('src/components/marathon/MarathonWorkspace.tsx');
+ const switcher=read('src/components/marathon/MarathonContentSwitch.tsx');
+ assert.match(school,/initial-password/);
+ assert.match(marathon,/initial-password/);
+ assert.match(marathon,/marathonRole/);
+ assert.match(workspace,/members\/search\?email/);
+ assert.match(workspace,/settings\/members\//);
+ assert.doesNotMatch(workspace,/sendMemberPasswordReset/);
+ assert.match(switcher,/MarathonWorkspace/);
+});
