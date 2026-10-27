@@ -5,6 +5,26 @@ import type {Profile} from '@/lib/types';
 
 export const runtime = 'nodejs';
 
+/** Restricted user detail read for the dedicated edit page. */
+export async function GET(req:Request,{params}:{params:Promise<{id:string}>}){
+ try{
+  const actor=await operator(req,['super_admin','admin','reviewer']);
+  const {id:uid}=await params;
+  if(!/^[A-Za-z0-9_-]{1,128}$/.test(uid))throw new HttpError(400,'Invalid user ID.');
+  const snap=await db.collection('profiles').doc(uid).get();
+  if(!snap.exists||snap.data()?.role==='marathon_only')
+   throw new HttpError(404,'School account not found.');
+  const p=snap.data() as Profile;
+  if(actor.role!=='super_admin'&&['super_admin','admin','reviewer','finance'].includes(p.role))
+   throw new HttpError(403,'Only the super administrator can manage staff accounts.');
+  return json({user:{
+   uid,email:p.email,displayName:p.displayName,role:p.role,active:p.active,
+   district:p.district||'',phone:p.phone||'',province:p.province||'',
+   mustChangePassword:Boolean(p.mustChangePassword)
+  }});
+ }catch(e){return fail(e);}
+}
+
 export async function PATCH(
   req: Request,
   {params}: {params: Promise<{id: string}>}
