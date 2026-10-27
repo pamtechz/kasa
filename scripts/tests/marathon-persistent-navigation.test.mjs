@@ -15,7 +15,7 @@ const {MarathonLink}=await import('data:text/javascript;base64,'+Buffer.from(hea
 function withBrowser(run){
  const prior=globalThis.window,calls=[];
  globalThis.window={
-  location:{pathname:'/marthon',search:'',hash:''},
+  location:{pathname:'/marathon',search:'',hash:''},
   history:{pushState:(...args)=>calls.push(['push',...args]),replaceState:(...args)=>calls.push(['replace',...args])},
   scrollTo:options=>calls.push(['scroll',options])
  };
@@ -24,7 +24,7 @@ function withBrowser(run){
 }
 test('workspace navigation updates native history without invoking the Next page transition',()=>withBrowser(calls=>{
  let prevented=0;
- const href='/marthon/operations?category=safety',element=MarathonLink({href});
+ const href='/marathon/operations?category=safety',element=MarathonLink({href});
  assert.equal(element.type,NextLink);assert.equal(element.props.href,href);
  assert.equal(element.props.prefetch,false);
  element.props.onNavigate({preventDefault:()=>{prevented++;}});
@@ -32,17 +32,17 @@ test('workspace navigation updates native history without invoking the Next page
  assert.deepEqual(calls,[['push',null,'',href],['scroll',{top:0,behavior:'auto'}]]);
 }));
 test('workspace replacement and scroll options retain their link semantics',()=>withBrowser(calls=>{
- const element=MarathonLink({href:'/marthon/categories',replace:true,scroll:false});
+ const element=MarathonLink({href:'/marathon/categories',replace:true,scroll:false});
  element.props.onNavigate({preventDefault:()=>{}});
- assert.deepEqual(calls,[['replace',null,'','/marthon/categories']]);
+ assert.deepEqual(calls,[['replace',null,'','/marathon/categories']]);
 }));
 test('the active workspace link does not add a duplicate history entry',()=>withBrowser(calls=>{
- const element=MarathonLink({href:'/marthon',scroll:false});
+ const element=MarathonLink({href:'/marathon',scroll:false});
  element.props.onNavigate({preventDefault:()=>{}});
  assert.deepEqual(calls,[]);
 }));
 test('login, school and external links continue through normal Next navigation',()=>withBrowser(calls=>{
- for(const href of ['/marthon/login','/dashboard','https://example.test/']){
+ for(const href of ['/marathon/login','/dashboard','https://example.test/']){
   let prevented=false;
   const element=MarathonLink({href,target:'_blank',prefetch:true});
   element.props.onNavigate({preventDefault:()=>{prevented=true;}});
@@ -52,14 +52,14 @@ test('login, school and external links continue through normal Next navigation',
  assert.deepEqual(calls,[]);
 }));
 test('one shared layout owns the workspace while route outlets never remount it',()=>{
- const layout=source('src/app/marthon/(workspace)/layout.tsx');
+ const layout=source('src/app/marathon/(workspace)/layout.tsx');
  assert.equal((layout.match(/<MarathonWorkspace\b/g)||[]).length,1);
  assert.match(layout,/<Suspense\b/);
- for(const page of ['src/app/marthon/(workspace)/page.tsx','src/app/marthon/(workspace)/[section]/page.tsx']){
+ for(const page of ['src/app/marathon/(workspace)/page.tsx','src/app/marathon/(workspace)/[section]/page.tsx']){
   assert.doesNotMatch(source(page),/MarathonWorkspace/);
  }
- assert.equal(existsSync(new URL('../../src/app/marthon/page.tsx',import.meta.url)),false);
- assert.equal(existsSync(new URL('../../src/app/marthon/[section]/page.tsx',import.meta.url)),false);
+ assert.equal(existsSync(new URL('../../src/app/marathon/page.tsx',import.meta.url)),false);
+ assert.equal(existsSync(new URL('../../src/app/marathon/[section]/page.tsx',import.meta.url)),false);
  const workspace=source('src/components/marathon/MarathonWorkspace.tsx');
  assert.match(workspace,/usePathname\(\)/);assert.match(workspace,/useSearchParams\(\)/);
  assert.doesNotMatch(workspace,/window\.history\.(?:pushState|replaceState)\(window\.history\.state/);
