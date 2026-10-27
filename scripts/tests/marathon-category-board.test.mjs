@@ -19,7 +19,7 @@ test('category cards render all source workstreams, accessible progress and work
  assert.equal((html.match(/<a\b/g)||[]).length,15);
  assert.equal((html.match(/<progress\b/g)||[]).length,15);
  for(const group of groupMarathonCategories(seed.items)){
-  assert.ok(html.includes('href="/marthon/operations?category='+group.category.id+'"'));
+  assert.ok(html.includes('href="/marathon/operations?category='+group.category.id+'"'));
   assert.ok(html.includes('value="'+group.completed+'" max="'+group.tasks.length+'"'));
  }
  assert.ok(html.includes('8 actions'));
@@ -31,7 +31,7 @@ test('category cards retain a visible destination for legacy unassigned work and
  const tasks=[{...seed.items[0],archived:true},{...seed.items[1],section:undefined,id:'M-uncategorized'}];
  const html=renderToStaticMarkup(createElement(MarathonCategoryBoard,{tasks}));
  assert.equal((html.match(/<a\b/g)||[]).length,16);
- assert.ok(html.includes('href="/marthon/operations?category=uncategorized"'));
+ assert.ok(html.includes('href="/marathon/operations?category=uncategorized"'));
  assert.ok(html.includes('Needs a category'));
  assert.ok(html.includes('1 action'));
  assert.ok(html.includes('0 actions'));
