@@ -514,7 +514,7 @@ export function ContentEditor({kind}: {kind: Type}) {
                     rel="noreferrer"
                     style={{fontSize: 12, padding: '8px 14px', minHeight: 36}}
                   >
-                    <ExternalLink size={14} /> Public page ↗
+                    <ExternalLink size={14} /> Public page
                   </a>
                 )}
                 <button
