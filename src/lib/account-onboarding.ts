@@ -43,6 +43,8 @@ export async function ensureSchoolIdentity(input:{
   const snap=await tx.get(profileRef);
   if(snap.exists){
    const existing=snap.data() as Profile;
+   if(String(existing.email||'').toLowerCase()!==email)
+    throw new HttpError(409,'Auth email does not match the existing KASA profile; reconcile the identity before assigning roles.');
    if(existing.active!==true)throw new HttpError(403,'School account inactive. Ask the School administrator to reactivate it.');
    return false;
   }
