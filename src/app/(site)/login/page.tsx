@@ -22,7 +22,7 @@ export default function Login() {
   const [email, setEmail] = useState(''), [password, setPassword] = useState(''), [name, setName] = useState(''), [mode, setMode] = useState<'sign-in' | 'register'>('sign-in'), [busy, setBusy] = useState(false), [message, setMessage] = useState('');
   const router = useRouter();
   const [marathonEntry,setMarathonEntry]=useState(false);
-  useEffect(()=>{setMarathonEntry(new URLSearchParams(window.location.search).get('next')?.startsWith('/marthon')===true);},[]);
+  useEffect(()=>{setMarathonEntry(new URLSearchParams(window.location.search).get('next')?.startsWith('/marathon')===true);},[]);
   async function go(e: React.FormEvent) {
     e.preventDefault(); setMessage(''); setBusy(true); try {
       const firebaseAuth = requireClientAuth();
