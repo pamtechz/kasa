@@ -13,6 +13,8 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
  try{
   sameOrigin(req);
   const actor=await operator(req,['super_admin']);
+  const body=await req.json().catch(()=>({}));
+  if(body?.confirm!==true)throw new HttpError(400,'Explicit confirmation is required.');
   const {id:uid}=await params;
   if(!/^[A-Za-z0-9_-]{1,128}$/.test(uid))
    throw new HttpError(400,'Invalid account ID.');
