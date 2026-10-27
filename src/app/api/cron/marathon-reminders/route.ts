@@ -8,7 +8,7 @@ export const runtime='nodejs';
 export const maxDuration=60;
 const EVENT_DATE='2027-03-21';
 const LEASE_MS=15*60*1000;
-const SLOTS=[8,13,18] as const; // Lusaka (UTC+2); Vercel cron runs at 06, 11, 16 UTC.
+const SLOTS=[8,13,18] as const; // Lusaka UTC+2: Vercel at 06 UTC; GitHub Actions at 11 and 16 UTC.
 
 function lusakaParts(date:Date):{today:string;hour:number}{
  const parts=new Intl.DateTimeFormat('en-GB',{
@@ -77,7 +77,7 @@ export async function GET(req:Request){
    }
    await finish('complete',{completedAt:new Date().toISOString(),slot,
     actions:tasks.length,recipients:recipients.size,delivered,failed});
-   return json({ok:true,slot:hour,actions:tasks.length,recipients:recipients.size,delivered,failed});
+   return json({ok:true,slot,actions:tasks.length,recipients:recipients.size,delivered,failed});
   }catch(error){
    await finish('failed',{failedAt:new Date().toISOString()}).catch(()=>{});
    throw error;
