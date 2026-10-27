@@ -6,7 +6,7 @@ import {useRouter, usePathname} from 'next/navigation';
 import Link from 'next/link';
 import {AccountMenu} from '@/components/AccountMenu';
 import {
-  LayoutDashboard, Users, PlusCircle, BarChart3, User, LogOut, ChevronLeft, ChevronRight,
+  LayoutDashboard, Users, PlusCircle, BarChart3, User, ChevronLeft, ChevronRight,
   Menu, X, MapPin, Award, Wallet, Share2
 } from 'lucide-react';
 import {auth, authHeaders, firebaseConfigured, signOutClient} from '@/lib/firebase-client';
@@ -70,7 +70,7 @@ export function AgentPortal({children}: {children: React.ReactNode}) {
           if (res.ok && data.profile) {
             if (data.profile.role === 'marathon_only'){
               setProfile(null);
-              router.replace('/marthon');
+              router.replace('/marathon');
               return;
             }
             if (data.profile.role !== 'agent' && data.profile.role !== 'super_admin' && data.profile.role !== 'admin') {
