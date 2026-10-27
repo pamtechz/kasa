@@ -1,7 +1,7 @@
 'use client';
 import {useEffect, useState} from 'react';
 import Link from 'next/link';
-import {Plus, ShieldCheck, Trash2, UserPlus, KeyRound, CheckCircle2, Edit3, Search, Filter, X, Save} from 'lucide-react';
+import {Plus, ShieldCheck, Trash2, UserPlus, CheckCircle2, Edit3, Search, Filter} from 'lucide-react';
 import {api, PageHeader} from '@/components/Portal';
 import {ConfirmModal} from '@/components/ConfirmModal';
 
@@ -33,16 +33,6 @@ export default function UserAndStaffManagement() {
   const [provDistrict, setProvDistrict] = useState('');
   const [provPhone, setProvPhone] = useState('');
   const [provResult, setProvResult] = useState<{email: string; displayName: string; role: string; agentCode?: string; verificationPending?:boolean;onboardingEmailSent?:boolean} | null>(null);
-
-  // Editing User Modal States
-  const [editingUser, setEditingUser] = useState<UserItem | null>(null);
-  const [editName, setEditName] = useState('');
-  const [editRole, setEditRole] = useState<'student' | 'agent' | 'admin' | 'reviewer'>('student');
-  const [editDistrict, setEditDistrict] = useState('');
-  const [editPhone, setEditPhone] = useState('');
-  const [editActive, setEditActive] = useState(true);
-  const [editMustChangePass, setEditMustChangePass] = useState(false);
-  const [savingEdit, setSavingEdit] = useState(false);
 
   // Deleting User Modal States
   const [deletingUser, setDeletingUser] = useState<UserItem | null>(null);
@@ -88,45 +78,6 @@ export default function UserAndStaffManagement() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Provisioning failed.');
     } finally { setBusy(false); }
-  }
-
-  function openEditModal(user: UserItem) {
-    setEditingUser(user);
-    setEditName(user.displayName || '');
-    setEditRole(user.role === 'super_admin' ? 'admin' : user.role as any);
-    setEditDistrict(user.district || '');
-    setEditPhone(user.phone || '');
-    setEditActive(user.active !== false);
-    setEditMustChangePass(Boolean(user.mustChangePassword));
-  }
-
-  async function saveUserEdit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!editingUser) return;
-    setSavingEdit(true); setError(''); setNotice('');
-    try {
-      const payload: Record<string, unknown> = {
-        displayName: editName,
-        role: editRole,
-        district: editDistrict,
-        phone: editPhone,
-        active: editActive,
-        mustChangePassword: editMustChangePass
-      };
-
-      await api(`/api/admin/users/${editingUser.uid}`, {
-        method: 'PATCH',
-        body: JSON.stringify(payload)
-      });
-
-      setNotice(`User account (${editName}) updated successfully.`);
-      setEditingUser(null);
-      await loadUsers();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'User update failed.');
-    } finally {
-      setSavingEdit(false);
-    }
   }
 
   async function confirmDeleteUser() {
@@ -229,7 +180,7 @@ export default function UserAndStaffManagement() {
         <div className="panel-title" style={{flexWrap: 'wrap', gap: 12}}>
           <div>
             <h2>Registered System Accounts</h2>
-            <p>Edit permitted profile fields and account status. Verified email changes and password resets require the account owner&apos;s secure recovery flow.</p>
+            <p>Open a dedicated account page to edit profile and role. Only the super administrator can initiate another member&apos;s password reset email.</p>
           </div>
           <div className="table-controls" style={{margin: 0, padding: 0, background: 'transparent', border: 'none'}}>
             <label className="search-box">
@@ -293,14 +244,9 @@ export default function UserAndStaffManagement() {
                         <span className="muted" style={{fontSize: 12}}>Protected</span>
                       ) : (
                         <div style={{display: 'flex', gap: 10, alignItems: 'center'}}>
-                          <button
-                            type="button"
-                            className="text-link"
-                            onClick={() => openEditModal(u)}
-                            style={{display: 'inline-flex', alignItems: 'center', gap: 4}}
-                          >
-                            <Edit3 size={14} /> Edit
-                          </button>
+                          <Link className="text-link" href={'/dashboard/staff/'+encodeURIComponent(u.uid)+'/edit'} style={{display:'inline-flex',alignItems:'center',gap:4}}>
+                            <Edit3 size={14}/> Edit account
+                          </Link>
                           <button
                             type="button"
                             className="text-link"
@@ -319,87 +265,6 @@ export default function UserAndStaffManagement() {
           </table>
         </div>
       </section>
-
-      {/* MODAL: EDIT USER DETAILS, PASSWORD & EMAIL */}
-      {editingUser && (
-        <div className="modal-page-overlay" role="dialog" aria-modal="true">
-          <div className="modal-page" style={{maxWidth: 680}}>
-            <header className="modal-page-header">
-              <div className="modal-page-header-left">
-                <span className="modal-page-badge">ADMIN USER CONTROL</span>
-                <h2>Edit Account: {editingUser.displayName}</h2>
-              </div>
-              <div className="modal-page-header-right">
-                <button type="button" className="icon-btn" onClick={() => setEditingUser(null)} aria-label="Close">
-                  <X size={20} />
-                </button>
-              </div>
-            </header>
-
-            <form onSubmit={e => void saveUserEdit(e)} style={{display: 'flex', flexDirection: 'column', flex: 1}}>
-              <div className="modal-page-body">
-                <div className="modal-page-card">
-                  <h3><UserPlus size={18} /> User Profile & Credentials</h3>
-                  <p>Update allowed profile details and assigned roles. Verified email and passwords cannot be overwritten by administrators.</p>
-
-                  <div className="form-grid">
-                    <div className="field full">
-                      <label>Full Name *</label>
-                      <input required value={editName} onChange={e => setEditName(e.target.value)} />
-                    </div>
-
-                    <div className="field full">
-                      <label>Verified Account Email (Read-only)</label>
-                      <input type="email" value={editingUser.email} readOnly aria-readonly="true" />
-                      <small className="field-hint">Email changes require a verification link controlled by the account owner. Password reset is available through account recovery.</small>
-                    </div>
-
-                    <div className="field">
-                      <label>Portal Role *</label>
-                      <select value={editRole} onChange={e => setEditRole(e.target.value as any)}>
-                        <option value="student">Student (Student Portal)</option>
-                        <option value="agent">District Agent (Agent Portal)</option>
-                        <option value="reviewer">Application Reviewer</option>
-                        <option value="admin">Administrator</option>
-                      </select>
-                    </div>
-
-                    <div className="field">
-                      <label>District Territory</label>
-                      <input placeholder="E.g. Lusaka, Chisamba" value={editDistrict} onChange={e => setEditDistrict(e.target.value)} />
-                    </div>
-
-                    <div className="field full">
-                      <label>Phone Number</label>
-                      <input type="tel" value={editPhone} onChange={e => setEditPhone(e.target.value)} />
-                    </div>
-
-                    <div className="field full" style={{display: 'flex', gap: 20, marginTop: 8}}>
-                      <label className="required-toggle" style={{fontSize: 13}}>
-                        <input type="checkbox" checked={editActive} onChange={e => setEditActive(e.target.checked)} />
-                        Account Active Status
-                      </label>
-                      <label className="required-toggle" style={{fontSize: 13}}>
-                        <input type="checkbox" checked={editMustChangePass} onChange={e => setEditMustChangePass(e.target.checked)} />
-                        Force Password Reset On Next Login
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <footer className="modal-page-footer">
-                <button type="button" className="btn btn-outline" onClick={() => setEditingUser(null)}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={savingEdit || !editName.trim()}>
-                  <Save size={16} /> {savingEdit ? 'Saving Changes…' : 'Save User Account'}
-                </button>
-              </footer>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* CONFIRM DELETE USER MODAL */}
       <ConfirmModal
