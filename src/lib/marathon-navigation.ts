@@ -9,6 +9,6 @@ export function marathonViewForPath(pathname:string,fallback:string='overview'):
 
 export function isMarathonWorkspacePath(href:string):boolean{
  const pathname=href.split(/[?#]/,1)[0];
- const match=/^\/marthon(?:\/([^/]+))?\/?$/.exec(pathname);
+ const match=/^\/marathon(?:\/([^/]+))?\/?$/.exec(pathname);
  return !!match&&(!match[1]||marathonViews.includes(match[1] as MarathonView));
 }

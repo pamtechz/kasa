@@ -111,3 +111,39 @@ a.ml-sync-status{text-decoration:none}
 .ml-alert-blocked .ml-alert-icon,.ml-alert-overdue .ml-alert-icon{background:#fff0e8;color:#ca6335}
 .ml-alert-empty{padding:22px 18px;margin:0;font-size:12px;color:#72877c}
 @media(max-width:650px){.ml-alert-panel{right:12px;top:calc(100% - 1px);width:calc(100vw - 24px)}}
+
+
+/* Compact Marathon navigation: icons when collapsed, real native scrollbar, no scroll buttons. */
+.ml-sidebar{transition:width .2s ease;min-width:0}
+.ml-sidebar-header{display:flex;align-items:center;gap:5px;margin:0 5px 33px}
+.ml-sidebar-header .ml-sidebar-brand{margin:0;min-width:0;flex:1;gap:10px}
+.ml-sidebar-header .ml-sidebar-brand span{min-width:0;white-space:nowrap}
+.ml-sidebar-toggle,.ml-desktop-collapse{display:grid;place-items:center;flex:none;background:transparent;border:0;border-radius:9px;width:31px;height:35px;color:#688975;cursor:pointer}
+.ml-sidebar-toggle:hover,.ml-desktop-collapse:hover,.ml-sidebar-toggle:focus-visible,.ml-desktop-collapse:focus-visible{background:#e9f3ea;color:#174b35;outline-offset:2px}
+.ml-sidebar.is-collapsed{width:79px;padding-left:8px;padding-right:8px}
+.ml-sidebar.is-collapsed .ml-sidebar-header{margin:0 0 29px;display:flex;flex-direction:column;gap:6px}
+.ml-sidebar.is-collapsed .ml-sidebar-brand{width:100%;justify-content:center}
+.ml-sidebar.is-collapsed .ml-sidebar-brand span,.ml-sidebar.is-collapsed .ml-nav-section,.ml-sidebar.is-collapsed .ml-nav-item>span,.ml-sidebar.is-collapsed .ml-school-switch .ml-nav-section,.ml-sidebar.is-collapsed .ml-nav-tools summary{display:none}
+.ml-sidebar.is-collapsed .ml-sidebar-toggle svg{transform:rotate(180deg)}
+.ml-sidebar.is-collapsed .ml-nav-item{justify-content:center;gap:0;padding:13px 8px;min-height:46px}
+.ml-sidebar.is-collapsed .ml-nav-item svg{flex:none}
+.ml-sidebar.is-collapsed .ml-nav-item i{position:absolute;right:3px;width:5px;height:5px}
+.ml-sidebar.is-collapsed .ml-sidebar-scroll{padding:0}
+.ml-sidebar.is-collapsed .ml-nav-tools{display:block}
+.ml-sidebar.is-collapsed .ml-school-switch{padding:10px 0 0}
+.ml-sidebar.is-collapsed .ml-school-link{justify-content:center}
+.ml-sidebar .ml-sidebar-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;scrollbar-width:thin}
+.ml-desktop-collapse{display:grid!important}
+.ml-countdown-strip{display:flex;position:relative;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;border:1px solid #dfe9e0;border-left:4px solid #bb944e;background:#fff;border-radius:13px;padding:14px 20px;margin:-6px 0 22px;box-shadow:0 4px 16px #143e2610}
+.ml-countdown-label{display:flex;align-items:center;gap:13px;color:#285641;min-width:0}
+.ml-countdown-label>svg{color:#ba933f;flex:none}
+.ml-countdown-label b,.ml-countdown-label small{display:block}
+.ml-countdown-label b{font-size:10px;letter-spacing:.11em;font-weight:850}
+.ml-countdown-label small{font-size:12px;margin-top:4px;color:#768e7c}
+.ml-countdown-value{display:flex;align-items:baseline;gap:7px;color:#1a5436}
+.ml-countdown-value strong{font-size:33px;line-height:1;font-weight:850;letter-spacing:-.06em}
+.ml-countdown-value span{font-size:12px;color:#809288}
+.ml-countdown-progress{position:absolute;left:0;right:0;bottom:0;height:3px;background:#e5ede7;border-radius:0 0 13px 13px;overflow:hidden}
+.ml-countdown-progress span{display:block;height:100%;background:#c69c49;transition:width .3s ease}
+@media(max-width:960px){.ml-sidebar.is-collapsed{width:267px;padding:34px 17px 20px}.ml-sidebar.is-collapsed .ml-sidebar-header{flex-direction:row;margin:0 5px 33px}.ml-sidebar.is-collapsed .ml-sidebar-brand{justify-content:flex-start}.ml-sidebar.is-collapsed .ml-sidebar-brand span,.ml-sidebar.is-collapsed .ml-nav-section,.ml-sidebar.is-collapsed .ml-nav-item>span,.ml-sidebar.is-collapsed .ml-nav-tools summary{display:initial}.ml-sidebar.is-collapsed .ml-nav-item{justify-content:flex-start;gap:14px;padding:14px 16px}.ml-sidebar.is-collapsed .ml-nav-tools summary{display:flex}.ml-sidebar-toggle,.ml-desktop-collapse{display:none!important}}
+@media(max-width:650px){.ml-countdown-strip{margin:0 0 18px;padding:12px 14px}.ml-countdown-label b{font-size:9px}.ml-countdown-value strong{font-size:27px}.ml-topbar .kasa-account-popover{right:0}.ml-top-actions{gap:6px}}

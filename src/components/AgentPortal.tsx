@@ -4,9 +4,9 @@ import {useEffect, useState} from 'react';
 import {onAuthStateChanged} from 'firebase/auth';
 import {useRouter, usePathname} from 'next/navigation';
 import Link from 'next/link';
-import {SidebarScrollControls} from '@/components/SidebarScrollControls';
+import {AccountMenu} from '@/components/AccountMenu';
 import {
-  LayoutDashboard, Users, PlusCircle, BarChart3, User, LogOut, ChevronLeft, ChevronRight,
+  LayoutDashboard, Users, PlusCircle, BarChart3, User, ChevronLeft, ChevronRight,
   Menu, X, MapPin, Award, Wallet, Share2
 } from 'lucide-react';
 import {auth, authHeaders, firebaseConfigured, signOutClient} from '@/lib/firebase-client';
@@ -70,7 +70,7 @@ export function AgentPortal({children}: {children: React.ReactNode}) {
           if (res.ok && data.profile) {
             if (data.profile.role === 'marathon_only'){
               setProfile(null);
-              router.replace('/marthon');
+              router.replace('/marathon');
               return;
             }
             if (data.profile.role !== 'agent' && data.profile.role !== 'super_admin' && data.profile.role !== 'admin') {
@@ -158,17 +158,8 @@ export function AgentPortal({children}: {children: React.ReactNode}) {
           })}
         </nav>
 
-        <SidebarScrollControls targetSelector=".side-links"/>
-        <div className="side-bottom">
-          <button className="side-link" type="button" onClick={toggleSidebar}>
-            <ChevronLeft size={18} style={{transform: collapsed ? 'rotate(180deg)' : undefined}} />
-            {(!collapsed || mobile) && 'Collapse sidebar'}
-          </button>
-          <button className="side-link" onClick={() => void logOut()}>
-            <LogOut size={18} />
-            {(!collapsed || mobile) && 'Sign Out'}
-          </button>
-        </div>
+        
+        
       </aside>
 
       {mounted && mobile && <button className="sidebar-overlay" onClick={() => setMobile(false)} />}
@@ -187,11 +178,7 @@ export function AgentPortal({children}: {children: React.ReactNode}) {
             <span className="muted">{links.find(l => path.startsWith(l.href))?.name || 'Overview'}</span>
           </div>
 
-          <Link href="/dashboard/profile" className="avatar-area" style={{textDecoration: 'none', color: 'inherit'}}>
-            <span className="role-pill">District Agent</span>
-            <div className="mini-avatar">{(profile.displayName || profile.email)[0].toUpperCase()}</div>
-            <span className="profile-name">{profile.displayName || profile.email}</span>
-          </Link>
+          <AccountMenu displayName={profile.displayName||profile.email} email={profile.email} roleLabel="District Agent" profileHref="/dashboard/profile" onSignOut={logOut}/>
         </header>
 
         <div className="portal-main">{children}</div>

@@ -17,6 +17,7 @@ const isolatedDevelopmentDir = activeDevPort
 const nextConfig: NextConfig = {
   distDir: isolatedDevelopmentDir,
   reactStrictMode:true,
+  async redirects(){return [{source:'/marthon/:path*',destination:'/marathon/:path*',permanent:true}];},
   poweredByHeader:false,
   images:{
     remotePatterns:[
