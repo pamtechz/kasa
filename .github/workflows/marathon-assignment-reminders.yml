@@ -3,8 +3,17 @@ name: KASA Marathon afternoon and evening reminders
 on:
   schedule:
     # 13:00 and 18:00 Africa/Lusaka (UTC+02:00). Schedule may start late.
-    - cron: '0 11,16 * * *'
+    - cron: '0 11 * * *'
+    - cron: '0 16 * * *'
   workflow_dispatch:
+    inputs:
+      slot:
+        description: 'Lusaka reminder window (13 or 18)'
+        type: choice
+        required: true
+        options:
+          - '13'
+          - '18'
 
 permissions:
   contents: read
@@ -22,13 +31,22 @@ jobs:
         env:
           CRON_SECRET: ${{ secrets.KASA_MARATHON_CRON_SECRET }}
           REMINDER_URL: https://kasaschool.vercel.app/api/cron/marathon-reminders
+          SCHEDULE: ${{ github.event.schedule }}
+          MANUAL_SLOT: ${{ inputs.slot }}
         run: |
           set -euo pipefail
           if [ -z "${CRON_SECRET}" ]; then
             echo "Missing KASA_MARATHON_CRON_SECRET; set it to the same value as Vercel's production CRON_SECRET."
             exit 1
           fi
+          case "${SCHEDULE}" in
+            '0 11 * * *') SLOT=13 ;;
+            '0 16 * * *') SLOT=18 ;;
+            '') SLOT="${MANUAL_SLOT}" ;;
+            *) echo "Unknown scheduled reminder window"; exit 1 ;;
+          esac
+          if [ "${SLOT}" != 13 ] && [ "${SLOT}" != 18 ]; then echo "Invalid reminder slot"; exit 1; fi
           curl --fail-with-body --silent --show-error --retry 2 --retry-delay 10 --max-time 70 \
             -H "Authorization: Bearer ${CRON_SECRET}" \
-            "${REMINDER_URL}" \
+            "${REMINDER_URL}?slot=${SLOT}" \
             | python3 -c "import json,sys; d=json.load(sys.stdin); assert d.get('ok') is True, 'Reminder endpoint did not confirm success'; print({k:d.get(k) for k in ('ok','slot','actions','recipients','delivered','failed','alreadyProcessed','skipped') if k in d})"
