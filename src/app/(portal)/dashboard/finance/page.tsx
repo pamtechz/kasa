@@ -1,6 +1,8 @@
 'use client';
 
 import {useState, useEffect} from 'react';
+import Link from 'next/link';
+import {FinanceQuoteReconcile} from '@/components/FinanceQuoteReconcile';
 import {
   Wallet, DollarSign, CheckCircle2, Search, Filter, RefreshCw, FileText,
   Plus, Download, ShieldCheck, Building2, CreditCard
@@ -16,6 +18,8 @@ type Summary = {
   totalCdfApproved: number;
   missingFeeQuotes: number;
   financialTotalsPartial: boolean;
+  paymentReconciliationRequired: number;
+  truncated: boolean;
 };
 
 type LedgerItem = {
@@ -46,6 +50,7 @@ export default function FinanceDashboardPage() {
 
   // Payment Recording Modal State
   const [recordingItem, setRecordingItem] = useState<LedgerItem | null>(null);
+  const [quoteItem,setQuoteItem] = useState<LedgerItem|null>(null);
   const [payAmount, setPayAmount] = useState('');
   const [payMethod, setPayMethod] = useState('Bank Deposit');
   const [payReceipt, setPayReceipt] = useState('');
@@ -74,7 +79,7 @@ export default function FinanceDashboardPage() {
   async function handleRecordPayment(e: React.FormEvent) {
     e.preventDefault();
     if (!recordingItem || !can(role,'finance.record') || recordingItem.fundingMethod === 'cdf' ||
-        (recordingItem.totalPackage !== null && recordingItem.outstandingBalance === 0)) return;
+        recordingItem.totalPackage === null || recordingItem.outstandingBalance === 0) return;
     const amount = Number(payAmount);
     if (!Number.isFinite(amount) || amount <= 0) return;
 
@@ -123,16 +128,17 @@ export default function FinanceDashboardPage() {
       <PageHeader
         title="Financial Management & Tuition Ledger"
         subtitle="Manage self-funded tuition payments, record tuition receipts, and monitor revenue ledgers. Enrollment funding approval remains a separate review."
-        action={
+        action={<div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+          <Link className="btn btn-outline" href="/dashboard/finance/tariffs">Approved tariff registry</Link>
           <button className="btn btn-outline" onClick={() => void loadFinanceData()} disabled={loading} style={{display: 'inline-flex', alignItems: 'center', gap: 6}}>
             <RefreshCw size={15} className={loading ? 'spin' : ''} /> Refresh Ledger
           </button>
-        }
+        </div>}
       />
 
       {error && <div className="alert-error" style={{marginBottom: 16}}>{error}</div>}
       {message && <div className="notice" style={{marginBottom: 16}}><CheckCircle2 size={16} /> {message}</div>}
-      {summary?.financialTotalsPartial && <div className="notice" role="status" style={{marginBottom: 16}}>{summary.missingFeeQuotes} application(s) need approved fee reconciliation. Totals below exclude unquoted liabilities. Recorded receipts remain visible.</div>}
+      {summary?.financialTotalsPartial && <div className="notice" role="status" style={{marginBottom: 16}}>{summary.missingFeeQuotes} application(s) need approved fee reconciliation; {summary.paymentReconciliationRequired||0} have invalid payment data.{summary.truncated?' Ledger scan limit reached.':''} Totals below exclude unquoted liabilities and cannot be represented as complete. Previously recorded receipts remain visible.</div>}
 
       {/* Finance Metrics Overview */}
       <div className="metric-grid" style={{marginBottom: 24}}>
@@ -225,7 +231,11 @@ export default function FinanceDashboardPage() {
                       {item.paymentReference ? <code>{item.paymentReference}</code> : <span className="muted">—</span>}
                     </td>
                     <td>
-                      {item.fundingMethod === 'cdf' ? <span className="muted">CDF funding — separate approval</span> : item.totalPackage !== null && item.outstandingBalance === 0 ? <span className="muted">Settled</span> : can(role,'finance.record') ? <button
+                      {item.feeStatus === 'requires_reconciliation' ? can(role,'finance.record') ? <button type="button"
+                        className="btn btn-sm btn-primary" onClick={()=>setQuoteItem(item)}>
+                        Reconcile quote
+                      </button> : <span className="muted">Unquoted</span>
+                    : item.fundingMethod === 'cdf' ? <span className="muted">CDF funding — separate approval</span> : item.outstandingBalance === 0 ? <span className="muted">Settled</span> : can(role,'finance.record') ? <button
                         type="button"
                         className="btn btn-sm btn-primary"
                         onClick={() => {
@@ -247,6 +257,8 @@ export default function FinanceDashboardPage() {
         </div>
       </div>
 
+      {quoteItem && can(role,'finance.record') && <FinanceQuoteReconcile item={quoteItem}
+        onClose={()=>setQuoteItem(null)} onSaved={loadFinanceData}/>}
       {/* RECORD PAYMENT MODAL PAGE */}
       {recordingItem && can(role,'finance.record') && (
         <div className="modal-page-overlay" role="dialog" aria-modal="true">
