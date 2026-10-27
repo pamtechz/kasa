@@ -75,10 +75,10 @@ test('Marathon CI imports do not initialize Firebase Admin services',()=>{
  assert.match(auth,/export function marathonCollection\(\)/);
 });
 test('Marathon shares one KASA login and redirects only after server-verified role lookup',()=>{
- const redirect=source('src/app/marthon/login/page.tsx');
+ const redirect=source('src/app/marathon/login/page.tsx');
  const login=source('src/app/(site)/login/page.tsx');
  const routing=source('src/lib/workspace-routing.ts');
- assert.match(redirect,/redirect\('\/login\?next=%2Fmarthon'\)/);
+ assert.match(redirect,/redirect\('\/login\?next=%2Fmarathon'\)/);
  assert.doesNotMatch(redirect,/signInWithEmailAndPassword/);
  assert.match(login,/signInWithEmailAndPassword\(firebaseAuth,/);
  assert.match(login,/sendEmailVerification\(credential\.user\)/);
