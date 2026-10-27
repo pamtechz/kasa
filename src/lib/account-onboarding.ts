@@ -3,25 +3,30 @@ import {randomBytes} from 'node:crypto';
 import {adminAuth,db} from '@/lib/firebase-admin';
 import {HttpError} from '@/lib/errors';
 import type {Profile,Role} from '@/lib/types';
+import {validateInitialPassword} from '@/lib/admin-initial-password';
 
 /** A single Auth user + a single School profile, shared by Marathon.
  * Never set emailVerified=true on an administrator's assertion.
  */
 export async function ensureSchoolIdentity(input:{
  email:string;displayName?:string;schoolRole?:Role;actorUid:string;
+ initialPassword?:string;requireExistingOrPassword?:boolean;
 }):Promise<{uid:string;profile:Profile;authCreated:boolean;profileCreated:boolean;verificationPending:boolean;onboardingEmailSent:boolean}>{
  const email=input.email.trim().toLowerCase();
  const displayName=(input.displayName||'').trim();
+ if(input.initialPassword!==undefined)validateInitialPassword(input.initialPassword);
  let user;
  let authCreated=false;
  try{user=await adminAuth.getUserByEmail(email);}
  catch(error){
   if((error as {code?:string}).code!=='auth/user-not-found')throw error;
+  if(input.requireExistingOrPassword&&!input.initialPassword)
+   throw new HttpError(400,'A strong initial password is required for a new Marathon-only member. Existing School accounts need no new password.');
   try{
    // Unique unshared random credential; recipient chooses their own through reset.
    user=await adminAuth.createUser({
     email,emailVerified:false,displayName:displayName||undefined,
-    password:randomBytes(48).toString('base64url'),disabled:false
+    password:input.initialPassword||randomBytes(48).toString('base64url'),disabled:false
    });
    authCreated=true;
   }catch(createError){
@@ -30,6 +35,8 @@ export async function ensureSchoolIdentity(input:{
    user=await adminAuth.getUserByEmail(email);
   }
  }
+ if(!authCreated&&input.initialPassword)
+  throw new HttpError(409,'This email already has a KASA identity. Link its existing account; use the separate Set initial password editor only if credential replacement is necessary.');
  const profileRef=db.collection('profiles').doc(user.uid);
  const now=new Date().toISOString();
  const profileCreated=await db.runTransaction(async tx=>{
@@ -43,7 +50,8 @@ export async function ensureSchoolIdentity(input:{
    uid:user.uid,email,displayName:displayName||user.displayName||email.split('@')[0],
    role:input.schoolRole||'student',active:true,createdAt:now,updatedAt:now
   };
-  tx.create(profileRef,{...profile,createdBy:input.actorUid});
+  tx.create(profileRef,{...profile,createdBy:input.actorUid,
+   ...(authCreated&&input.initialPassword?{adminPasswordProvisionedAt:now,mustChangePassword:true}:{})});
   return true;
  });
  const finalSnap=await profileRef.get();
@@ -53,7 +61,7 @@ export async function ensureSchoolIdentity(input:{
  // here, or when an unfinished provisioning action is completed by retry.
  // Do not send a password reset to existing verified accounts.
  let onboardingEmailSent=false;
- if(!user.emailVerified&&(authCreated||profileCreated))
+ if(!input.initialPassword&&!user.emailVerified&&(authCreated||profileCreated))
   onboardingEmailSent=await sendPasswordSetupEmail(email);
  return {uid:user.uid,profile,authCreated,profileCreated,
   verificationPending:!user.emailVerified,onboardingEmailSent};
