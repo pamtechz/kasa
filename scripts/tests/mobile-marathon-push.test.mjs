@@ -4,12 +4,12 @@ import {readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 const read=(path)=>readFileSync(resolve(process.cwd(),path),'utf8');
 
-test('all School sidebars have visible scroll controls and an independently scrollable menu',()=>{
+test('all School and Marathon sidebars scroll natively without redundant arrow buttons',()=>{
  for(const file of ['Portal.tsx','StudentPortal.tsx','AgentPortal.tsx']){
-  assert.match(read('src/components/'+file),/SidebarScrollControls targetSelector="\.side-links"/);
+  assert.doesNotMatch(read('src/components/'+file),/SidebarScrollControls/);
  }
  assert.match(read('src/app/globals.css'),/\.sidebar \.side-links\{flex:1 1 auto;min-height:0;overflow-y:auto/);
- assert.match(read('src/components/marathon/MarathonWorkspace.tsx'),/SidebarScrollControls targetSelector="\.ml-sidebar-scroll"/);
+ assert.doesNotMatch(read('src/components/marathon/MarathonWorkspace.tsx'),/SidebarScrollControls/);
  assert.match(read('src/app/marthon/marathon.css'),/\.ml-sidebar-scroll\{flex:1 1 auto;min-height:0;overflow-y:auto/);
 });
 
