@@ -1,3 +1,4 @@
+import {readApprovedFeeQuote} from '@/lib/approved-fee-quote';
 import {loadCustomAcceptancePdf} from '@/lib/custom-acceptance-pdf';
 import {authorizeSubmissionDocument} from '@/lib/submission-access';
 import {db} from '@/lib/firebase-admin';
@@ -23,6 +24,15 @@ export async function GET(req: Request, {params}: {params: Promise<{id: string}>
       throw new HttpError(403,'This application does not yet have an approved or conditional acceptance letter.');
     }
 
+    const approvedFee = readApprovedFeeQuote(data.feeQuote);
+    if (!approvedFee) throw new HttpError(409,'An approved documented fee quote is required before an acceptance pack can be generated.');
+    const money = (amount:number) => 'K' + amount.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const academicFees = money(approvedFee.tuition + approvedFee.practical + approvedFee.administration);
+    const boardingMealsFees = money(approvedFee.accommodation + approvedFee.food);
+    const totalFees = money(approvedFee.total);
+    const approvedBreakdown = {...approvedFee,approvalReference:String(data.feeQuote?.approvalReference||''),
+     version:approvedFee.version};
+    
     const answers = data.answers || {};
 
     let letterConfig: AcceptanceLetterConfig = defaultAcceptanceLetterConfig;
@@ -69,17 +79,10 @@ export async function GET(req: Request, {params}: {params: Promise<{id: string}>
     const isShort = programme.toLowerCase().includes('short');
     const category = isTeve ? 'General Agriculture (TEVETA)' : isShort ? 'Independent short course' : 'Agri-Sport';
 
-    let academicFees = 'K8,200 (6 Months)';
-    if (programme.includes('K4,700') || programme.includes('K4,800')) academicFees = 'K4,800 (3 Months)';
-    else if (programme.includes('K8,000')) academicFees = 'K8,000 (6 Months)';
-    else if (programme.includes('K2,600')) academicFees = 'K2,600 (8 Weeks)';
-    else if (programme.includes('K3,000')) academicFees = 'K3,000 (8 Weeks)';
-    else if (programme.includes('K3,100')) academicFees = 'K3,100 (8 Weeks)';
-    else if (programme.includes('K2,500')) academicFees = 'K2,500 (8 Weeks)';
-    else if (programme.includes('K3,500')) academicFees = 'K3,500 (8 Weeks)';
+    // Attendance is selected from the independently reconciled package, never
+    // used to infer prices from student-entered text.
+    const isBoarding = String(data.feeQuote?.packageId||'').includes('boarding');
 
-    const isBoarding = String(answers['package-option'] || answers['boarding-preference'] || answers['attendance'] || '').toLowerCase().includes('boarding');
-    const totalFees = isBoarding ? 'K17,200 (Full Package)' : academicFees;
 
     const packData: AcceptancePackData = {
       reference: data.reference,
@@ -97,9 +100,10 @@ export async function GET(req: Request, {params}: {params: Promise<{id: string}>
       reportingTime: '08:00 - 15:00 hrs',
       acceptanceDeadline: '14 days from issue date',
       academicFees,
-      boardingMealsFees: isBoarding ? 'K9,000 (Meals & Bed Space)' : 'K0.00 (Day scholar)',
+      boardingMealsFees,
       totalFees,
-      initialPayment: isBoarding ? '40% registration deposit' : 'Refer to 2027 schedule',
+      initialPayment: 'Per approved payment agreement',
+      approvedBreakdown,
       signatory: letterConfig.letter.signatory || 'Authorised Admissions Officer',
       signatoryTitle: letterConfig.letter.signatoryTitle || 'Admissions Directorate / Registrar',
       fundingMethod: data.fundingMethod || 'CDF',
