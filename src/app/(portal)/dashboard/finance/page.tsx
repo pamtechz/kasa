@@ -2,7 +2,6 @@
 
 import {useState, useEffect} from 'react';
 import Link from 'next/link';
-import {FinanceQuoteReconcile} from '@/components/FinanceQuoteReconcile';
 import {
   Wallet, DollarSign, CheckCircle2, Search, Filter, RefreshCw, FileText,
   Plus, Download, ShieldCheck, Building2, CreditCard
@@ -48,15 +47,6 @@ export default function FinanceDashboardPage() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
-  // Payment Recording Modal State
-  const [recordingItem, setRecordingItem] = useState<LedgerItem | null>(null);
-  const [quoteItem,setQuoteItem] = useState<LedgerItem|null>(null);
-  const [payAmount, setPayAmount] = useState('');
-  const [payMethod, setPayMethod] = useState('Bank Deposit');
-  const [payReceipt, setPayReceipt] = useState('');
-  const [payNote, setPayNote] = useState('');
-  const [recordingBusy, setRecordingBusy] = useState(false);
-
   const loadFinanceData = async () => {
     setLoading(true);
     try {
@@ -75,41 +65,6 @@ export default function FinanceDashboardPage() {
     void loadFinanceData();
     void api<{profile:{role:Role}}>('/api/me').then(v=>setRole(v.profile.role)).catch(()=>setRole(null));
   }, []);
-
-  async function handleRecordPayment(e: React.FormEvent) {
-    e.preventDefault();
-    if (!recordingItem || !can(role,'finance.record') || recordingItem.fundingMethod === 'cdf' ||
-        recordingItem.totalPackage === null || recordingItem.outstandingBalance === 0) return;
-    const amount = Number(payAmount);
-    if (!Number.isFinite(amount) || amount <= 0) return;
-
-    setRecordingBusy(true);
-    setError('');
-    setMessage('');
-    try {
-      const res = await api<{ok: boolean; message: string}>('/api/admin/finance', {
-        method: 'POST',
-        body: JSON.stringify({
-          submissionId: recordingItem.id,
-          amountPaid: amount,
-          paymentMethod: payMethod,
-          receiptReference: payReceipt,
-          note: payNote
-        })
-      });
-
-      setMessage(res.message);
-      setRecordingItem(null);
-      setPayAmount('');
-      setPayReceipt('');
-      setPayNote('');
-      await loadFinanceData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to record payment.');
-    } finally {
-      setRecordingBusy(false);
-    }
-  }
 
   const filteredLedger = ledger.filter(item => {
     if (fundingFilter !== 'all' && item.fundingMethod !== fundingFilter) return false;
@@ -231,23 +186,14 @@ export default function FinanceDashboardPage() {
                       {item.paymentReference ? <code>{item.paymentReference}</code> : <span className="muted">—</span>}
                     </td>
                     <td>
-                      {item.feeStatus === 'requires_reconciliation' ? can(role,'finance.record') ? <button type="button"
-                        className="btn btn-sm btn-primary" onClick={()=>setQuoteItem(item)}>
+                      {item.feeStatus === 'requires_reconciliation' ? can(role,'finance.record') ? <Link
+                        className="btn btn-sm btn-primary" href={'/dashboard/finance/'+encodeURIComponent(item.id)+'/reconcile'}>
                         Reconcile quote
-                      </button> : <span className="muted">Unquoted</span>
-                    : item.fundingMethod === 'cdf' ? <span className="muted">CDF funding — separate approval</span> : item.outstandingBalance === 0 ? <span className="muted">Settled</span> : can(role,'finance.record') ? <button
-                        type="button"
-                        className="btn btn-sm btn-primary"
-                        onClick={() => {
-                          setRecordingItem(item);
-                          setPayAmount('');
-                          setPayReceipt('');
-                          setPayNote('');
-                        }}
-                        style={{padding: '4px 10px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4}}
-                      >
-                        <Plus size={13} /> Record Payment
-                      </button> : <span className="muted">Read only</span>}
+                      </Link> : <span className="muted">Unquoted</span>
+                    : item.fundingMethod === 'cdf' ? <span className="muted">CDF funding — separate approval</span> : item.outstandingBalance === 0 ? <span className="muted">Settled</span> : can(role,'finance.record') ? <Link className="btn btn-sm btn-primary" href={'/dashboard/finance/'+encodeURIComponent(item.id)+'/receipt'}
+                        style={{padding:'4px 10px',fontSize:12,display:'inline-flex',alignItems:'center',gap:4}}>
+                        <Plus size={13}/> Record payment
+                      </Link> : <span className="muted">Read only</span>}
                     </td>
                   </tr>
                 ))
@@ -257,96 +203,6 @@ export default function FinanceDashboardPage() {
         </div>
       </div>
 
-      {quoteItem && can(role,'finance.record') && <FinanceQuoteReconcile item={quoteItem}
-        onClose={()=>setQuoteItem(null)} onSaved={loadFinanceData}/>}
-      {/* RECORD PAYMENT MODAL PAGE */}
-      {recordingItem && can(role,'finance.record') && (
-        <div className="modal-page-overlay" role="dialog" aria-modal="true">
-          <div className="modal-page" style={{maxWidth: 620}}>
-            <header className="modal-page-header">
-              <div className="modal-page-header-left">
-                <span className="modal-page-badge">FINANCIAL RECEIPT RECORD</span>
-                <h2>Record Tuition Payment: {recordingItem.reference}</h2>
-              </div>
-              <button type="button" className="icon-btn" onClick={() => setRecordingItem(null)} aria-label="Close">
-                ✕
-              </button>
-            </header>
-
-            <form onSubmit={e => void handleRecordPayment(e)} style={{display: 'flex', flexDirection: 'column', flex: 1}}>
-              <div className="modal-page-body">
-                <div className="modal-page-card">
-                  <h3><DollarSign size={18} /> Student & Package Summary</h3>
-                  <div style={{background: '#f8faf9', padding: 14, borderRadius: 10, border: '1px solid var(--border)', marginBottom: 16, fontSize: 13, lineHeight: 1.6}}>
-                    Student Name: <strong>{recordingItem.studentName}</strong><br />
-                    Course: <strong>{recordingItem.programme}</strong><br />
-                    Total Package Fee: <strong>{recordingItem.totalPackage === null ? 'Requires reconciliation' : `ZMW ${recordingItem.totalPackage.toLocaleString('en-US', {minimumFractionDigits: 2})}`}</strong><br />
-                    Total Paid to Date: <strong>ZMW {recordingItem.paidAmount.toLocaleString('en-US', {minimumFractionDigits: 2})}</strong><br />
-                    Remaining Balance: <strong style={{color: 'var(--green)'}}>{recordingItem.outstandingBalance === null ? 'Not confirmed' : `ZMW ${recordingItem.outstandingBalance.toLocaleString('en-US', {minimumFractionDigits: 2})}`}</strong>
-                  </div>
-
-                  <p className="field-hint">Enter only the amount verified against the actual payment receipt. No amount is suggested where fees need reconciliation.</p>
-                  <div className="form-grid">
-                    <div className="field">
-                      <label>Payment Amount (ZMW) *</label>
-                      <input
-                        type="number"
-                        min="1"
-                        step="0.01"
-                        required
-                        value={payAmount}
-                        onChange={e => setPayAmount(e.target.value)}
-                      />
-                    </div>
-
-                    <div className="field">
-                      <label>Payment Method *</label>
-                      <select value={payMethod} onChange={e => setPayMethod(e.target.value)}>
-                        <option value="Bank Deposit">Bank Deposit / Teller</option>
-                        <option value="Bank Transfer">Direct Bank Transfer</option>
-                        <option value="MTN Mobile Money">MTN Mobile Money</option>
-                        <option value="Airtel Money">Airtel Money</option>
-                        <option value="Zamtel Kwacha">Zamtel Kwacha</option>
-                        <option value="Cash Receipt">Cash Receipt</option>
-                      </select>
-                    </div>
-
-                    <div className="field full">
-                      <label>Receipt / Bank Reference Number *</label>
-                      <input
-                        required
-                        placeholder="E.g. ZNCO-89A12B34 or MTN-20271016-99"
-                        value={payReceipt}
-                        onChange={e => setPayReceipt(e.target.value)}
-                      />
-                      <small className="field-hint">Bank deposit slip reference or mobile money transaction ID.</small>
-                    </div>
-
-                    <div className="field full">
-                      <label>Finance Notes (optional)</label>
-                      <textarea
-                        rows={2}
-                        placeholder="Record teller notes or bank deposit verification details..."
-                        value={payNote}
-                        onChange={e => setPayNote(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <footer className="modal-page-footer">
-                <button type="button" className="btn btn-outline" onClick={() => setRecordingItem(null)}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={recordingBusy || !payAmount || !payReceipt.trim()}>
-                  <Wallet size={16} /> {recordingBusy ? 'Recording Payment…' : 'Confirm & Save Payment'}
-                </button>
-              </footer>
-            </form>
-          </div>
-        </div>
-      )}
     </>
   );
 }
