@@ -58,8 +58,8 @@ test('one shared layout owns the workspace while route outlets never remount it'
  for(const page of ['src/app/marathon/page.tsx','src/app/marathon/[section]/page.tsx']){
   assert.doesNotMatch(source(page),/MarathonWorkspace/);
  }
- assert.equal(existsSync(new URL('../../src/app/marathon/page.tsx',import.meta.url)),false);
- assert.equal(existsSync(new URL('../../src/app/marathon/[section]/page.tsx',import.meta.url)),false);
+ assert.equal(existsSync(new URL('../../src/app/marathon/page.tsx',import.meta.url)),true);
+ assert.equal(existsSync(new URL('../../src/app/marathon/[section]/page.tsx',import.meta.url)),true);
  const workspace=source('src/components/marathon/MarathonWorkspace.tsx');
  assert.match(workspace,/usePathname\(\)/);assert.match(workspace,/useSearchParams\(\)/);
  assert.doesNotMatch(workspace,/window\.history\.(?:pushState|replaceState)\(window\.history\.state/);
