@@ -10,13 +10,27 @@ export async function GET(req: Request) {
   try {
     await requireCapability(req,'finance.read');
 
-    const snap = await db.collection('submissions').where('formKind', '==', 'student').limit(500).get();
-    const docs = snap.docs.map(d => ({id: d.id, ...d.data()}));
+    // Read all pages; reporting just the first 500 can materially understate liabilities.
+    // Bound the scan and expose incomplete results rather than inventing a full total.
+    const docs: Array<Record<string, any>> = [];
+    let cursor: FirebaseFirestore.QueryDocumentSnapshot | undefined;
+    let truncated = false;
+    for (let page = 0; page < 40; page++) {
+      let query = db.collection('submissions').where('formKind', '==', 'student')
+        .orderBy('__name__').limit(250);
+      if (cursor) query = query.startAfter(cursor);
+      const snap = await query.get();
+      docs.push(...snap.docs.map(d => ({id: d.id, ...d.data()})));
+      if (snap.size < 250) break;
+      cursor = snap.docs[snap.docs.length - 1];
+      if (page === 39) truncated = true;
+    }
 
     let totalRevenueExpected = 0;
     let totalPaymentsReceived = 0;
     let totalCdfApproved = 0;
     let missingFeeQuotes = 0;
+    let paymentReconciliationRequired = 0;
     let outstandingBalance = 0;
 
     const studentLedger = docs.map((x: any) => {
@@ -29,8 +43,12 @@ export async function GET(req: Request) {
       const totalPackage = quote?.total ?? null;
       if (totalPackage === null) missingFeeQuotes++;
       else totalRevenueExpected += totalPackage;
-      const recorded = Number(x.paymentVerification?.amount);
-      const paidAmount = Number.isFinite(recorded) && recorded >= 0 ? recorded : 0;
+      const rawPaid = x.paymentVerification?.amount;
+      const recorded = rawPaid == null ? 0 : Number(rawPaid);
+      const paymentValid = Number.isFinite(recorded) && recorded >= 0 &&
+        Math.abs(Math.round(recorded * 100) - recorded * 100) < 0.000001;
+      if (!paymentValid) paymentReconciliationRequired++;
+      const paidAmount = paymentValid ? recorded : 0;
       totalPaymentsReceived += paidAmount;
       const cdfApproved = x.fundingMethod === 'cdf' && ['cdf_approved','commission_paid'].includes(x.status);
       if (cdfApproved && totalPackage !== null) totalCdfApproved += totalPackage;
@@ -61,7 +79,9 @@ export async function GET(req: Request) {
         outstandingBalance,
         totalCdfApproved,
         missingFeeQuotes,
-        financialTotalsPartial: missingFeeQuotes > 0
+        paymentReconciliationRequired,
+        truncated,
+        financialTotalsPartial: missingFeeQuotes > 0 || paymentReconciliationRequired > 0 || truncated
       },
       ledger: studentLedger
     });
@@ -115,7 +135,8 @@ export async function POST(req: Request) {
       // Never allow a receipt to exceed a valid contractual quote. Unknown
       // historic quotes remain visible for staff reconciliation, not guessed.
       const approvedQuote = readApprovedFeeQuote(app.feeQuote);
-      if (approvedQuote && Math.round(newPaidTotal * 100) > Math.round(approvedQuote.total * 100)) {
+      if (!approvedQuote) throw new HttpError(409, 'Approve and reconcile the application fee quote before accepting a new tuition receipt.');
+      if (Math.round(newPaidTotal * 100) > Math.round(approvedQuote.total * 100)) {
         throw new HttpError(409, 'Receipt would exceed the approved programme fee. Reconcile the application before recording this amount.');
       }
       reference = String(app.reference || '');
