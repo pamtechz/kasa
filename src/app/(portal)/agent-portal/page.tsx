@@ -245,8 +245,8 @@ export default function AgentPortalDashboard() {
                     <td>{entry.district}</td>
                     <td><strong>{entry.confirmedEnrollments}</strong> students</td>
                     <td>
-                      <span className="tag tag-gold" style={{fontSize: 12}}>
-                        {entry.badgeEmoji} {entry.tier}
+                      <span className={"tag tag-gold agent-tier-label agent-tier-"+entry.tier.toLowerCase()} style={{fontSize: 12}}>
+                        {entry.tier === 'Diamond' ? <Gem size={15} aria-hidden="true"/> : <Medal size={15} aria-hidden="true"/>} {entry.tier}
                       </span>
                     </td>
                     <td>
