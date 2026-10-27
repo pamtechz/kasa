@@ -6,19 +6,24 @@ import type {Profile} from '@/lib/types';
 import {marathonSuggestionsPage} from '@/lib/marathon-suggestions';
 import seed from '@/data/marathon-seed.json';
 import {checklistSourceInfo} from '@/lib/marathon-seed-import';
+import {canAssignMarathonTasks} from '@/lib/marathon-assignment';
 
 export const runtime='nodejs';
 export async function GET(req:Request){
  try{
   const identity=await marathonIdentity(req);
-  const [tasks,meta,suggestions,profiles]=await Promise.all([
+  const [tasks,meta,suggestions,profiles,superProfiles]=await Promise.all([
    db.collection('marathonTasks').limit(500).get(),
    db.collection('marathonMeta').doc('source').get(),
    marathonSuggestionsPage(identity),
    // Super admin manages the second role from this Marathon page, but all roles
    // are stored only in the existing KASA School profiles collection.
-   canManage(identity.role)
+   canAssignMarathonTasks(identity.role)
     ?db.collection('profiles').where('marathonAccess.role','in',[...marathonRoles]).limit(300).get()
+    :Promise.resolve(null),
+   // The School super administrator inherits Marathon access without any secondary role.
+   canAssignMarathonTasks(identity.role)
+    ?db.collection('profiles').where('role','==','super_admin').limit(50).get()
     :Promise.resolve(null)
   ]);
   return json({
@@ -27,12 +32,15 @@ export async function GET(req:Request){
    meta:meta.data()||null,
    source:checklistSourceInfo(seed),
    ...suggestions,
-   members:profiles?profiles.docs.map(d=>{
+   members:profiles?[...new Map([...profiles.docs,...(superProfiles?.docs||[])].map(doc=>[doc.id,doc])).values()].map(d=>{
     const p=d.data() as Profile;
     return {uid:d.id,email:p.email,displayName:p.displayName,schoolRole:p.role,
-      role:p.marathonAccess?.role,schoolActive:p.role!=='marathon_only'&&p.active===true,marathonActive:p.marathonAccess?.active===true,active:p.role!=='student'&&p.active===true&&p.marathonAccess?.active===true};
+      role:p.role==='super_admin'?'super_admin':p.marathonAccess?.role,
+      schoolActive:p.role!=='marathon_only'&&p.active===true,
+      marathonActive:p.role==='super_admin'?p.active===true:p.marathonAccess?.active===true,
+      active:p.role!=='student'&&p.active===true&&(p.role==='super_admin'||p.marathonAccess?.active===true)};
    }):[],
-   permissions:{edit:canEdit(identity.role),review:canReview(identity.role),
+   permissions:{edit:canEdit(identity.role),assign:canAssignMarathonTasks(identity.role),review:canReview(identity.role),
     manage:canManage(identity.role),super:identity.role==='super_admin'}
   });
  }catch(e){return fail(e);}

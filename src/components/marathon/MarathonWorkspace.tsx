@@ -23,6 +23,8 @@ import {MarathonSyncReview} from './MarathonSyncReview';
 import {MarathonSeedImport} from './MarathonSeedImport';
 import {MarathonCategoryBoard} from './MarathonCategoryBoard';
 import {MarathonAlertCenter} from './MarathonAlertCenter';
+import {MarathonAssignmentPanel} from './MarathonAssignmentPanel';
+import {MarathonConfirmationPrompt} from './MarathonConfirmationPrompt';
 import {MarathonQuickViews} from './MarathonQuickViews';
 import {marathonCategories,categoryForSection,categoryForId,isMarathonCategoryId,isMarathonCategorySection,groupMarathonCategories,matchesMarathonFilters,marathonToday,marathonFocusCounts} from '@/lib/marathon-categories';
 import type {MarathonFocus} from '@/lib/marathon-categories';
@@ -35,10 +37,10 @@ type Identity={uid:string;email:string;displayName:string;schoolRole:string;role
 type Suggestion={id:string;taskId:string;recommendation:string;proposedStatus?:MarathonStatus;status:string;createdBy:string;createdName:string;createdAt:string};
 type Member={uid:string;email:string;displayName:string;schoolRole:string;role:MarathonRole;schoolActive:boolean;marathonActive:boolean;active:boolean};
 type EventItem={id:string;action:string;actor:string;at:string;taskId?:string;targetUid?:string;changes?:Record<string,unknown>};
-type Permissions={edit:boolean;review:boolean;manage:boolean;super:boolean};
+type Permissions={edit:boolean;assign:boolean;review:boolean;manage:boolean;super:boolean};
 type Bootstrap={source?:MarathonSeedInfo;identity:Identity;tasks:MarathonTask[];meta:Record<string,unknown>|null;suggestions:Suggestion[];nextSuggestionCursor?:string|null;members:Member[];permissions:Permissions};
 type EditChanges=Partial<Pick<MarathonTask,'title'|'lead'|'section'|'dueDate'|'priority'|'importance'|'status'|'nextStep'|'notes'|'evidence'|'completedAt'|'archived'>>;
-const blank:Bootstrap={identity:{uid:'',email:'',displayName:'',schoolRole:'marathon_only',role:'kasaClient'},tasks:[],meta:null,suggestions:[],members:[],permissions:{edit:false,review:false,manage:false,super:false}};
+const blank:Bootstrap={identity:{uid:'',email:'',displayName:'',schoolRole:'marathon_only',role:'kasaClient'},tasks:[],meta:null,suggestions:[],members:[],permissions:{edit:false,assign:false,review:false,manage:false,super:false}};
 const statusLabels:Record<MarathonStatus,string>={todo:'Not started',doing:'In progress',blocked:'Blocked',done:'Completed'};
 const roles=['kasaAdmin','kasaOperations','kasaEditor','kasaReviewer','kasaClient'] as const;
 const nav=[{view:'overview' as View,label:'Home',icon:LayoutDashboard},{view:'operations' as View,label:'Checklist',icon:ClipboardCheck},{view:'categories' as View,label:'Categories',icon:Layers3},
@@ -80,7 +82,7 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
  const [alertsOpen,setAlertsOpen]=useState(false);
  const [saving,setSaving]=useState(false),[query,setQuery]=useState(''),[filterStatus,setFilterStatus]=useState('all');
  const [filterPriority,setFilterPriority]=useState('all'),[filterLead,setFilterLead]=useState('all');
- const [focus,setFocus]=useState<MarathonFocus>('all'),[filtersOpen,setFiltersOpen]=useState(false);
+ const [focus,setFocus]=useState<MarathonFocus>('all'),[filtersOpen,setFiltersOpen]=useState(false),[onlyMine,setOnlyMine]=useState(false);
  const categoryParam=searchParams.get('category');
  const filterCategory=isMarathonCategoryId(categoryParam)?categoryParam:'all';
  const [events,setEvents]=useState<EventItem[]>([]);
@@ -271,9 +273,9 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
   window.history.replaceState(null,'',url.pathname+url.search+url.hash);
  }
  const uncategorizedCount=active.filter(t=>categoryForSection(t.section).id==='uncategorized').length;
- const filtered=useMemo(()=>sortTasks(tasks.filter(t=>matchesMarathonFilters(t,{
+ const filtered=useMemo(()=>sortTasks(tasks.filter(t=>(!onlyMine||Boolean(t.assigneeUids?.includes(uid)))&&matchesMarathonFilters(t,{
   category:filterCategory,status:filterStatus,priority:filterPriority,lead:filterLead,query,focus,today
- }))),[tasks,filterCategory,filterStatus,filterPriority,filterLead,query,focus,today]);
+ }))),[tasks,filterCategory,filterStatus,filterPriority,filterLead,query,focus,today,onlyMine,uid]);
  const focusBase=useMemo(()=>tasks.filter(t=>matchesMarathonFilters(t,{category:filterCategory,priority:filterPriority,lead:filterLead,query})),[tasks,filterCategory,filterPriority,filterLead,query]);
  const focusCounts=useMemo(()=>marathonFocusCounts(focusBase,today),[focusBase,today]);
  const allFocusCounts=useMemo(()=>marathonFocusCounts(tasks,today),[tasks,today]);
@@ -282,7 +284,7 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
  function clearTaskFilters(nextFocus:MarathonFocus='all'){
   setFocus(nextFocus);setFilterStatus('all');setFilterPriority('all');setFilterLead('all');setQuery('');
  }
- function resetTaskView(){clearTaskFilters();selectCategory('all');}
+ function resetTaskView(){clearTaskFilters();selectCategory('all');setOnlyMine(false);}
  function showActions(nextFocus:MarathonFocus){
   clearTaskFilters(nextFocus);setMobile(false);window.history.pushState(null,'','/marathon/operations');
  }
@@ -406,7 +408,9 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
     {!!notice&&<div className="ml-notice" role="status"><span>{notice}</span><button onClick={()=>setNotice('')} aria-label="Dismiss notification"><X size={17}/></button></div>}
     {!!authError&&uid&&<div className="ml-notice ml-warning"><AlertTriangle size={17}/>{authError}</div>}
     {offline&&<div className="ml-offline-notice"><CloudOff size={17}/> You are viewing cached operations. Changes to existing tasks are stored on this device until connectivity returns.</div>}
+    {!offline&&uid&&<MarathonConfirmationPrompt uid={uid} tasks={tasks} onConfirmed={()=>void refresh()} onError={setNotice}/>}
     {(drawer||newTask)?<div className="ml-task-editor-page">
+      {drawer&&<MarathonAssignmentPanel task={drawer} members={state.members} currentUid={uid} canAssign={state.permissions.assign} offline={offline} onSaved={updated=>{setDrawer(updated);setState(s=>({...s,tasks:s.tasks.map(t=>t.id===updated.id?updated:t)}));setNotice('Task assignments saved. New members with registered devices will receive push notifications.');}} onConfirmed={()=>void refresh()} onError={setNotice}/>}
       {drawer&&<TaskDrawer key={drawer.id} task={drawer} editable={state.permissions.edit} saving={saving} queued={pending.includes(drawer.id)} onClose={closeTaskPage} onSave={changes=>void changeTask(drawer,changes)} onRecommend={()=>{setSuggestTask(drawer.id);closeTaskPage();router.push('/marathon/recommendations');}}/>}
       {newTask&&<NewTaskModal initialSection={filterCategory==='all'?'':categoryForId(filterCategory).section} saving={saving} onClose={closeTaskPage} onSave={x=>void createTask(x)}/>}
      </div>:<>
@@ -431,12 +435,12 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
      <MarathonCategoryBoard tasks={active}/>
     </>}
     {view==='operations'&&<>
-     <div className="ml-heading-row"><div><span className="ml-eyebrow">WORKSTREAM MANAGEMENT</span><h1>Checklist</h1><p>Choose a quick view, find an action and record your progress.</p></div><div className="ml-heading-actions"><button className="ml-secondary" onClick={exportCSV}><Download size={17}/> Export</button>{state.permissions.edit&&<button className="ml-primary" onClick={()=>setNewTask(true)}><Plus size={17}/> New action</button>}</div></div>
+     <div className="ml-heading-row"><div><span className="ml-eyebrow">WORKSTREAM MANAGEMENT</span><h1>Checklist</h1><p>Choose a quick view, find an action and record your progress.</p></div><div className="ml-heading-actions"><button className="ml-secondary" onClick={exportCSV}><Download size={17}/> Export</button>{state.permissions.edit&&<button className="ml-primary" onClick={openCreatePage}><Plus size={17}/> New action</button>}</div></div>
      <div className="ml-mini-stats"><span><i className="ml-legend-dot green"/>{complete} completed</span><span><i className="ml-legend-dot blue"/>{inProgress} in progress</span><span><i className="ml-legend-dot amber"/>{overdue} overdue</span><span>{active.length} total</span></div>
      <MarathonQuickViews focus={focus} counts={focusCounts} onChange={next=>{setFocus(next);setFilterStatus('all');}}/>
      {focus==='attention'&&<p className="ml-view-help">Open actions marked P1, blocked actions, and actions past their due date.</p>}
      {focus==='week'&&<p className="ml-view-help">Open actions due today or in the following six days, using Lusaka time.</p>}
-     <div className="ml-filterbar"><div className="ml-search"><Search size={18}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search actions, IDs, owners…" aria-label="Search actions"/></div><select className="ml-category-select" value={filterCategory} onChange={e=>selectCategory(e.target.value)} aria-label="Filter by category"><option value="all">All categories</option>{marathonCategories.map(c=><option key={c.id} value={c.id}>{String(c.order).padStart(2,'0')} · {c.label}</option>)}{uncategorizedCount>0&&<option value="uncategorized">Needs a category</option>}</select><button className="ml-secondary ml-filter-toggle" aria-expanded={filtersOpen} aria-controls="ml-extra-filters" onClick={()=>setFiltersOpen(open=>!open)}><SlidersHorizontal size={16}/> More filters {extraFilterCount>0&&<b>{extraFilterCount}</b>}</button>{hasFilters&&<button className="ml-clear-filters" onClick={resetTaskView}>Reset filters</button>}</div>
+     <div className="ml-filterbar"><div className="ml-search"><Search size={18}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search actions, IDs, owners…" aria-label="Search actions"/></div><select className="ml-category-select" value={filterCategory} onChange={e=>selectCategory(e.target.value)} aria-label="Filter by category"><option value="all">All categories</option>{marathonCategories.map(c=><option key={c.id} value={c.id}>{String(c.order).padStart(2,'0')} · {c.label}</option>)}{uncategorizedCount>0&&<option value="uncategorized">Needs a category</option>}</select><button className={'ml-secondary'+(onlyMine?' ml-selected':'')} aria-pressed={onlyMine} onClick={()=>setOnlyMine(v=>!v)}><Users size={16}/> My assignments ({active.filter(t=>t.assigneeUids?.includes(uid)).length})</button><button className="ml-secondary ml-filter-toggle" aria-expanded={filtersOpen} aria-controls="ml-extra-filters" onClick={()=>setFiltersOpen(open=>!open)}><SlidersHorizontal size={16}/> More filters {extraFilterCount>0&&<b>{extraFilterCount}</b>}</button>{hasFilters&&<button className="ml-clear-filters" onClick={resetTaskView}>Reset filters</button>}</div>
      <div className="ml-extra-filters" id="ml-extra-filters" hidden={!filtersOpen}><label>Status<select value={filterStatus} onChange={e=>{setFilterStatus(e.target.value);setFocus('all');}} aria-label="Filter by status"><option value="all">All statuses</option>{Object.entries(statusLabels).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label><label>Priority<select value={filterPriority} onChange={e=>setFilterPriority(e.target.value)} aria-label="Filter by priority"><option value="all">All priorities</option><option value="P1">P1 · Act now</option><option value="P2">P2 · Next 30 days</option><option value="P3">P3 · Scheduled</option></select></label><label>Responsible team<select value={filterLead} onChange={e=>setFilterLead(e.target.value)} aria-label="Filter by team"><option value="all">All teams</option>{leads.map(l=><option key={l}>{l}</option>)}</select></label></div>
      <div className="ml-task-results"><b aria-live="polite">{filtered.length} actions in {categoryGroups.length} {categoryGroups.length===1?'category':'categories'}</b><span>Urgency and due date within each category</span></div>
      <div className="ml-category-groups">{categoryGroups.map(group=><section className="ml-category-group" key={group.category.id} aria-labelledby={'ml-category-'+group.category.id}><header className="ml-category-group-header"><span className="ml-category-number">{group.category.id==='uncategorized'?<Layers3 size={17}/>:String(group.category.order).padStart(2,'0')}</span><h2 id={'ml-category-'+group.category.id}>{group.category.label}</h2><span>{group.tasks.length} {group.tasks.length===1?'action':'actions'}</span></header><div className="ml-task-list">{group.tasks.map(t=><TaskRow key={t.id} task={t} queued={pending.includes(t.id)} onOpen={()=>openTaskPage(t)} onQuickDone={state.permissions.edit?()=>void changeTask(t,{status:t.status==='done'?'todo':'done'}):undefined}/>)}</div></section>)}{!filtered.length&&<div className="ml-panel"><EmptyState text="No actions match your filters."/><button className="ml-secondary" onClick={resetTaskView}>Reset filters</button></div>}</div>
