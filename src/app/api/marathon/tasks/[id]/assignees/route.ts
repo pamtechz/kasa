@@ -33,6 +33,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
    const snap=await tx.get(ref);
    if(!snap.exists)throw new HttpError(404,'Task not found.');
    const before=snap.data()!;
+   if(before.archived||before.status==='done')throw new HttpError(409,'This checklist task is already closed and cannot be reassigned.');
    if(Number(before.revision)!==body.data.expectedRevision)
     throw new HttpError(409,'Task changed. Refresh before saving assignments.');
    const previous=Array.isArray(before.assigneeUids)?before.assigneeUids.filter((x:unknown):x is string=>typeof x==='string'):[];
