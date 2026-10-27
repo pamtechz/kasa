@@ -36,8 +36,13 @@ export async function GET(req:Request){
   const now=new Date();
   const {today,hour}=lusakaParts(now);
   if(today>EVENT_DATE)return json({ok:true,eventComplete:true,actions:0});
-  const slot=[...SLOTS].reverse().find(value=>hour>=value);
+  const requestedSlot=new URL(req.url).searchParams.get('slot');
+  // Scheduled GitHub jobs identify their intended window explicitly. A delayed
+  // 13:00 job must not consume the 18:00 reminder lease.
+  if(requestedSlot!==null&&!['13','18'].includes(requestedSlot))throw new HttpError(400,'Invalid scheduled reminder slot.');
+  const slot=requestedSlot!==null?Number(requestedSlot):[...SLOTS].reverse().find(value=>hour>=value);
   if(!slot)return json({ok:true,skipped:true,reason:'Before first Lusaka reminder window'});
+  if(hour<slot)throw new HttpError(409,'Reminder window has not started in Lusaka.');
   const runRef=db.collection('marathonReminderRuns').doc(today+'-'+slot);
   const runId=randomUUID();
   const claimed=await db.runTransaction(async tx=>{
