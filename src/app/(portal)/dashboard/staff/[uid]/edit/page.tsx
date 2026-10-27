@@ -14,7 +14,7 @@ export default function EditSchoolAccount(){
  const [actorRole,setActorRole]=useState('');
  const [name,setName]=useState(''),[role,setRole]=useState<EditableRole>('student');
  const [district,setDistrict]=useState(''),[phone,setPhone]=useState(''),[province,setProvince]=useState('');
- const [active,setActive]=useState(true),[mustChange,setMustChange]=useState(false);
+ const [active,setActive]=useState(true);
  const [busy,setBusy]=useState(false),[resetBusy,setResetBusy]=useState(false),[loading,setLoading]=useState(true);
  const [confirmedReset,setConfirmedReset]=useState(false);
  const [error,setError]=useState(''),[message,setMessage]=useState('');
@@ -28,7 +28,7 @@ export default function EditSchoolAccount(){
    const x=u.user;setAccount(x);setName(x.displayName||'');
    setRole(['student','agent','admin','reviewer'].includes(x.role)?x.role as EditableRole:'student');
    setDistrict(x.district||'');setPhone(x.phone||'');setProvince(x.province||'');
-   setActive(x.active!==false);setMustChange(Boolean(x.mustChangePassword));
+   setActive(x.active!==false);
    setActorRole(me.profile.role);
   }catch(e){setError(e instanceof Error?e.message:'Unable to open account.');}
   finally{setLoading(false);}
@@ -41,7 +41,6 @@ export default function EditSchoolAccount(){
    const payload:Record<string,unknown>={displayName:name,district,phone,province,active};
    if(actorRole==='super_admin'){
     if(account.role!=='super_admin')payload.role=role;
-    payload.mustChangePassword=mustChange;
    }
    await api('/api/admin/users/'+encodeURIComponent(uid),{method:'PATCH',body:JSON.stringify(payload)});
    setMessage('Account changes saved successfully.');await load();
@@ -88,8 +87,6 @@ export default function EditSchoolAccount(){
        <input id="edit-account-phone" type="tel" value={phone} onChange={e=>setPhone(e.target.value)}/></div>
      </div>
      <div className="field"><label className="required-toggle"><input type="checkbox" checked={active} disabled={account.role==='super_admin'} onChange={e=>setActive(e.target.checked)}/> Account active</label></div>
-     {actorRole==='super_admin'&&<div className="field"><label className="required-toggle">
-      <input type="checkbox" checked={mustChange} onChange={e=>setMustChange(e.target.checked)}/> Require password change</label></div>}
      <button className="btn btn-primary" type="submit" disabled={busy||!name.trim()}><Save size={16}/> {busy?'Saving…':'Save account'}</button>
     </form>
    </section>
