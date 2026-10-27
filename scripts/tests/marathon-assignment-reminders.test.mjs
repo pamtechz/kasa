@@ -31,12 +31,12 @@ test('private pushes target members, three daily slots and exclude completed wor
  const config=JSON.parse(read('vercel.json'));
  assert.match(push,/recipientUid\|\|d\.uid===recipientUid/);
  assert.match(cron,/SLOTS=\[8,13,18\]/);
- assert.match(cron,/today\+'-'\+hour/);
+ assert.match(cron,/today\+'-'\+slot/);
  assert.match(cron,/task\.confirmationByUid\?\.\[uid\]\?\.status==='done'/);
  assert.match(cron,/task\.status==='done'/);
  assert.match(cron,/recipients\.set\(uid/);
  assert.match(cron,/CRON_SECRET/);
- assert(config.crons.some(x=>x.path==='/api/cron/marathon-reminders'&&x.schedule==='0 6,11,16 * * *'));
+ assert(config.crons.some(x=>x.path==='/api/cron/marathon-reminders'&&x.schedule==='0 6 * * *'));
 });
 test('the workspace exposes assignment pages and member outcome popup',()=>{
  const work=read('src/components/marathon/MarathonWorkspace.tsx');
