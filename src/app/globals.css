@@ -1129,3 +1129,23 @@
 .side-scroll-actions{display:flex;justify-content:center;gap:12px;padding:8px;flex-shrink:0;background:inherit}
 .side-scroll-actions button{border:1px solid #d9e6dc;background:#f4f8f5;color:#245a3b;border-radius:8px;min-height:34px;min-width:42px;display:grid;place-items:center}
 .side-scroll-actions button:focus-visible{outline:3px solid #d9ad52;outline-offset:2px}
+
+/* One account control in the top-right header of every KASA portal. */
+.kasa-account-menu{position:relative;display:flex;align-items:center;z-index:55}
+.kasa-account-trigger{border:1px solid #deebe1!important;background:#f6faf7!important;color:#28593d!important;border-radius:12px!important;display:flex;align-items:center;gap:7px;padding:5px 8px!important;min-height:40px;cursor:pointer}
+.kasa-account-trigger:hover,.kasa-account-trigger:focus-visible{background:#e8f3ea!important;outline-color:#b88d3a}
+.kasa-account-avatar{display:grid;place-items:center;width:32px;height:32px;flex:none;background:#deede1;color:#225d3e;border-radius:10px}
+.kasa-account-popover{display:none;position:absolute;right:0;top:calc(100% + 8px);width:min(298px,calc(100vw - 24px));padding:10px;background:#fff;border:1px solid #dce6dd;box-shadow:0 18px 46px #103d2826;border-radius:14px;text-align:left;z-index:80;color:#264934;letter-spacing:normal}
+.kasa-account-menu::after{content:"";position:absolute;inset:100% 0 -9px;pointer-events:none}
+.kasa-account-menu:hover .kasa-account-popover,.kasa-account-menu:focus-within .kasa-account-popover,.kasa-account-menu.is-open .kasa-account-popover{display:block}
+.kasa-account-identity{display:flex;gap:10px;align-items:center;padding:10px 8px 12px;border-bottom:1px solid #edf1ec}
+.kasa-account-identity>span:last-child{min-width:0}
+.kasa-account-identity strong,.kasa-account-identity small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kasa-account-identity strong{font-size:14px;color:#173d2a}
+.kasa-account-identity small{font-size:11px;margin-top:4px;color:#718575}
+.kasa-account-role{margin:11px 8px;color:#6d806f;font-size:11px;line-height:1.5}
+.kasa-account-option{width:100%;display:flex;align-items:center;gap:10px;padding:11px 12px;border:none!important;border-radius:9px;text-align:left;text-decoration:none;color:#27513a!important;background:transparent!important;font-size:13px;font-weight:700;cursor:pointer}
+.kasa-account-option:hover,.kasa-account-option:focus-visible{background:#f0f7f1!important}
+.kasa-account-signout{color:#a24038!important;border-top:1px solid #edf1ec!important;border-radius:0 0 9px 9px}
+.kasa-account-signout:hover{background:#fff2f1!important}
+@media(max-width:550px){.kasa-account-trigger{padding:5px!important}.kasa-account-popover{right:0}}
