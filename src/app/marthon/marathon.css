@@ -147,3 +147,12 @@ a.ml-sync-status{text-decoration:none}
 .ml-countdown-progress span{display:block;height:100%;background:#c69c49;transition:width .3s ease}
 @media(max-width:960px){.ml-sidebar.is-collapsed{width:267px;padding:34px 17px 20px}.ml-sidebar.is-collapsed .ml-sidebar-header{flex-direction:row;margin:0 5px 33px}.ml-sidebar.is-collapsed .ml-sidebar-brand{justify-content:flex-start}.ml-sidebar.is-collapsed .ml-sidebar-brand span,.ml-sidebar.is-collapsed .ml-nav-section,.ml-sidebar.is-collapsed .ml-nav-item>span,.ml-sidebar.is-collapsed .ml-nav-tools summary{display:initial}.ml-sidebar.is-collapsed .ml-nav-item{justify-content:flex-start;gap:14px;padding:14px 16px}.ml-sidebar.is-collapsed .ml-nav-tools summary{display:flex}.ml-sidebar-toggle,.ml-desktop-collapse{display:none!important}}
 @media(max-width:650px){.ml-countdown-strip{margin:0 0 18px;padding:12px 14px}.ml-countdown-label b{font-size:9px}.ml-countdown-value strong{font-size:27px}.ml-topbar .kasa-account-popover{right:0}.ml-top-actions{gap:6px}}
+
+/* Full-page Marathon action editors, retaining the persistent workspace navigation. */
+.ml-task-editor-page{min-height:70vh;max-width:1100px;margin:0 auto;padding-bottom:30px}
+.ml-editor-body{position:static;background:transparent;display:block;min-height:65vh}
+.ml-editor-body>.ml-drawer{width:100%;max-width:none;height:auto;min-height:65vh;background:#fff;border:1px solid #e2ebe4;border-radius:16px;box-shadow:0 6px 24px #123f2710;overflow:hidden}
+.ml-editor-body .ml-drawer-content{overflow:visible;flex:1;padding:26px clamp(16px,3vw,36px)}
+.ml-editor-body .ml-drawer header{padding:24px clamp(16px,3vw,36px)}
+.ml-editor-body .ml-drawer footer{padding:20px clamp(16px,3vw,36px)}
+@media(max-width:700px){.ml-task-editor-page{padding:0 0 16px}.ml-editor-body>.ml-drawer{border-radius:10px}}

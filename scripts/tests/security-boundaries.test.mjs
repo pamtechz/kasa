@@ -172,6 +172,7 @@ test('Origin validation does not trust attacker-controlled localhost subdomains'
 test('Administrators cannot assert email verification or directly set passwords',()=>{
  const route=source('src/app/api/admin/users/[id]/route.ts');
  const page=source('src/app/(portal)/dashboard/staff/page.tsx');
+ const editPage=source('src/app/(portal)/dashboard/staff/[uid]/edit/page.tsx');
  assert.match(route,/privilegedRoles\.includes\(currentData\.role\)/);
  assert.match(route,/actor\.role !== 'super_admin'/);
  assert.match(route,/email changes require/i);
@@ -180,7 +181,8 @@ test('Administrators cannot assert email verification or directly set passwords'
  assert.doesNotMatch(route,/authUpdates\.emailVerified\s*=\s*true/);
  assert.doesNotMatch(route,/authUpdates\.password\s*=/);
  assert.doesNotMatch(page,/editPassword|setEditPassword|Generated Temporary Password/);
- assert.match(page,/readOnly aria-readonly="true"/);
+ assert.match(editPage,/readOnly value=\{account\.email\}/);
+ assert.match(page,/href=\{'\/dashboard\/staff\/'/);
 });
 test('Staff delete rejects a failed Firebase Auth deletion',()=>{
  const route=source('src/app/api/admin/users/[id]/route.ts');

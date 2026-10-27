@@ -1160,3 +1160,10 @@
 .agent-tier-gold svg{color:#c18b20}
 .agent-tier-diamond svg{color:#1682bb}
 .cloudinary-link-btn svg{vertical-align:middle;margin-left:5px}
+
+/* Routed management editors: normal scrollable pages, never overlay dialogs. */
+.editor-page-layout{position:relative;display:block;margin-top:16px;min-height:70vh}
+.editor-page-layout>.editor-page-surface{position:relative;display:flex;flex-direction:column;max-width:none;width:100%;min-height:70vh;height:auto;max-height:none;overflow:visible;border-radius:14px}
+.editor-page-layout .modal-page-body{overflow:visible;max-height:none}
+.editor-page-layout .modal-page-header,.editor-page-layout .modal-page-footer{position:relative}
+@media(max-width:700px){.editor-page-layout{margin-top:10px}.editor-page-layout>.editor-page-surface{border-radius:10px}}
