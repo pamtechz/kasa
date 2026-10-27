@@ -40,7 +40,7 @@ export function MarathonAssignmentPanel({task,members,currentUid,canAssign,offli
  }
  return <section className="ml-panel ml-task-assignments" aria-label="Task assignments" style={{padding:20,marginBottom:16}}>
   <div className="ml-panel-head"><div><span className="ml-eyebrow">TEAM RESPONSIBILITY</span><h3><Users size={18} style={{verticalAlign:'middle'}}/> Assigned members</h3></div><span className="ml-count-badge">{(task.assigneeUids||[]).length}</span></div>
-  <p className="ml-form-help">Assigned members receive a private push notification and up to three critical-task reminder prompts per day (08:00, 13:00, 18:00 Lusaka time). A member's completion report must be verified before the main checklist is closed.</p>
+  <p className="ml-form-help">Assigned members receive a private push notification and up to three critical-task reminder prompts per day (08:00, 13:00, 18:00 Lusaka time). A member&apos;s completion report must be verified before the main checklist is closed.</p>
   {(task.assigneeUids||[]).length>0&&<ul style={{paddingLeft:20}}>
    {(task.assigneeUids||[]).map(uid=>{const member=members.find(m=>m.uid===uid);const confirmation=confirmations[uid];
     return <li key={uid}>{member?.displayName|| (uid===task.updatedBy?'Assigned member':'Member')} — <strong>{confirmation?.status==='done'?'Reported done':confirmation?.status==='not_done'?'Not yet completed':'Awaiting confirmation'}</strong></li>;
