@@ -31,8 +31,8 @@ export function FinanceQuoteReconcile({item,onClose,onSaved}:{item:Student;onClo
   }catch(e){setError(e instanceof Error?e.message:'Quote reconciliation failed.');}
   finally{setBusy(false);}
  }
- return <div className="modal-page-overlay" role="presentation">
-  <div className="modal-page" role="dialog" aria-modal="true" aria-label="Reconcile approved student fee quotation" style={{maxWidth:650}}>
+ return <div className="editor-page-layout">
+  <section className="modal-page editor-page-surface" aria-label="Reconcile approved student fee quotation" style={{maxWidth:900}}>
    <header className="modal-page-header"><div className="modal-page-header-left">
     <span className="modal-page-badge">CONTROLLED HISTORICAL RECONCILIATION</span>
     <h2>Approve fee snapshot — {item.reference}</h2>
@@ -70,6 +70,6 @@ export function FinanceQuoteReconcile({item,onClose,onSaved}:{item:Student;onClo
      </button>
     </footer>
    </form>
-  </div>
+  </section>
  </div>;
 }
