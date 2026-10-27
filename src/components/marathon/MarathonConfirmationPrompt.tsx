@@ -17,7 +17,7 @@ export function MarathonConfirmationPrompt({uid,tasks,onConfirmed,onError}:{uid:
  useEffect(()=>{setNow(new Date());const timer=window.setInterval(()=>setNow(new Date()),60000);return ()=>window.clearInterval(timer);},[]);
  const clock=useMemo(()=>now?lusakaClock(now):null,[now]);
  const task=useMemo(()=>{
-  if(!clock||!uid)return null;
+  if(!clock||clock.slot==='00'||!uid)return null;
   const dueLimit=new Date(Date.parse(clock.today+'T12:00:00Z')+5*86400000).toISOString().slice(0,10);
   return tasks.find(t=>{
    if(t.archived||t.status==='done'||!t.assigneeUids?.includes(uid)||t.confirmationByUid?.[uid]?.status==='done')return false;
