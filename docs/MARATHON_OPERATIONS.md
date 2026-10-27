@@ -2,7 +2,7 @@
 
 ## Unified KASA login and Marathon-only authorization (26 October 2026)
 
-- **One sign-in:** `/login` is the only Firebase email/password sign-in. `/marthon/login` redirects to `/login?next=/marthon` (URL encoded). Verified users land on the correct workspace based on the active `profiles/{uid}` record. A query parameter never creates or elevates a role.
+- **One sign-in:** `/login` is the only Firebase email/password sign-in. `/marathon/login` redirects to `/login?next=/marathon` (URL encoded). Verified users land on the correct workspace based on the active `profiles/{uid}` record. A query parameter never creates or elevates a role.
 - **Marathon-only:** When the KASA super administrator adds a *new* person from Marathon Team, the shared Firebase Auth identity and Firestore profile receive School role `marathon_only` and a separate, active `marathonAccess` role. They see the public website and Marathon operations, **not** the School staff, Agent or Student portals. School capability mapping grants `marathon_only` no permissions. All privileged School APIs independently check School roles.
 - **Dual-role School staff:** Verified existing non-student School users keep their School role and may receive the secondary Marathon role. The global School super admin inherits Marathon access.
 - **School students:** Explicitly denied Marathon APIs, even if an old `marathonAccess` assignment exists. New Marathon membership requests for existing student accounts fail with HTTP 409 rather than granting event privileges or silently converting a student's School account.
@@ -14,7 +14,7 @@
 ## Shared School + Marathon account creation (26 October 2026)
 
 - **School:** KASA School admins can register a new Firebase Authentication identity and School profile from **Dashboard → Staff**, or update an existing School account. Only the School super administrator can assign School staff roles (`admin` or `reviewer`). Student and agent account creation is available to School admins.
-- **Marathon:** The School super administrator can add a person in **/marthon/team** using email, optional full name, and Marathon role. If the Firebase Auth email already exists, reuse the same UID and School profile. If it does not exist, create an Auth user and profile with role `marathon_only` (no School permissions), then assign `marathonAccess` on that same profile. Do not overwrite existing School roles.
+- **Marathon:** The School super administrator can add a person in **/marathon/team** using email, optional full name, and Marathon role. If the Firebase Auth email already exists, reuse the same UID and School profile. If it does not exist, create an Auth user and profile with role `marathon_only` (no School permissions), then assign `marathonAccess` on that same profile. Do not overwrite existing School roles.
 - **Credentials:** Admins never set or see a user's password. New identities are created with a cryptographically random, unrevealed password and `emailVerified:false`. A Firebase Auth password-setup/reset email is requested where the provider is configured. If delivery fails, the recipient uses **Forgot password** on KASA School login. On first login, unverified users are directed to email verification. Neither app grants access before verification.
 - **Security:** Account provisioning requires an authenticated, verified, active authorized School admin or Marathon super admin. School role checks and Marathon secondary role checks remain independent. Firestore profile creation is idempotent by Auth UID; duplicate identities/Marathon membership collections are not created. New users' access is pending until email verification.
 - **Mobile:** The Flutter wrapper's Android application ID is **`com.pamtech.kasa`**. Its native Android build config is enforced by `flutter_app/tool/configure_android.dart` after generating the Flutter runner. Register exactly `com.pamtech.kasa` in Firebase before distributing a signed APK.
@@ -39,19 +39,19 @@ The school profile has its original `role` (for example `admin`, `student`, `age
 }
 ```
 
-School `role` is unchanged when Marathon access is added, modified or revoked. The **only** permitted role grantor is the existing active, email-verified KASA School `super_admin`. All Marathon role controls live in `/marthon/settings` (also `/marthon/team`) within the Marathon application, not in the root school user-management screens. The school super admin automatically has full Marathon permissions without `marathonAccess`.
+School `role` is unchanged when Marathon access is added, modified or revoked. The **only** permitted role grantor is the existing active, email-verified KASA School `super_admin`. All Marathon role controls live in `/marathon/settings` (also `/marathon/team`) within the Marathon application, not in the root school user-management screens. The school super admin automatically has full Marathon permissions without `marathonAccess`.
 
 Second-role options: `kasaAdmin` (edit and review), `kasaOperations` (edit and review), `kasaEditor` (edit), `kasaReviewer` (read and review recommendations), and `kasaClient` (read and recommend). These roles do **not** confer school app permissions or permission to grant Marathon roles.
 
-The app uses its existing Firebase Auth login at `/marthon/login`; users can sign in with the same email and password as school. Marathon APIs verify the Firebase ID token, email verification and `profiles/{uid}.active===true`, then check `marathonAccess.active===true` and the secondary role. For the global school super admin, only the active profile and school `role` are required. Missing profiles, inactive school accounts and unassigned/inactive Marathon access fail closed.
+The app uses its existing Firebase Auth login at `/marathon/login`; users can sign in with the same email and password as school. Marathon APIs verify the Firebase ID token, email verification and `profiles/{uid}.active===true`, then check `marathonAccess.active===true` and the secondary role. For the global school super admin, only the active profile and school `role` are required. Missing profiles, inactive school accounts and unassigned/inactive Marathon access fail closed.
 
 Access controls are enforced server-side on all Marathon APIs, not merely hidden in the UI. Direct Firestore access remains denied by the existing rules. Role assignments update only `marathonAccess` within the existing profile, transactionally with `marathonAudit` records. There is no client API that writes the school `role`.
 
 ## Existing Marathon functionality
-- `/marthon` dashboard, `/marthon/operations`, `/marthon/timeline`, `/marthon/recommendations`, `/marthon/archive`, `/marthon/activity`, `/marthon/super` and Marathon-specific role settings; `/marathon` is an alias.
-- Source data: `src/data/marathon-seed.json`, containing the 186 actions and 15 workstreams from the updated KASA Life Marathon 2027 Full Checklist. The original 130-action sheet snapshot is retained in `src/data/marathon-seed-2026-10-23.json` for safe upgrades. **An authenticated school super admin reviews and applies the versioned Firestore import from `/marthon/super`; deployment alone does not seed the database.**
+- `/marathon` dashboard, `/marathon/operations`, `/marathon/timeline`, `/marathon/recommendations`, `/marathon/archive`, `/marathon/activity`, `/marathon/super` and Marathon-specific role settings; `/marathon` is an alias.
+- Source data: `src/data/marathon-seed.json`, containing the 186 actions and 15 workstreams from the updated KASA Life Marathon 2027 Full Checklist. The original 130-action sheet snapshot is retained in `src/data/marathon-seed-2026-10-23.json` for safe upgrades. **An authenticated school super admin reviews and applies the versioned Firestore import from `/marathon/super`; deployment alone does not seed the database.**
 - Existing activities can be marked done, re-opened, backdated with actual completion timestamps and supported by notes/evidence. The mutation timestamp and actor are recorded separately in the audit log.
-- Offline: the scoped `/marthon-sw.js` worker caches Marathon shell routes; IndexedDB holds user-specific snapshots and queued edits. On reconnect, server submission checks UUID mutation IDs and source revisions. Conflicts are retained for manual review. Account grants, new-task creation, initial import and recommendation submission require internet.
+- Offline: the scoped `/marathon-sw.js` worker caches Marathon shell routes; IndexedDB holds user-specific snapshots and queued edits. On reconnect, server submission checks UUID mutation IDs and source revisions. Conflicts are retained for manual review. Account grants, new-task creation, initial import and recommendation submission require internet.
 
 ## Release checks
 1. Pass GitHub CI (security boundary tests, source tests, lint/typecheck and Firestore emulator rules) and Vercel preview build.
@@ -59,7 +59,7 @@ Access controls are enforced server-side on all Marathon APIs, not merely hidden
 3. Confirm `profiles/{uid}.role` and all school account details remain unchanged; only `marathonAccess` changes. Test multiple existing primary roles.
 4. Confirm unassigned, inactive and unverified users receive 403/401 from every Marathon API, and `kasaAdmin` cannot assign or revoke roles.
 5. Revoke Marathon access; verify the same school credentials still work on the school portal but Marathon requests return 403.
-6. Review and apply the updated checklist from `/marthon/super`. For an empty database verify 186 tasks, 15 sections and five source-reported Done tasks with unknown actual completion dates. For a legacy import verify 85 retained IDs, 101 additions and 45 recoverable archives. Test historical completion plus offline replay before production promotion.
+6. Review and apply the updated checklist from `/marathon/super`. For an empty database verify 186 tasks, 15 sections and five source-reported Done tasks with unknown actual completion dates. For a legacy import verify 85 retained IDs, 101 additions and 45 recoverable archives. Test historical completion plus offline replay before production promotion.
 
 The real production Firebase database has not been seeded or modified merely by committing this code.
 
