@@ -31,7 +31,7 @@ async function sendPush(audience:Audience,title:string,body:string,path:string,r
   cursor=snap.docs[snap.docs.length-1].id;
   if(snap.size<250)break;
  }
- const candidates=devices.filter(d=>audience==='school'||d.marathon);
+ const candidates=devices.filter(d=>(audience==='school'||d.marathon)&&(!recipientUid||d.uid===recipientUid));
  if(candidates.length===0)return {delivered:0,failed:0};
  const profileIds=[...new Set(candidates.map(d=>d.uid))];
  const authorized=new Set<string>();
@@ -73,8 +73,8 @@ async function sendPush(audience:Audience,title:string,body:string,path:string,r
  return {delivered,failed};
 }
 /** Reverify School + secondary Marathon role immediately before pushing. */
-export function sendMarathonPush(title:string,body:string,path='/marathon/operations'){
- return sendPush('marathon',title,body,path);
+export function sendMarathonPush(title:string,body:string,path='/marathon/operations',recipientUid?:string){
+ return sendPush('marathon',title,body,path,'all',recipientUid);
 }
 /** Respect the existing School recipient scope, not client-supplied device roles. */
 export function sendSchoolPush(recipient:string,recipientUid?:string){
