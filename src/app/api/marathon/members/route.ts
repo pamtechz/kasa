@@ -10,6 +10,7 @@ export const runtime='nodejs';
 const schema=z.object({
  email:z.string().trim().email().max(240),
  displayName:z.string().trim().max(120).optional(),
+ initialPassword:z.string().min(12).max(128).optional(),
  role:z.enum(marathonRoles)
 }).strict();
 
@@ -22,8 +23,8 @@ export async function POST(req:Request){
   if(!parsed.success)throw new HttpError(400,'Provide an email, name and valid Marathon role.');
   const email=parsed.data.email.trim().toLowerCase();
   const account=await ensureSchoolIdentity({
-   email,displayName:parsed.data.displayName,
-   schoolRole:'marathon_only',actorUid:actor.uid
+   email,displayName:parsed.data.displayName,initialPassword:parsed.data.initialPassword,
+   requireExistingOrPassword:true,schoolRole:'marathon_only',actorUid:actor.uid
   });
   if(account.uid===actor.uid)throw new HttpError(403,'The school super admin already has inherited Marathon access.');
   const profileRef=db.collection('profiles').doc(account.uid);
@@ -61,7 +62,9 @@ export async function POST(req:Request){
    schoolAccountCreated:account.authCreated,
    onboardingEmailSent:account.onboardingEmailSent,
    verificationPending:account.verificationPending,
-   message:account.verificationPending
+   message:account.authCreated&&parsed.data.initialPassword
+    ?'Marathon-only account created with the initial password. Share it privately. The member may sign in now and has 30 days to verify the email.'
+    :account.verificationPending
     ?account.onboardingEmailSent
       ?'Marathon-only access created. A password setup email was requested; the member must verify their email before signing in.'
       :'Marathon-only access created. Ask the member to use Forgot password at the unified KASA login, then verify their email.'
