@@ -1,6 +1,7 @@
 'use client';
 import {useEffect, useState, useMemo, useRef} from 'react';
 import {useRouter} from 'next/navigation';
+import Link from 'next/link';
 import {
   Bell, Plus, Search, Trash2, CheckCircle2, AlertTriangle, Info,
   Filter, X, ArrowLeft, Save, ExternalLink, RefreshCw, Eye, EyeOff, Edit
@@ -274,9 +275,9 @@ export default function Notifications({editorId}:{editorId?:string}={}) {
                 <Trash2 size={15} /> Clear read
               </button>
             )}
-            <a className="btn btn-primary" href={editorHref('new')}>
+            <Link className="btn btn-primary" href={editorHref('new')}>
               <Plus size={16} /> Broadcast notice
-            </a>
+            </Link>
           </div>
         }
       />
