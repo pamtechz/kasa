@@ -1,5 +1,6 @@
 'use client';
-import {useEffect, useState, useMemo} from 'react';
+import {useEffect, useState, useMemo, useRef} from 'react';
+import {useRouter} from 'next/navigation';
 import Link from 'next/link';
 import {
   Copy, Share2, Users, Wallet, Plus, ExternalLink, RefreshCw,
@@ -45,7 +46,10 @@ const defaultProgrammes = [
   'Information & Communications Technology'
 ];
 
-export default function MyReferrals() {
+export default function MyReferrals({editorId}:{editorId?:string}={}) {
+  const router=useRouter();
+  const loadedEditor=useRef(false);
+  const editorHref=(id:string)=>'/dashboard/referrals/editor/'+encodeURIComponent(id);
   const [data, setData] = useState<ReferralResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -125,7 +129,19 @@ export default function MyReferrals() {
   function closeModal() {
     setModalOpen(false);
     setEditingReferral(null);
+    if(editorId)router.push('/dashboard/referrals');
   }
+
+  useEffect(()=>{
+    if(!editorId||!data||loadedEditor.current)return;
+    loadedEditor.current=true;
+    if(editorId==='new')openRegisterModal();
+    else{
+      const item=data.referrals.find(x=>x.id===editorId);
+      if(item)openEditModal(item);
+      else setError('Candidate not found. Return to the referrals list.');
+    }
+  },[editorId,data]);
 
   async function handleSaveCandidate(e: React.FormEvent) {
     e.preventDefault();
@@ -248,6 +264,7 @@ export default function MyReferrals() {
 
   return (
     <>
+      {!editorId&&<>
       <PageHeader
         title="My referrals"
         subtitle="Directly register candidates, share your assigned code and track your verified commissions."
@@ -256,9 +273,9 @@ export default function MyReferrals() {
             <button className="btn btn-outline" onClick={() => void load()} disabled={loading}>
               <RefreshCw size={15} /> Refresh
             </button>
-            <button className="btn btn-primary" onClick={openRegisterModal}>
+            <Link className="btn btn-primary" href={editorHref('new')}>
               <Plus size={16} /> Register candidate
-            </button>
+            </Link>
           </div>
         }
       />
@@ -422,7 +439,7 @@ export default function MyReferrals() {
                             <button
                               className="icon-btn"
                               title="Edit candidate contact"
-                              onClick={() => openEditModal(r)}
+                              onClick={() => router.push(editorHref(r.id))}
                               aria-label="Edit candidate contact"
                             >
                               <Edit size={15} />
@@ -451,10 +468,13 @@ export default function MyReferrals() {
         </div>
       </div>
 
-      {/* Modal Page for Direct Candidate Registration / Edit */}
+      </>}
+      {editorId&&<PageHeader title="Candidate referral editor" subtitle="Dedicated page for creating or updating candidate referrals."/>}
+      {editorId&&error&&<div className="alert-error" role="alert">{error}</div>}
+      {/* Routed form page for candidate registration / edit */}
       {modalOpen && (
-        <div className="modal-page-overlay" role="dialog" aria-modal="true">
-          <div className="modal-page">
+        <div className="editor-page-layout">
+          <div className="modal-page editor-page-surface">
             <header className="modal-page-header">
               <div className="modal-page-title-group">
                 <button
