@@ -4,7 +4,7 @@ export function csvEscape(value:unknown){
  return '"'+safe.replace(/"/g,'""')+'"';
 }
 export function schoolWorkspace(role:string){
- if(role==='marathon_only')return '/marthon';
+ if(role==='marathon_only')return '/marathon';
  if(role==='finance')return '/dashboard/finance';
  if(['super_admin','admin','reviewer'].includes(role))return '/dashboard';
  return role==='agent'?'/agent-portal':'/student-portal';
