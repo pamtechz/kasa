@@ -1,7 +1,7 @@
 'use client';
 import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {MarathonLink as Link} from './MarathonLink';
-import {SidebarScrollControls} from '@/components/SidebarScrollControls';
+import {AccountMenu} from '@/components/AccountMenu';
 import {BrandLogo} from '@/components/BrandLogo';
 import {useRouter,usePathname,useSearchParams} from 'next/navigation';
 import {onAuthStateChanged} from 'firebase/auth';
@@ -69,6 +69,9 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
  const [state,setState]=useState<Bootstrap>(blank),[loading,setLoading]=useState(true),[offline,setOffline]=useState(false);
  const [authError,setAuthError]=useState(''),[notice,setNotice]=useState(''),[queuedEdits,setQueuedEdits]=useState<PendingEdit[]>([]);
  const [drawer,setDrawer]=useState<MarathonTask|null>(null),[newTask,setNewTask]=useState(false),[mobile,setMobile]=useState(false);
+ const [collapsed,setCollapsed]=useState(false);
+ useEffect(()=>{try{setCollapsed(window.localStorage.getItem('kasa_marathon_sidebar_collapsed')==='true');}catch{}},[]);
+ function toggleSidebar(){setCollapsed(current=>{const next=!current;try{window.localStorage.setItem('kasa_marathon_sidebar_collapsed',String(next));}catch{}return next;});}
  const [alertsOpen,setAlertsOpen]=useState(false);
  const [saving,setSaving]=useState(false),[query,setQuery]=useState(''),[filterStatus,setFilterStatus]=useState('all');
  const [filterPriority,setFilterPriority]=useState('all'),[filterLead,setFilterLead]=useState('all');
@@ -129,7 +132,7 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
    const nextUid=user?.uid||'';
    if(authUid.current!==nextUid){setState(blank);setQueuedEdits([]);setReviewEdit(null);setLoading(true);initializedUid.current='';}
    authUid.current=nextUid;
-   if(!user){router.replace('/marthon/login');return;}
+   if(!user){router.replace('/marathon/login');return;}
    if(!user.emailVerified){setAuthError('Verify your email address first.');setLoading(false);return;}
    void hydrate(user.uid);
   });
@@ -270,7 +273,7 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
  }
  function resetTaskView(){clearTaskFilters();selectCategory('all');}
  function showActions(nextFocus:MarathonFocus){
-  clearTaskFilters(nextFocus);setMobile(false);window.history.pushState(null,'','/marthon/operations');
+  clearTaskFilters(nextFocus);setMobile(false);window.history.pushState(null,'','/marathon/operations');
  }
  const categoryGroups=useMemo(()=>groupMarathonCategories(filtered),[filtered]);
  async function changeTask(task:MarathonTask,changes:EditChanges){
@@ -356,45 +359,48 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
  const toolMenu=menu.filter(item=>!dailyMenu.includes(item));
  function navigationItem(item:typeof nav[number]){
   const Icon=item.icon;
-  return <Link key={item.view} href={item.view==='overview'?'/marthon':'/marthon/'+item.view} className={'ml-nav-item '+(view===item.view?'selected':'')} aria-current={view===item.view?'page':undefined} onClick={()=>setMobile(false)}><Icon size={19}/><span>{item.label}</span>{item.view==='recommendations'&&state.suggestions.some(s=>s.status==='pending')&&<i/>}</Link>;
+  return <Link key={item.view} href={item.view==='overview'?'/marathon':'/marathon/'+item.view} className={'ml-nav-item '+(view===item.view?'selected':'')} aria-current={view===item.view?'page':undefined} onClick={()=>setMobile(false)}><Icon size={19}/><span>{item.label}</span>{item.view==='recommendations'&&state.suggestions.some(s=>s.status==='pending')&&<i/>}</Link>;
  }
- async function logout(){if(pending.length&&!window.confirm('You have '+pending.length+' unsynced edits stored on this device. Sign out anyway?'))return;await signOutClient();router.replace('/marthon/login');}
+ async function logout(){if(pending.length&&!window.confirm('You have '+pending.length+' unsynced edits stored on this device. Sign out anyway?'))return;await signOutClient();router.replace('/marathon/login');}
 
  if(loading)return <div className="ml-init" role="status"><span className="ml-spinner"/><h2>Opening Marathon Command Centre</h2><p>Verifying your account and loading event operations…</p></div>;
- if(authError&&!uid)return <main className="ml-init"><Shield size={32}/><h2>Marathon workspace unavailable</h2><p>{authError}</p><Link className="ml-primary" href="/marthon/login">Return to secure sign in</Link></main>;
+ if(authError&&!uid)return <main className="ml-init"><Shield size={32}/><h2>Marathon workspace unavailable</h2><p>{authError}</p><Link className="ml-primary" href="/marathon/login">Return to secure sign in</Link></main>;
  return <div className="ml-app">
-  <aside id="ml-workspace-menu" className={'ml-sidebar '+(mobile?'ml-sidebar-open':'')}>
-   <Link href="/marthon" className="ml-sidebar-brand" onClick={()=>setMobile(false)}><BrandLogo size={42}/><span><b>KASA <em>LIFE</em></b><small>MARATHON OPERATIONS</small></span></Link>
+  <aside id="ml-workspace-menu" className={'ml-sidebar '+(collapsed?'is-collapsed ':'')+(mobile?'ml-sidebar-open':'')}>
+   <div className="ml-sidebar-header"><Link href="/marathon" className="ml-sidebar-brand" title="KASA Life Marathon" onClick={()=>setMobile(false)}><BrandLogo size={42}/><span><b>KASA <em>LIFE</em></b><small>MARATHON OPERATIONS</small></span></Link><button type="button" className="ml-sidebar-toggle" onClick={toggleSidebar} aria-label={collapsed?'Expand Marathon sidebar':'Collapse Marathon sidebar'} title={collapsed?'Expand sidebar':'Collapse sidebar'}><ChevronLeft size={18}/></button></div>
    <div className="ml-sidebar-scroll" tabIndex={0} aria-label="Scrollable Marathon navigation">
    <div className="ml-nav-section">WORKSPACE</div>
    <nav aria-label="Marathon workspace navigation">{dailyMenu.map(navigationItem)}</nav>
-   <details className="ml-nav-tools" open={toolMenu.some(item=>item.view===view)||undefined}><summary>More tools <ChevronDown size={15}/></summary><nav aria-label="Other Marathon tools">{toolMenu.map(navigationItem)}</nav></details>
+   <details className="ml-nav-tools" open={collapsed||toolMenu.some(item=>item.view===view)||undefined}><summary>More tools <ChevronDown size={15}/></summary><nav aria-label="Other Marathon tools">{toolMenu.map(navigationItem)}</nav></details>
    {schoolDestination&&<div className="ml-school-switch"><span className="ml-nav-section">YOUR WORKSPACES</span>
     <Link href={schoolDestination} className="ml-nav-item ml-school-link"><ArrowDownRight size={19}/><span>Return to KASA School</span></Link>
    </div>}
-   </div><SidebarScrollControls targetSelector=".ml-sidebar-scroll"/>
-   <div className="ml-sidebar-event"><div className="ml-sidebar-event-top"><span className="ml-event-kicker"><span className="ml-pulse"/> EVENT COUNTDOWN</span><CalendarDays size={18}/></div><strong>{daysLeft}<small> days</small></strong><span>Sunday, 21 March 2027</span><div className="ml-event-line"><span style={{width:Math.max(5,100-daysLeft/150*100)+'%'}}/></div></div>
-   <div className="ml-sidebar-bottom"><div className="ml-sidebar-person"><span className="ml-avatar">{displayName.slice(0,2).toUpperCase()}</span><div><b>{displayName}</b><small>{state.identity.schoolRole==='marathon_only'?'Marathon only':'School + Marathon'} · {state.identity.role}</small></div><button title="Sign out" aria-label="Sign out" onClick={()=>void logout()}><LogOut size={18}/></button></div></div>
+   </div>
   </aside>
   {mobile&&<button className="ml-mobile-overlay" aria-label="Close menu" onClick={()=>setMobile(false)}/>}
   <main className="ml-main">
-   <header className="ml-topbar"><div className="ml-top-left"><button className="ml-mobile-menu" aria-label="Open navigation" aria-controls="ml-workspace-menu" aria-expanded={mobile} onClick={()=>setMobile(true)}><Menu size={22}/></button><span className="ml-breadcrumb">KASA Life Marathon</span><ChevronRight size={15}/><strong>{menu.find(x=>x.view===view)?.label||'Home'}</strong></div><div className="ml-top-actions"><Link href="/marthon/sync" className={'ml-sync-status '+(offline?'off':'')} aria-label={pending.length?pending.length+' saved edits. Open offline edits.':'View offline edits'}>{offline?<WifiOff size={15}/>:pending.length?<CloudOff size={15}/>:<Cloud size={15}/>} {syncing?'Syncing…':offline?'Offline':pending.length?pending.length+' pending':'Synced'}</Link><button className="ml-alert-toggle" type="button" aria-label={'Reminders: '+attentionTasks.length+' actions need attention'} title="Action reminders" aria-expanded={alertsOpen} onClick={()=>setAlertsOpen(v=>!v)}><Bell size={18}/>{attentionTasks.length>0&&<span className="ml-alert-count">{attentionTasks.length>99?'99+':attentionTasks.length}</span>}</button><button aria-label="Refresh" title="Refresh data" onClick={()=>void refresh().then(()=>flush())}><RefreshCcw size={18}/></button><span className="ml-top-divider"/><span className="ml-avatar ml-avatar-small">{displayName.slice(0,2).toUpperCase()}</span></div>{alertsOpen&&<MarathonAlertCenter tasks={tasks} today={today} onOpen={setDrawer} onClose={()=>setAlertsOpen(false)}/>}</header>
+   <header className="ml-topbar"><div className="ml-top-left"><button className="ml-mobile-menu" aria-label="Open navigation" aria-controls="ml-workspace-menu" aria-expanded={mobile} onClick={()=>setMobile(true)}><Menu size={22}/></button><button className="ml-desktop-collapse" type="button" aria-label={collapsed?'Expand Marathon sidebar':'Collapse Marathon sidebar'} onClick={toggleSidebar} title={collapsed?'Expand sidebar':'Collapse sidebar'}><Menu size={20}/></button><span className="ml-breadcrumb">KASA Life Marathon</span><ChevronRight size={15}/><strong>{menu.find(x=>x.view===view)?.label||'Home'}</strong></div><div className="ml-top-actions"><Link href="/marathon/sync" className={'ml-sync-status '+(offline?'off':'')} aria-label={pending.length?pending.length+' saved edits. Open offline edits.':'View offline edits'}>{offline?<WifiOff size={15}/>:pending.length?<CloudOff size={15}/>:<Cloud size={15}/>} {syncing?'Syncing…':offline?'Offline':pending.length?pending.length+' pending':'Synced'}</Link><button className="ml-alert-toggle" type="button" aria-label={'Reminders: '+attentionTasks.length+' actions need attention'} title="Action reminders" aria-expanded={alertsOpen} onClick={()=>setAlertsOpen(v=>!v)}><Bell size={18}/>{attentionTasks.length>0&&<span className="ml-alert-count">{attentionTasks.length>99?'99+':attentionTasks.length}</span>}</button><button aria-label="Refresh" title="Refresh data" onClick={()=>void refresh().then(()=>flush())}><RefreshCcw size={18}/></button><span className="ml-top-divider"/><AccountMenu displayName={displayName} email={state.identity.email} roleLabel={(state.identity.schoolRole==='marathon_only'?'Marathon-only · ':'School + Marathon · ')+state.identity.role} profileHref={state.identity.schoolRole==='marathon_only'?undefined:schoolDestination||undefined} onSignOut={logout}/></div>{alertsOpen&&<MarathonAlertCenter tasks={tasks} today={today} onOpen={setDrawer} onClose={()=>setAlertsOpen(false)}/>}</header>
    <div className="ml-content">
     {!!notice&&<div className="ml-notice" role="status"><span>{notice}</span><button onClick={()=>setNotice('')} aria-label="Dismiss notification"><X size={17}/></button></div>}
     {!!authError&&uid&&<div className="ml-notice ml-warning"><AlertTriangle size={17}/>{authError}</div>}
     {offline&&<div className="ml-offline-notice"><CloudOff size={17}/> You are viewing cached operations. Changes to existing tasks are stored on this device until connectivity returns.</div>}
     {view==='overview'&&<>
      <div className="ml-heading-row"><div><span className="ml-eyebrow">EVENT CONTROL CENTRE · 2027</span><h1>Good day, {displayName.split(' ')[0]} <Flag className="ml-greeting" size={24}/></h1><p>Here is where your event preparations stand today.</p></div><div className="ml-heading-actions"><button className="ml-secondary" onClick={exportCSV}><Download size={17}/> Export</button>{state.permissions.edit&&<button className="ml-primary" onClick={()=>setNewTask(true)}><Plus size={17}/> New action</button>}</div></div>
-     <div className="ml-start-actions" aria-label="Start working"><button onClick={()=>showActions('open')}><ClipboardCheck size={22}/><span><b>Open checklist</b><small>{allFocusCounts.open} actions to finish</small></span><ArrowRight size={17}/></button><button onClick={()=>showActions('attention')}><Flag size={22}/><span><b>Needs attention</b><small>{allFocusCounts.attention} urgent, blocked or overdue</small></span><ArrowRight size={17}/></button><Link href="/marthon/categories"><Layers3 size={22}/><span><b>Browse categories</b><small>{marathonCategories.length} workstreams</small></span><ArrowRight size={17}/></Link></div>
-     <div className="ml-hero"><div className="ml-hero-copy"><span className="ml-hero-tag"><span className="ml-pulse"/> KASA LIFE MARATHON 2027</span><h2>Making every mile<br/><i>count.</i></h2><p>One shared workspace for planning, approvals, preparations and the event-day experience.</p><Link href="/marthon/operations" className="ml-hero-button">Explore operations <ArrowRight size={17}/></Link></div><div className="ml-hero-art"><div className="ml-orbit big"/><div className="ml-orbit small"/><span>21<span className="ml-runner-dot">•</span></span><b>MAR<br/>2027</b></div><div className="ml-hero-foot"><span>21.1 KM HALF MARATHON</span><span>10 KM RUN</span><span>5 KM FAMILY RUN</span></div></div>
+     <section className="ml-countdown-strip" aria-label="KASA Life Marathon date countdown">
+      <div className="ml-countdown-label"><CalendarDays size={20}/><span><b>KASA LIFE MARATHON · COUNTDOWN</b><small>Sunday, 21 March 2027</small></span></div>
+      <div className="ml-countdown-value"><strong>{daysLeft}</strong><span>days to go</span></div>
+      <div className="ml-countdown-progress"><span style={{width:Math.max(5,100-daysLeft/150*100)+'%'}}/></div>
+     </section>
+     <div className="ml-start-actions" aria-label="Start working"><button onClick={()=>showActions('open')}><ClipboardCheck size={22}/><span><b>Open checklist</b><small>{allFocusCounts.open} actions to finish</small></span><ArrowRight size={17}/></button><button onClick={()=>showActions('attention')}><Flag size={22}/><span><b>Needs attention</b><small>{allFocusCounts.attention} urgent, blocked or overdue</small></span><ArrowRight size={17}/></button><Link href="/marathon/categories"><Layers3 size={22}/><span><b>Browse categories</b><small>{marathonCategories.length} workstreams</small></span><ArrowRight size={17}/></Link></div>
+     <div className="ml-hero"><div className="ml-hero-copy"><span className="ml-hero-tag"><span className="ml-pulse"/> KASA LIFE MARATHON 2027</span><h2>Making every mile<br/><i>count.</i></h2><p>One shared workspace for planning, approvals, preparations and the event-day experience.</p><Link href="/marathon/operations" className="ml-hero-button">Explore operations <ArrowRight size={17}/></Link></div><div className="ml-hero-art"><div className="ml-orbit big"/><div className="ml-orbit small"/><span>21<span className="ml-runner-dot">•</span></span><b>MAR<br/>2027</b></div><div className="ml-hero-foot"><span>21.1 KM HALF MARATHON</span><span>10 KM RUN</span><span>5 KM FAMILY RUN</span></div></div>
      <div className="ml-kpis"><Metric label="Total actions" value={active.length} icon={Layers3} note="Across all workstreams"/><Metric label="Completed" value={complete} icon={CheckCircle2} note={pct+'% of all actions'} accent="green"/><Metric label="In progress" value={inProgress} icon={Clock3} note="Active assignments" accent="blue"/><Metric label="Overdue" value={overdue} icon={AlertTriangle} note="Require immediate attention" accent="amber"/></div>
      <div className="ml-grid-two"><section className="ml-panel"><div className="ml-panel-head"><div><span className="ml-eyebrow">PROGRESS OVERVIEW</span><h3>Event readiness</h3></div><span className="ml-panel-icon"><TrendingUp size={19}/></span></div><div className="ml-progress-content"><div className="ml-donut" style={{background:'conic-gradient(#258660 '+pct+'%,#e9f0ed 0)'}}><div><strong>{pct}%</strong><small>complete</small></div></div><div className="ml-progress-legend"><div><span className="ml-legend-dot green"/>Completed<b>{complete}</b></div><div><span className="ml-legend-dot blue"/>In progress<b>{inProgress}</b></div><div><span className="ml-legend-dot amber"/>Not started / blocked<b>{active.length-complete-inProgress}</b></div><div className="ml-progress-tip"><Target size={18}/> {critical} critical tasks remain open</div></div></div></section>
-      <section className="ml-panel"><div className="ml-panel-head"><div><span className="ml-eyebrow">IMMEDIATE ATTENTION</span><h3>Priority decisions</h3></div><Link href="/marthon/operations" className="ml-link">View all <ArrowUpRight size={16}/></Link></div><div className="ml-decision-list">{sortTasks(active.filter(t=>t.priority.startsWith('P1')&&t.status!=='done')).slice(0,5).map(t=><button className="ml-decision" key={t.id} onClick={()=>setDrawer(t)}><span className="ml-decision-ic"><Flag size={17}/></span><span><b>{t.title}</b><small>{t.lead} · {formatDate(t.dueDate)}</small></span><ChevronRight size={17}/></button>)}{!active.some(t=>t.priority.startsWith('P1')&&t.status!=='done')&&<p>All immediate decisions have been addressed.</p>}</div></section></div>
-     <div className="ml-section-row"><div><span className="ml-eyebrow">WHAT IS NEXT</span><h3>Upcoming operations</h3></div><Link className="ml-link" href="/marthon/operations">Open operations <ArrowRight size={17}/></Link></div>
+      <section className="ml-panel"><div className="ml-panel-head"><div><span className="ml-eyebrow">IMMEDIATE ATTENTION</span><h3>Priority decisions</h3></div><Link href="/marathon/operations" className="ml-link">View all <ArrowUpRight size={16}/></Link></div><div className="ml-decision-list">{sortTasks(active.filter(t=>t.priority.startsWith('P1')&&t.status!=='done')).slice(0,5).map(t=><button className="ml-decision" key={t.id} onClick={()=>setDrawer(t)}><span className="ml-decision-ic"><Flag size={17}/></span><span><b>{t.title}</b><small>{t.lead} · {formatDate(t.dueDate)}</small></span><ChevronRight size={17}/></button>)}{!active.some(t=>t.priority.startsWith('P1')&&t.status!=='done')&&<p>All immediate decisions have been addressed.</p>}</div></section></div>
+     <div className="ml-section-row"><div><span className="ml-eyebrow">WHAT IS NEXT</span><h3>Upcoming operations</h3></div><Link className="ml-link" href="/marathon/operations">Open operations <ArrowRight size={17}/></Link></div>
      <div className="ml-task-list">{sortTasks(active.filter(t=>t.status!=='done')).slice(0,6).map(t=><TaskRow key={t.id} task={t} queued={pending.includes(t.id)} onOpen={()=>setDrawer(t)} onQuickDone={state.permissions.edit?()=>void changeTask(t,{status:t.status==='done'?'todo':'done'}):undefined}/>)}</div>
     </>}
     {view==='categories'&&<>
-     <div className="ml-heading-row"><div><span className="ml-eyebrow">CHECKLIST WORKSTREAMS</span><h1>Categories</h1><p>Every action belongs to a workstream from the event checklist. Open a category to review its actions and progress.</p></div><Link className="ml-secondary" href="/marthon/operations">All operations <ArrowRight size={17}/></Link></div>
+     <div className="ml-heading-row"><div><span className="ml-eyebrow">CHECKLIST WORKSTREAMS</span><h1>Categories</h1><p>Every action belongs to a workstream from the event checklist. Open a category to review its actions and progress.</p></div><Link className="ml-secondary" href="/marathon/operations">All operations <ArrowRight size={17}/></Link></div>
      <div className="ml-mini-stats"><span>{marathonCategories.length} checklist categories</span><span>{active.length} active actions</span><span>{complete} completed</span>{uncategorizedCount>0&&<span>{uncategorizedCount} need a category</span>}</div>
      <MarathonCategoryBoard tasks={active}/>
     </>}
@@ -451,7 +457,7 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
    </div>
   </main>
   {reviewEdit&&<MarathonSyncReview edit={reviewEdit} current={reviewTask} error={reviewError} busy={saving||syncing} onClose={()=>{reviewRequest.current++;setReviewEdit(null);}} onResolve={retry=>void resolveEdit(retry)}/>}
-  {drawer&&<TaskDrawer task={drawer} editable={state.permissions.edit} saving={saving} queued={pending.includes(drawer.id)} onClose={()=>setDrawer(null)} onSave={changes=>void changeTask(drawer,changes)} onRecommend={()=>{setSuggestTask(drawer.id);setDrawer(null);window.history.pushState(null,'','/marthon/recommendations');}}/>}
+  {drawer&&<TaskDrawer task={drawer} editable={state.permissions.edit} saving={saving} queued={pending.includes(drawer.id)} onClose={()=>setDrawer(null)} onSave={changes=>void changeTask(drawer,changes)} onRecommend={()=>{setSuggestTask(drawer.id);setDrawer(null);window.history.pushState(null,'','/marathon/recommendations');}}/>}
   {newTask&&<NewTaskModal initialSection={filterCategory==='all'?'':categoryForId(filterCategory).section} saving={saving} onClose={()=>setNewTask(false)} onSave={x=>void createTask(x)}/>}
  </div>;
 }
