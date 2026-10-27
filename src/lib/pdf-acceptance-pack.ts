@@ -59,6 +59,7 @@ export type AcceptancePackData = {
   boardingMealsFees: string;
   totalFees: string;
   initialPayment: string;
+  suppressProposedFees?: boolean;
   approvedBreakdown?: {
     version:string;approvalReference:string;tuition:number;practical:number;
     administration:number;accommodation:number;food:number;total:number;
@@ -385,6 +386,13 @@ export async function generateAcceptancePackPdf(
     for (const line of wrap('Payment instalments and deadlines are governed by the separately approved agreement. No deposit percentage is inferred by this letter.',8.5,500,regular)) {
       page2.drawText(ascii(line),{x:40,y,size:8.5,font:italic,color:mutedText});
       y -= 13;
+    }
+  } else if (data.suppressProposedFees) {
+    page2.drawText('Historical fee amounts awaiting reconciliation', {x:40,y,size:11,font:bold,color:darkInk});
+    y -= 21;
+    for (const line of wrap('The historical acceptance was issued before an approved fee snapshot was recorded. KASA Finance must verify the original signed schedule and reconcile this application. No fee value, balance, or deposit is inferred by this reconstructed copy.',9,510,regular)) {
+      page2.drawText(ascii(line),{x:40,y,size:9,font:regular,color:darkInk});
+      y -= 15;
     }
   } else {
   // Main Programmes Table
