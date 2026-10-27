@@ -1,6 +1,7 @@
 'use client';
 import {useEffect, useState} from 'react';
-import {CheckCircle2, Copy, Plus, Share2, Users, X, Edit, Save, ArrowLeft, Trash2, Award, MapPin, TrendingUp} from 'lucide-react';
+import Link from 'next/link';
+import {CheckCircle2, Copy, Plus, Share2, Users, Edit, Trash2, Award, MapPin, TrendingUp} from 'lucide-react';
 import {api, cachedApi, PageHeader} from '@/components/Portal';
 import {ConfirmModal} from '@/components/ConfirmModal';
 import type {ApplicantRecord} from '@/lib/types';
@@ -33,10 +34,6 @@ export default function Agents() {
   const [selectedUids, setSelectedUids] = useState<Set<string>>(new Set());
   const [bulkDeleteTarget, setBulkDeleteTarget] = useState<'selected' | 'all' | null>(null);
   const [loading, setLoading] = useState(true);
-  const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
-  const [editDistrict, setEditDistrict] = useState('');
-  const [editActive, setEditActive] = useState(true);
-
   const load = async (force = false) => {
     try {
       if (force) {
@@ -84,33 +81,12 @@ export default function Agents() {
     }
   }
 
-  function openEditModal(a: Agent) {
-    setEditingAgent(a);
-    setEditDistrict(a.district || '');
-    setEditActive(a.active);
-  }
-
-  async function saveAgentModal() {
-    if (!editingAgent) return;
-    setBusy(true);
-    try {
-      await editAgent(editingAgent, {
-        district: editDistrict,
-        active: editActive
-      });
-      setEditingAgent(null);
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function confirmDeleteAgent() {
     if (!deletingAgent) return;
     setBusy(true); setError(''); setNotice('');
     try {
       await api(`/api/admin/agents/${deletingAgent.uid}`, { method: 'DELETE' });
       setNotice(`Agent ${deletingAgent.displayName} has been removed.`);
-      if (editingAgent?.uid === deletingAgent.uid) setEditingAgent(null);
       setDeletingAgent(null);
       await load(true);
     } catch (e) {
@@ -338,9 +314,9 @@ export default function Agents() {
                       >
                         <Share2 size={15} /> Share link
                       </button>
-                      <button className="text-link" onClick={() => openEditModal(a)}>
-                        <Edit size={14} /> Edit district
-                      </button>
+                      <Link className="text-link" href={'/dashboard/agents/'+encodeURIComponent(a.uid)+'/edit'}>
+                        <Edit size={14} /> Edit agent
+                      </Link>
                       <button className="text-link" style={{color:'#ef4444'}} onClick={() => setDeletingAgent(a)} title="Remove agent">
                         <Trash2 size={14} /> Remove
                       </button>
@@ -358,112 +334,6 @@ export default function Agents() {
           </table>
         </div>
       </div>
-
-      {/* MODAL PAGE FOR EDITING AGENT */}
-      {editingAgent && (
-        <div
-          className="modal-page-overlay"
-          role="dialog"
-          aria-modal="true"
-          onClick={e => {
-            if (e.target === e.currentTarget) setEditingAgent(null);
-          }}
-        >
-          <div className="modal-page" style={{maxWidth: 650, height: 'auto', maxHeight: '90vh'}}>
-            <div className="modal-page-header">
-              <div className="modal-page-header-left">
-                <button
-                  type="button"
-                  className="icon-btn"
-                  onClick={() => setEditingAgent(null)}
-                >
-                  <ArrowLeft size={18} />
-                </button>
-                <div>
-                  <span className="overline" style={{color: '#2a7550', margin: 0}}>
-                    EDIT AGENT
-                  </span>
-                  <h2>{editingAgent.displayName}</h2>
-                </div>
-              </div>
-              <button
-                type="button"
-                className="icon-btn"
-                onClick={() => setEditingAgent(null)}
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="modal-page-body">
-              <div className="modal-page-card">
-                <h3>Agent Assignment Details</h3>
-                <p>Modify assigned territory and active status.</p>
-
-                <div className="field">
-                  <label>Agent Name</label>
-                  <input disabled value={editingAgent.displayName} />
-                </div>
-
-                <div className="field">
-                  <label>Email Address</label>
-                  <input disabled value={editingAgent.email} />
-                </div>
-
-                <div className="field">
-                  <label>Referral Code</label>
-                  <input disabled value={editingAgent.agentCode} />
-                </div>
-
-                <div className="field">
-                  <label>Assigned District</label>
-                  <input
-                    placeholder="e.g. Chisamba, Chibombo, Lusaka"
-                    value={editDistrict}
-                    onChange={e => setEditDistrict(e.target.value)}
-                  />
-                </div>
-
-                <label className="required-toggle" style={{marginTop: 16}}>
-                  <input
-                    type="checkbox"
-                    checked={editActive}
-                    onChange={e => setEditActive(e.target.checked)}
-                  />
-                  Agent account is active and able to refer students
-                </label>
-              </div>
-            </div>
-
-            <div className="modal-page-footer">
-              <button
-                type="button"
-                className="btn btn-outline"
-                style={{color:'#ef4444',borderColor:'rgba(239,68,68,0.3)',marginRight:'auto'}}
-                disabled={busy}
-                onClick={() => setDeletingAgent(editingAgent)}
-              >
-                <Trash2 size={16} /> Remove agent
-              </button>
-              <button
-                type="button"
-                className="btn btn-outline"
-                onClick={() => setEditingAgent(null)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                disabled={busy || !editDistrict.trim()}
-                onClick={() => void saveAgentModal()}
-              >
-                <Save size={16} /> Save agent details
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <ConfirmModal
         isOpen={Boolean(deletingAgent)}
