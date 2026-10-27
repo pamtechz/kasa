@@ -2,6 +2,7 @@
 
 import {useState,useEffect,useRef,useCallback} from 'react';
 import Link from 'next/link';
+import type {LucideIcon} from 'lucide-react';
 import {
   ArrowRight,
   ChevronLeft,
@@ -11,7 +12,9 @@ import {
   Users,
   Coins,
   CheckCircle2,
-  Sparkles
+  Sparkles,
+  MapPin,Landmark,BriefcaseBusiness,Tractor,Wrench,Zap,Wheat,
+  ScrollText,Banknote,Smartphone
 } from 'lucide-react';
 import type {SiteSettings} from '@/lib/site';
 
@@ -29,7 +32,7 @@ export type HeroSlide = {
     label: string;
     href: string;
   };
-  tags: {label: string; href?: string; icon?: string}[];
+  tags: {label: string; href?: string; icon?: LucideIcon}[];
   metrics?: {value: string; label: string}[];
 };
 
@@ -62,9 +65,9 @@ export function HeroSlider({
         href: studentHref
       },
       tags: [
-        {label: '10 Provinces Coverage', icon: '📍'},
-        {label: '116 Districts', icon: '🏛️'},
-        {label: 'Verified Direct Commissions', icon: '💼'}
+        {label: '10 Provinces Coverage', icon: MapPin},
+        {label: '116 Districts', icon: Landmark},
+        {label: 'Verified Direct Commissions', icon: BriefcaseBusiness}
       ],
       metrics: site?.metrics
     },
@@ -84,10 +87,10 @@ export function HeroSlider({
         href: '/programmes'
       },
       tags: [
-        {label: 'Heavy Equipment Operations', href: '/programmes', icon: '🚜'},
-        {label: 'Automotive Mechanics', href: '/programmes', icon: '🔧'},
-        {label: 'Electrical Systems', href: '/programmes', icon: '⚡'},
-        {label: 'Commercial Agribusiness', href: '/programmes', icon: '🌾'}
+        {label: 'Heavy Equipment Operations', href: '/programmes', icon: Tractor},
+        {label: 'Automotive Mechanics', href: '/programmes', icon: Wrench},
+        {label: 'Electrical Systems', href: '/programmes', icon: Zap},
+        {label: 'Commercial Agribusiness', href: '/programmes', icon: Wheat}
       ]
     },
     {
@@ -106,9 +109,9 @@ export function HeroSlider({
         href: studentHref
       },
       tags: [
-        {label: '2027 Admissions Guide', href: '/announcements', icon: '📰'},
-        {label: 'Instant CDF Auto-Approval', href: '/announcements', icon: '⚡'},
-        {label: 'Official Acceptance Packs', href: '/announcements', icon: '📜'}
+        {label: '2027 Admissions Guide', href: '/announcements', icon: Newspaper},
+        {label: 'Instant CDF Auto-Approval', href: '/announcements', icon: Zap},
+        {label: 'Official Acceptance Packs', href: '/announcements', icon: ScrollText}
       ]
     },
     {
@@ -127,9 +130,9 @@ export function HeroSlider({
         href: agentHref
       },
       tags: [
-        {label: 'Earn Per Trainee Enrollment', icon: '💵'},
-        {label: 'Live Mobile Status Tracking', icon: '📲'},
-        {label: 'Zero Initial Fee Required', icon: '✨'}
+        {label: 'Earn Per Trainee Enrollment', icon: Banknote},
+        {label: 'Live Mobile Status Tracking', icon: Smartphone},
+        {label: 'Zero Initial Fee Required', icon: Sparkles}
       ]
     }
   ];
@@ -220,20 +223,21 @@ export function HeroSlider({
         </div>
 
         <div className="hero-slider-tags">
-          {current.tags.map((tag, i) =>
-            tag.href ? (
+          {current.tags.map((tag, i) => {
+            const Icon = tag.icon;
+            return tag.href ? (
               <Link key={i} href={tag.href} className="hero-slider-tag-pill is-link">
-                {tag.icon && <span className="tag-emoji">{tag.icon}</span>}
+                {Icon && <Icon size={16} strokeWidth={2} aria-hidden="true" className="tag-icon"/>}
                 <span>{tag.label}</span>
                 <ArrowRight size={12} className="tag-arrow" />
               </Link>
             ) : (
               <div key={i} className="hero-slider-tag-pill">
-                {tag.icon && <span className="tag-emoji">{tag.icon}</span>}
+                {Icon && <Icon size={16} strokeWidth={2} aria-hidden="true" className="tag-icon"/>}
                 <span>{tag.label}</span>
               </div>
-            )
-          )}
+            );
+          })}
         </div>
       </div>
 

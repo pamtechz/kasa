@@ -45,6 +45,7 @@ export default function Home(){
      if(role==='agent')setDashboardHref('/dashboard/referrals');
      else if(role==='reviewer')setDashboardHref('/dashboard/applications');
      else if(role==='student')setDashboardHref('/my-applications');
+     else if(role==='marathon_only')setDashboardHref('/marathon');
      else setDashboardHref('/dashboard');
     }catch{
      setDashboardHref('/dashboard');

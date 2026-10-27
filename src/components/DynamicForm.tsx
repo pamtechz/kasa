@@ -5,7 +5,7 @@ import Image from 'next/image';
 import {signInWithEmailAndPassword,updatePassword} from 'firebase/auth';
 import {
  ArrowLeft,ArrowRight,CheckCircle2,LoaderCircle,Paperclip,
- ShieldCheck,Image as ImageIcon,FileDown,LockKeyhole,Copy,KeyRound,Check,Users
+ ShieldCheck,Image as ImageIcon,FileDown,LockKeyhole,Copy,KeyRound,Check,Users,ExternalLink
 } from 'lucide-react';
 import type {Field,FormSchema} from '@/lib/types';
 import {appCheckToken,auth,requireClientAuth} from '@/lib/firebase-client';
@@ -329,7 +329,7 @@ export function DynamicForm({form,agentCode}:{form:FormSchema;agentCode?:string}
    {f.type==='image'&&<div className="cloudinary-box">
      <div className="cloudinary-box-header">
       <label htmlFor={f.id}><ImageIcon size={16}/> Cloudinary Image URL (strictly from https://console.cloudinary.com/app)</label>
-      <a href="https://console.cloudinary.com/app" target="_blank" rel="noopener noreferrer" className="cloudinary-link-btn">Open Cloudinary Console ↗</a>
+      <a href="https://console.cloudinary.com/app" target="_blank" rel="noopener noreferrer" className="cloudinary-link-btn">Open Cloudinary Console <ExternalLink size={14} aria-hidden="true"/></a>
      </div>
      <p className="field-hint">Uploading images must be from <a href="https://console.cloudinary.com/app" target="_blank" rel="noopener noreferrer" style={{textDecoration:'underline',fontWeight:700}}>https://console.cloudinary.com/app</a> strictly. Paste your asset URL below (must start with <code>https://res.cloudinary.com/</code>).</p>
      <input id={f.id} type="url" placeholder="https://res.cloudinary.com/your-cloud/image/upload/v.../photo.jpg" value={valString(answers[f.id])} onChange={e=>update(f.id,e.target.value)}/>

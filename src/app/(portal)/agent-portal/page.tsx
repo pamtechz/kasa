@@ -4,7 +4,7 @@ import {useState, useEffect} from 'react';
 import Link from 'next/link';
 import {AgentPortal} from '@/components/AgentPortal';
 import {
-  Users, MapPin, Award, Wallet, PlusCircle, Share2, Copy, Check, RefreshCw, Trophy, Sparkles
+  Users, MapPin, Award, Medal, Gem, Wallet, PlusCircle, Share2, Copy, Check, RefreshCw, Trophy, Sparkles
 } from 'lucide-react';
 import {authHeaders} from '@/lib/firebase-client';
 
@@ -31,7 +31,6 @@ type LeaderboardEntry = {
   district: string;
   confirmedEnrollments: number;
   tier: 'Bronze' | 'Silver' | 'Gold' | 'Diamond';
-  badgeEmoji: string;
   eligibleForBonus: boolean;
   bonusAmount: number;
   totalPayoutWithBonus: number;
@@ -90,6 +89,8 @@ export default function AgentPortalDashboard() {
   }
 
   const myEntry = leaderboard.find(l => l.uid === profile?.uid);
+  const TierIcon = myEntry?.tier === 'Diamond' ? Gem : Medal;
+  const tierClass = (myEntry?.tier || 'Bronze').toLowerCase();
 
   return (
     <AgentPortal>
@@ -125,7 +126,7 @@ export default function AgentPortalDashboard() {
         <div className="metric-card">
           <div className="metric-icon amber"><Award /></div>
           <span>Achievement Tier</span>
-          <strong>{loading ? '—' : `${myEntry?.badgeEmoji || '🥉'} ${myEntry?.tier || 'Bronze'}`}</strong>
+          <strong>{loading ? '—' : <span className={'agent-tier-label agent-tier-'+tierClass}><TierIcon size={19} aria-hidden="true"/> {myEntry?.tier || 'Bronze'}</span>}</strong>
           <small>{myEntry?.confirmedEnrollments || 0} confirmed enrollments</small>
         </div>
         <div className="metric-card">
@@ -244,8 +245,8 @@ export default function AgentPortalDashboard() {
                     <td>{entry.district}</td>
                     <td><strong>{entry.confirmedEnrollments}</strong> students</td>
                     <td>
-                      <span className="tag tag-gold" style={{fontSize: 12}}>
-                        {entry.badgeEmoji} {entry.tier}
+                      <span className={"tag tag-gold agent-tier-label agent-tier-"+entry.tier.toLowerCase()} style={{fontSize: 12}}>
+                        {entry.tier === 'Diamond' ? <Gem size={15} aria-hidden="true"/> : <Medal size={15} aria-hidden="true"/>} {entry.tier}
                       </span>
                     </td>
                     <td>

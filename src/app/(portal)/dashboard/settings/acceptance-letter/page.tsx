@@ -537,7 +537,7 @@ export default function AcceptanceLetterDesigner() {
                         }}
                         style={{display: 'inline-flex', alignItems: 'center', gap: 6}}
                       >
-                        <ExternalLink size={15}/> Test / Preview Link ↗
+                        <ExternalLink size={15}/> Test / Preview Link
                       </button>
                     </div>
                     <p className="muted" style={{fontSize: 12, marginTop: 6}}>
@@ -615,7 +615,7 @@ export default function AcceptanceLetterDesigner() {
                     className="btn btn-outline"
                     style={{display:'inline-flex',alignItems:'center',gap:6,whiteSpace:'nowrap'}}
                   >
-                    <ExternalLink size={15}/> Test Public Download Link ↗
+                    <ExternalLink size={15}/> Test Public Download Link
                   </a>
                 </div>
                 <small className="muted" style={{fontSize:12,marginTop:6,display:'block'}}>
@@ -1253,7 +1253,7 @@ export default function AcceptanceLetterDesigner() {
           disabled={previewing}
           onClick={() => void previewPdf()}
         >
-          <Eye size={16}/> {previewing ? 'Generating…' : 'Live PDF Preview ↗'}
+          <Eye size={16}/> {previewing ? 'Generating…' : 'Live PDF Preview'}
         </button>
         <button
           type="button"
