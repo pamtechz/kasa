@@ -2,6 +2,7 @@ import {db} from '@/lib/firebase-admin';
 import {fail,json,HttpError} from '@/lib/errors';
 import {operator,audit,safeText,sameOrigin,digest} from '@/lib/security';
 import {normalizedIntake} from '@/lib/intake-policy';
+import {readApprovedFeeQuote} from '@/lib/approved-fee-quote';
 import type {SubmissionStatus} from '@/lib/types';
 import {automationSchema,defaultAutomations,formatNotification} from '@/lib/automations';
 import {invalidateSubmissionsCache} from '@/lib/server-cache';
@@ -42,6 +43,8 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
    const previous=snap.data()!;
    if(!stages[previous.status as SubmissionStatus]?.includes(status))
     throw new HttpError(400,'Invalid status transition. Refresh this application.');
+   if(status==='letter_issued'&&!readApprovedFeeQuote(previous.feeQuote))
+    throw new HttpError(409,'Document an approved application-specific fee quote before issuing a student acceptance letter.');
    if(previous.formKind!=='student'&&['letter_issued','cdf_submitted','cdf_approved','payment_verified','commission_paid'].includes(status))
     throw new HttpError(400,'Funding, letters and enrollment are for student applications only.');
    const history=[...(previous.history||[]).slice(-80),{status,at:now,by:actor.uid,...(note?{note}:{})}];
