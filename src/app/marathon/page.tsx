@@ -1,2 +1,1 @@
-import {redirect} from 'next/navigation';
-export default function MarathonAlias(){redirect('/marthon');}
+export default function MarathonHome(){return null;}
