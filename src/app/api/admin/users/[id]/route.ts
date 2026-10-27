@@ -90,8 +90,8 @@ export async function PATCH(
           throw new HttpError(403,'Only a Super Administrator can assign account roles.');
         }
         const authIdentity = await adminAuth.getUser(uid);
-        if (!authIdentity.emailVerified) {
-          throw new HttpError(403,'Verify the account email before changing roles.');
+        if (!authIdentity.emailVerified&&!currentData.adminPasswordProvisionedAt) {
+          throw new HttpError(403,'Verify the email or provision an initial password before changing School roles.');
         }
         updates.role = body.role as any;
       }
