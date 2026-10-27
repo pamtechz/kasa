@@ -60,7 +60,7 @@ export function FinanceQuoteReconcile({item,onClose,onSaved}:{item:Student;onClo
      </div>}
      <label style={{display:'flex',alignItems:'flex-start',gap:10,marginTop:12}}>
       <input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/>
-      <span>I have verified the applicant's actual course, package, effective tariff and original documentation. I understand this creates a permanent, non-overwritable fee snapshot.</span>
+      <span>I have verified the applicant&apos;s actual course, package, effective tariff and original documentation. I understand this creates a permanent, non-overwritable fee snapshot.</span>
      </label>
     </div>
     <footer className="modal-page-footer">
