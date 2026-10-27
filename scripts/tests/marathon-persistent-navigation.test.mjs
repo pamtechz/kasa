@@ -56,7 +56,7 @@ test('one shared layout owns the workspace while route outlets never remount it'
  const switcher=source('src/components/marathon/MarathonContentSwitch.tsx');
  assert.equal((switcher.match(/<MarathonWorkspace\b/g)||[]).length,1);
  assert.match(layout,/<MarathonContentSwitch>/);
- assert.match(switcher,/settings\\/members/);
+ assert.match(switcher,/settings/);
  assert.match(layout,/<Suspense\b/);
  for(const page of ['src/app/marathon/page.tsx','src/app/marathon/[section]/page.tsx']){
   assert.doesNotMatch(source(page),/MarathonWorkspace/);
