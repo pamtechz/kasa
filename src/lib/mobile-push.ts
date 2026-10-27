@@ -13,6 +13,15 @@ function activeMarathonMember(profile:Profile){
 }
 async function sendPush(audience:Audience,title:string,body:string,path:string,recipient='all',recipientUid?:string){
  const devices:Device[]=[];
+ if(recipientUid){
+  // Targeted notifications read only the recipient's registered devices.
+  const ownDevices=await db.collection('mobilePushDevices').where('uid','==',recipientUid).limit(8).get();
+  for(const doc of ownDevices.docs){
+   const value=doc.data();const refreshedAt=Date.parse(String(value.updatedAt||''));
+   if(typeof value.token==='string'&&Number.isFinite(refreshedAt)&&refreshedAt>=Date.now()-35*86400000)
+    devices.push({id:doc.id,uid:recipientUid,token:value.token,marathon:value.marathon===true});
+  }
+ }else{
  let cursor:string|null=null;
  // Paginate document IDs without needing a composite Firestore index.
  for(let page=0;page<40;page++){
@@ -30,6 +39,7 @@ async function sendPush(audience:Audience,title:string,body:string,path:string,r
   }
   cursor=snap.docs[snap.docs.length-1].id;
   if(snap.size<250)break;
+ }
  }
  const candidates=devices.filter(d=>(audience==='school'||d.marathon)&&(!recipientUid||d.uid===recipientUid));
  if(candidates.length===0)return {delivered:0,failed:0};
