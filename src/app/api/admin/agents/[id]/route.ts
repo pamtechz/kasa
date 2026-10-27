@@ -4,6 +4,20 @@ import {operator,audit,sameOrigin,safeText} from '@/lib/security';
 import {invalidateGeneralCache} from '@/lib/server-cache';
 export const runtime='nodejs';
 
+export async function GET(req:Request,{params}:{params:Promise<{id:string}>}){
+ try{
+  await operator(req,['super_admin','admin','reviewer']);
+  const {id}=await params;
+  if(!/^[A-Za-z0-9_-]{1,128}$/.test(id))throw new HttpError(400,'Invalid agent ID.');
+  const snap=await db.collection('profiles').doc(id).get();
+  if(!snap.exists||snap.data()?.role!=='agent')throw new HttpError(404,'Agent not found.');
+  const a=snap.data()!;
+  return json({agent:{uid:id,displayName:a.displayName,email:a.email,agentCode:a.agentCode,
+   district:a.district||'',province:a.province||'',constituency:a.constituency||'',
+   ward:a.ward||'',active:a.active!==false}});
+ }catch(e){return fail(e);}
+}
+
 export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
  try{
   sameOrigin(req);const admin=await operator(req,['super_admin','admin']);const {id}=await params;
