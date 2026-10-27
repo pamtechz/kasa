@@ -2,7 +2,7 @@
 
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
-import {Banknote,Clock,CheckCircle2,ExternalLink,X,Save} from 'lucide-react';
+import {Banknote,Clock,CheckCircle2,ExternalLink} from 'lucide-react';
 import {api,PageHeader} from '@/components/Portal';
 import {can} from '@/lib/permissions';
 import type {Role} from '@/lib/types';
@@ -21,9 +21,6 @@ export default function Commissions(){
  const [filter,setFilter]=useState('all');
  const [error,setError]=useState('');
  const [notice,setNotice]=useState('');
- const [busy,setBusy]=useState(false);
- const [editing,setEditing]=useState<Commission|null>(null);
- const [paymentReference,setPaymentReference]=useState('');
 
  async function load(){
   try{
@@ -35,25 +32,7 @@ export default function Commissions(){
  useEffect(()=>{void load();void api<{profile:{role:Role}}>('/api/me').then(x=>setRole(x.profile.role)).catch(()=>setRole(null));},[]);
 
  const visible=items.filter(x=>filter==='all'||(filter==='paid'?!!x.paidAt:!x.paidAt));
- async function recordPayout(event:React.FormEvent){
-  event.preventDefault();
-  if(!can(role,'commissions.manage')||!editing||!paymentReference.trim())return;
-  setBusy(true);setError('');setNotice('');
-  try{
-   await api('/api/admin/commissions',{
-    method:'PATCH',
-    body:JSON.stringify({
-     submissionId:editing.submissionId,
-     paymentReference:paymentReference.trim(),
-     amount:editing.amount,paid:true
-    })
-   });
-   setNotice('The verified commission payout was recorded in the application ledger.');
-   setEditing(null);setPaymentReference('');
-   await load();
-  }catch(err){setError(err instanceof Error?err.message:'Commission payout could not be recorded.');}
-  finally{setBusy(false);}
- }
+
  return <>
   <PageHeader title="Commissions and referrals"
    subtitle="Commissions are created only after independently verified tuition payment or CDF approval."
@@ -80,29 +59,10 @@ export default function Commissions(){
      <td>K{item.amount.toFixed(2)}</td>
      <td><span className={'tag '+(item.paidAt?'tag-green':'tag-amber')}>{item.paidAt?'Paid':'Pending'}</span></td>
      <td>{item.paymentReference||item.fundingEvidence||'—'}</td>
-     <td>{item.paidAt?<span className="muted">Recorded</span>:!can(role,'commissions.manage')?<span className="muted">Read only</span>:<button className="text-link" onClick={()=>{setEditing(item);setPaymentReference('');}}>Record verified payout</button>}</td>
+     <td>{item.paidAt?<span className="muted">Recorded</span>:!can(role,'commissions.manage')?<span className="muted">Read only</span>:<Link className="text-link" href={'/dashboard/commissions/'+encodeURIComponent(item.submissionId)+'/payout'}>Record verified payout</Link>}</td>
     </tr>)}{visible.length===0&&<tr><td colSpan={7} className="empty-state">No verified commissions match this filter.</td></tr>}</tbody>
    </table></div>
   </div>
-  {editing&&can(role,'commissions.manage')&&<div className="modal-page-overlay" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)setEditing(null);}}>
-   <div className="modal-page" style={{maxWidth:600}} role="dialog" aria-modal="true" aria-label="Record verified commission payout">
-    <div className="modal-page-header">
-     <div className="modal-page-header-left"><span className="modal-page-badge">VERIFIED PAYOUT</span><h2>Record commission payout</h2></div>
-     <button className="icon-btn" aria-label="Close" onClick={()=>setEditing(null)}><X size={20}/></button>
-    </div>
-    <form onSubmit={e=>void recordPayout(e)} style={{display:'flex',flexDirection:'column',flex:1}}>
-     <div className="modal-page-body"><div className="modal-page-card">
-      <p className="muted">Application: <strong>{editing.reference}</strong></p>
-      <p className="muted">Approved commission: <strong>K{editing.amount.toFixed(2)}</strong></p>
-      <div className="field full"><label htmlFor="payout-reference">Verified bank or mobile money transfer reference *</label>
-       <input id="payout-reference" required minLength={5} value={paymentReference} onChange={e=>setPaymentReference(e.target.value)} placeholder="Enter verified transaction reference"/>
-      </div>
-     </div></div>
-     <div className="modal-page-footer"><button type="button" className="btn btn-outline" onClick={()=>setEditing(null)}>Cancel</button>
-      <button type="submit" className="btn btn-primary" disabled={busy||paymentReference.trim().length<5}><Save size={16}/>{busy?'Saving…':'Record payout'}</button>
-     </div>
-    </form>
-   </div>
-  </div>}
+
  </>;
 }
