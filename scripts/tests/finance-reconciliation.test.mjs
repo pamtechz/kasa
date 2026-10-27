@@ -45,3 +45,18 @@ test('new finance APIs have explicit capability mapping and bypass neither serve
  const security=read('src/lib/security.ts');
  assert.match(security,/if\(!cap\|\|!can\(p\.role,cap\)\)/);
 });
+
+test('acceptance letters never invent applicant financial figures; legacy letters retain a reconciliation disclaimer',()=>{
+ const admin=read('src/app/api/admin/submissions/[id]/letter/route.ts');
+ const publicLetter=read('src/app/api/public/submissions/[id]/letter/route.ts');
+ const pdf=read('src/lib/pdf-acceptance-pack.ts');
+ const mutations=read('src/app/api/admin/submissions/[id]/route.ts');
+ for(const route of [admin,publicLetter]){
+  assert.match(route,/readApprovedFeeQuote\(data\.feeQuote\)/);
+  assert.match(route,/suppressProposedFees: !approvedFee/);
+  assert.doesNotMatch(route,/K8,200|K17,200|K9,000|40% registration deposit/);
+ }
+ assert.match(pdf,/if \(data\.approvedBreakdown\)/);
+ assert.match(pdf,/data\.suppressProposedFees/);
+ assert.match(mutations,/status==='letter_issued'&&!readApprovedFeeQuote\(previous\.feeQuote\)/);
+});
