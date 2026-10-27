@@ -52,10 +52,10 @@ test('login, school and external links continue through normal Next navigation',
  assert.deepEqual(calls,[]);
 }));
 test('one shared layout owns the workspace while route outlets never remount it',()=>{
- const layout=source('src/app/marathon/(workspace)/layout.tsx');
+ const layout=source('src/app/marathon/layout.tsx');
  assert.equal((layout.match(/<MarathonWorkspace\b/g)||[]).length,1);
  assert.match(layout,/<Suspense\b/);
- for(const page of ['src/app/marathon/(workspace)/page.tsx','src/app/marathon/(workspace)/[section]/page.tsx']){
+ for(const page of ['src/app/marathon/page.tsx','src/app/marathon/[section]/page.tsx']){
   assert.doesNotMatch(source(page),/MarathonWorkspace/);
  }
  assert.equal(existsSync(new URL('../../src/app/marathon/page.tsx',import.meta.url)),false);
