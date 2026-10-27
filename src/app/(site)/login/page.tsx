@@ -36,12 +36,15 @@ export default function Login() {
       } else {
         const credential = await signInWithEmailAndPassword(firebaseAuth, email.trim().toLowerCase(), password);
         await credential.user.reload();
-        if (!credential.user.emailVerified) { await sendEmailVerification(credential.user); await signOut(firebaseAuth); throw Error('Please verify your email address before signing in. A new verification email has been sent.'); }
         const requested = new URLSearchParams(window.location.search).get('next');
         const token = await credential.user.getIdToken(true);
         const resp = await fetch('/api/me', {headers:{Authorization:`Bearer ${token}`},cache:'no-store'});
         const data = await resp.json().catch(() => ({}));
         if (!resp.ok || !data?.profile) throw Error(data.error || 'Your KASA account has no active workspace.');
+        if(!credential.user.emailVerified && !data.profile.adminPasswordProvisionedAt){
+          await signOut(firebaseAuth);
+          throw Error('Verify your email address before signing in. Check Inbox and Spam for your verification message.');
+        }
         const target=workspaceDestination(data.profile as Profile,requested);
         if(!target)throw Error('Your account has no active workspace. Contact a KASA administrator.');
         router.replace(target);
@@ -54,7 +57,7 @@ export default function Login() {
     try {
       const authInstance = requireClientAuth();
       const unsub = onAuthStateChanged(authInstance, async user => {
-        if (user && user.emailVerified) {
+        if (user) {
           try {
             const token = await user.getIdToken();
             const resp = await fetch('/api/me', { headers: { Authorization: `Bearer ${token}` } });
@@ -102,7 +105,7 @@ export default function Login() {
         <div className="auth-bottom">
           {!marathonEntry&&<button onClick={() => { setMode(mode === 'sign-in' ? 'register' : 'sign-in'); setMessage(''); }}>{mode === 'sign-in' ? 'Need an account? Register' : 'Already registered? Sign in'}</button>}
           {mode === 'sign-in' && <button onClick={() => void reset()}>Forgot password?</button>}
-        </div>{marathonEntry?<p className="back-link">Marathon membership is assigned by the KASA administrator. If invited, use Forgot password to set up your account.</p>:<Link href="/student-portal" className="back-link">Go to Student Portal</Link>}
+        </div>{marathonEntry?<p className="back-link">Marathon membership is assigned by the KASA super administrator. If an initial password was issued, use it here; otherwise contact the administrator.</p>:<Link href="/student-portal" className="back-link">Go to Student Portal</Link>}
         <Link href="/" className="back-link" style={{display: 'inline-flex', alignItems: 'center', gap: 6}}><ArrowLeft size={14} /> Return to KASA website</Link>
       </div>
     </div>
