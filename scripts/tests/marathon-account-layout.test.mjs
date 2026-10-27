@@ -7,7 +7,8 @@ test('canonical /marathon is rendered natively and legacy /marthon permanently r
  const config=source('next.config.ts');
  const layout=source('src/app/marathon/layout.tsx');
  assert.match(config,/source:'\/marthon\/:path\*',destination:'\/marathon\/:path\*',permanent:true/);
- assert.match(layout,/<MarathonWorkspace\/>/);
+ assert.match(layout,/<MarathonContentSwitch>/);
+ assert.match(source('src/components/marathon/MarathonContentSwitch.tsx'),/<MarathonWorkspace\/>/);
  assert.match(layout,/<MarathonOfflineWorker\/>/);
  assert.doesNotMatch(source('src/app/marathon/page.tsx'),/redirect\(/);
  assert.match(source('src/app/marathon/login/page.tsx'),/redirect\('\/login\?next=%2Fmarathon'\)/);
