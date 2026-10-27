@@ -25,13 +25,17 @@ export async function GET(req: Request, {params}: {params: Promise<{id: string}>
     }
 
     const approvedFee = readApprovedFeeQuote(data.feeQuote);
-    if (!approvedFee) throw new HttpError(409,'An approved documented fee quote is required before an acceptance pack can be generated.');
+    const legacyIssued = ['letter_issued','cdf_submitted','cdf_approved','payment_verified','commission_paid'].includes(String(data.status));
+    if (!approvedFee && !legacyIssued)
+      throw new HttpError(409,'An approved documented fee quote is required before an acceptance pack can be generated.');
+    // Previously issued letters remain retrievable, without retrospectively
+    // replacing their unknown amounts with fabricated tuition or board rates.
     const money = (amount:number) => 'K' + amount.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
-    const academicFees = money(approvedFee.tuition + approvedFee.practical + approvedFee.administration);
-    const boardingMealsFees = money(approvedFee.accommodation + approvedFee.food);
-    const totalFees = money(approvedFee.total);
-    const approvedBreakdown = {...approvedFee,approvalReference:String(data.feeQuote?.approvalReference||''),
-     version:approvedFee.version};
+    const academicFees = approvedFee ? money(approvedFee.tuition + approvedFee.practical + approvedFee.administration) : 'Reconciliation required';
+    const boardingMealsFees = approvedFee ? money(approvedFee.accommodation + approvedFee.food) : 'Reconciliation required';
+    const totalFees = approvedFee ? money(approvedFee.total) : 'Unverified';
+    const approvedBreakdown = approvedFee ? {...approvedFee,approvalReference:String(data.feeQuote?.approvalReference||''),
+     version:approvedFee.version} : undefined;
     
     const answers = data.answers || {};
 
@@ -104,6 +108,7 @@ export async function GET(req: Request, {params}: {params: Promise<{id: string}>
       totalFees,
       initialPayment: 'Per approved payment agreement',
       approvedBreakdown,
+      suppressProposedFees: !approvedFee,
       signatory: letterConfig.letter.signatory || 'Authorised Admissions Officer',
       signatoryTitle: letterConfig.letter.signatoryTitle || 'Admissions Directorate / Registrar',
       fundingMethod: data.fundingMethod || 'CDF',
