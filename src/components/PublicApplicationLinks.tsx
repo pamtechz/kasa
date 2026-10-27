@@ -1,7 +1,7 @@
 'use client';
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
-import {ArrowRight,ClipboardList} from 'lucide-react';
+import {ArrowRight,ClipboardList,LogIn} from 'lucide-react';
 
 type PublicForm={slug:string;title:string;subtitle:string;kind:'agent'|'student'|'custom';open:boolean;reason?:string};
 type Placement='nav'|'hero'|'cta'|'catalog';
@@ -24,6 +24,8 @@ export function PublicApplicationLinks({placement}:{placement:Placement}){
  const [forms,setForms]=useState<PublicForm[]>([]);
  const [status,setStatus]=useState<'loading'|'open'|'unavailable'>('loading');
  useEffect(()=>{
+  // The home navigation is a fixed sign-in action, not an intake-dependent application.
+  if(placement==='nav')return;
   let active=true;
   const refresh=()=>{
    void loadPublishedForms().then(value=>{
@@ -35,10 +37,10 @@ export function PublicApplicationLinks({placement}:{placement:Placement}){
   const timer=window.setInterval(refresh,60_000);
   window.addEventListener('focus',refresh);
   return ()=>{active=false;window.clearInterval(timer);window.removeEventListener('focus',refresh);};
- },[]);
+ },[placement]);
  const agent=forms.find(f=>f.kind==='agent');
  const student=forms.find(f=>f.kind==='student');
- if(placement==='nav')return agent?<Link className="nav-primary" href={'/apply/'+agent.slug}>Become an agent <ArrowRight size={15}/></Link>:<span className="nav-primary" aria-disabled="true">Agent applications closed</span>;
+ if(placement==='nav')return <Link className="nav-primary" href="/login">Sign in <LogIn size={15} aria-hidden="true"/></Link>;
  if(placement==='hero')return <>
   <div className="actions">
    {agent?<Link className="btn btn-light" href={'/apply/'+agent.slug}>Apply to be an agent <ArrowRight size={18}/></Link>:<span className="btn btn-light" aria-disabled="true">Agent application not open</span>}
