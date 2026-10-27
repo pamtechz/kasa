@@ -70,6 +70,7 @@ export function routeCapability(pathname:string,method:string):Capability|null{
  if(path('/api/admin/staff(?:/[^/]+)?'))return 'staff.manage';
  if(path('/api/admin/seed'))return 'bootstrap.manage';
  if(path('/api/admin/setup/status'))return 'settings.read';
+ if(path('/api/admin/users/[^/]+/password-reset'))return verb==='POST'?'staff.manage':null;
  if(path('/api/admin/users(?:/[^/]+)?')||path('/api/admin/users/provision'))
   return verb==='GET'?'users.read':'users.manage';
  if(path('/api/admin/agents(?:/[^/]+)?'))return verb==='GET'?'agents.read':'agents.manage';
