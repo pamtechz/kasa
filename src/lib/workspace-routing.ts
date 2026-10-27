@@ -15,7 +15,7 @@ export function workspaceDestination(profile:Pick<Profile,'role'|'active'|'marat
  if(role==='marathon_only')return marathon?'/marathon':null;
  if(next && next.startsWith('/') && !next.startsWith('//') &&
   !/[\\?#%]/.test(next) && !next.split('/').includes('..') && !next.split('/').includes('.')){
-  if(marathon && /^\/marathon(?:\/[a-z0-9-]+)*$/.test(next) && next!=='/marthon/login')return next;
+  if(marathon && /^\/(?:marathon|marthon)(?:\/[a-z0-9-]+)*$/.test(next) && !/^\/(?:marathon|marthon)\/login$/.test(next))return next.replace(/^\/marthon(?=\/|$)/,'/marathon');
   if(role==='student' && ['/student-portal','/my-applications'].includes(next))return '/student-portal';
   if(role==='agent' && next==='/agent-portal')return next;
   if(['super_admin','admin','reviewer','finance'].includes(role) && /^\/dashboard(?:\/[a-z0-9-]+)*$/.test(next))return next;
