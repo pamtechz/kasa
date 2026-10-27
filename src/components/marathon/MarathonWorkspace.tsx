@@ -86,6 +86,7 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
  const [events,setEvents]=useState<EventItem[]>([]);
  const [suggestTask,setSuggestTask]=useState(''),[suggestText,setSuggestText]=useState(''),[suggestStatus,setSuggestStatus]=useState<MarathonStatus>('done');
  const [inviteEmail,setInviteEmail]=useState(''),[inviteName,setInviteName]=useState(''),[inviteRole,setInviteRole]=useState<typeof roles[number]>('kasaClient');
+ const [resetMemberUid,setResetMemberUid]=useState(''),[resetMemberBusy,setResetMemberBusy]=useState(false);
  const authUid=useRef(''),syncingRef=useRef(false),initializedUid=useRef(''),suggestionRequest=useRef(0),reviewRequest=useRef(0),lastHydrateStarted=useRef(0);
  const [syncing,setSyncing]=useState(false),[reviewEdit,setReviewEdit]=useState<PendingEdit|null>(null);
  const [reviewTask,setReviewTask]=useState<MarathonTask|null>(null),[reviewError,setReviewError]=useState('');
@@ -324,6 +325,17 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
    setState(s=>({...s,tasks:[result.task,...s.tasks]}));closeTaskPage();setNotice('New operation created.');
   }catch(e){setNotice(errorMessage(e));}finally{setSaving(false);}
  }
+ async function sendMemberPasswordReset(member:Member){
+  if(!state.permissions.super||resetMemberBusy||resetMemberUid!==member.uid)return;
+  setResetMemberBusy(true);
+  try{
+   const response=await api<{message:string}>('/api/admin/users/'+encodeURIComponent(member.uid)+'/password-reset',{
+    method:'POST',body:JSON.stringify({confirm:true})
+   });
+   setNotice(response.message);
+  }catch(e){setNotice('Unable to request password recovery: '+errorMessage(e));}
+  finally{setResetMemberBusy(false);setResetMemberUid('');}
+ }
  async function sendSuggestion(e:React.FormEvent){
   e.preventDefault();setSaving(true);
   try{
@@ -460,7 +472,13 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
     {(view==='settings'||view==='team')&&state.permissions.super&&<>
      <div className="ml-heading-row"><div><span className="ml-eyebrow">ACCESS & RESPONSIBILITY</span><h1>Marathon settings & roles</h1><p>Add a new team member or link an existing School account automatically. The original School role is preserved.</p></div></div>
      {state.permissions.super&&<div className="ml-panel ml-team-invite"><div className="ml-panel-head"><div><span className="ml-eyebrow">SUPER ADMIN CONTROL</span><h3>Register or add a Marathon team member</h3></div><UserPlus size={22}/></div><form onSubmit={invite} className="ml-invite-form"><label>Full name (for new accounts)<input type="text" maxLength={120} placeholder="Full name" value={inviteName} onChange={e=>setInviteName(e.target.value)}/></label><label>Email address<input type="email" required placeholder="Member email address" value={inviteEmail} onChange={e=>setInviteEmail(e.target.value)}/></label><label>Marathon role<select value={inviteRole} onChange={e=>setInviteRole(e.target.value as typeof inviteRole)}>{roles.map(r=><option key={r} value={r}>{r}</option>)}</select></label><button className="ml-primary" disabled={saving}>Add member <ArrowRight size={17}/></button></form><p className="ml-form-help">New people receive a Marathon-only KASA account: they can sign in on the same KASA page and will go directly to Marathon, without access to School or Student portals. Existing non-student staff retain their School access and receive a second Marathon role. Existing student accounts cannot be added. Members set their own password and verify their email before first sign-in.</p></div>}
-     <div className="ml-panel"><div className="ml-panel-head"><h3>Team directory</h3><span className="ml-count-badge">{state.members.length}</span></div><div className="ml-members">{state.members.map(m=><div className="ml-member" key={m.uid}><span className="ml-avatar">{m.displayName.slice(0,2).toUpperCase()}</span><div><b>{m.displayName}</b><small>{m.email}</small><small>{m.schoolRole==='marathon_only'?'Marathon only':m.schoolRole==='student'?'Student (Marathon denied)':'School + Marathon'} · {m.role}</small></div>{state.permissions.super?<select className="ml-member-role-select" value={m.role} aria-label={'Role for '+m.email} onChange={e=>void updateMember(m,{role:e.target.value as MarathonRole})}>{roles.map(role=><option key={role}>{role}</option>)}</select>:<span className="ml-role-tag">{m.role}</span>}{state.permissions.super?<button className={m.active?'ml-member-active':'ml-member-inactive'} onClick={()=>void updateMember(m,{active:!m.marathonActive})}>{m.marathonActive?'Disable Marathon':'Enable Marathon'}</button>:<span className={m.active?'ml-member-active':'ml-member-inactive'}>{m.active?'Active':m.schoolActive?'Marathon disabled':'School account disabled'}</span>}</div>)}{!state.members.length&&<EmptyState text={state.permissions.super?'No Marathon team members have been added yet.':'Team membership can be managed by the super administrator.'}/>}</div></div>
+     <div className="ml-panel"><div className="ml-panel-head"><h3>Team directory</h3><span className="ml-count-badge">{state.members.length}</span></div><div className="ml-members">{state.members.map(m=><div className="ml-member" key={m.uid}><span className="ml-avatar">{m.displayName.slice(0,2).toUpperCase()}</span><div><b>{m.displayName}</b><small>{m.email}</small><small>{m.schoolRole==='marathon_only'?'Marathon only':m.schoolRole==='student'?'Student (Marathon denied)':'School + Marathon'} · {m.role}</small></div>{state.permissions.super?<select className="ml-member-role-select" value={m.role} aria-label={'Role for '+m.email} onChange={e=>void updateMember(m,{role:e.target.value as MarathonRole})}>{roles.map(role=><option key={role}>{role}</option>)}</select>:<span className="ml-role-tag">{m.role}</span>}{state.permissions.super?<button className={m.active?'ml-member-active':'ml-member-inactive'} onClick={()=>void updateMember(m,{active:!m.marathonActive})}>{m.marathonActive?'Disable Marathon':'Enable Marathon'}</button>:<span className={m.active?'ml-member-active':'ml-member-inactive'}>{m.active?'Active':m.schoolActive?'Marathon disabled':'School account disabled'}</span>}
+ {state.permissions.super&&m.schoolRole!=='super_admin'&&<div className="ml-member-recovery">
+  {resetMemberUid===m.uid?<><span>Send private recovery email to {m.email}?</span>
+    <button type="button" disabled={resetMemberBusy} onClick={()=>void sendMemberPasswordReset(m)}>Confirm reset</button>
+    <button type="button" onClick={()=>setResetMemberUid('')}>Cancel</button></>:
+   <button type="button" className="ml-secondary" onClick={()=>setResetMemberUid(m.uid)}>Reset password</button>}
+ </div>}</div>)}{!state.members.length&&<EmptyState text={state.permissions.super?'No Marathon team members have been added yet.':'Team membership can be managed by the super administrator.'}/>}</div></div>
     </>}
     {view==='super'&&state.permissions.super&&<>
      <div className="ml-heading-row"><div><span className="ml-eyebrow">INSTITUTIONAL OVERSIGHT</span><h1>Super administrator</h1><p>Control initial data migration, access and the event governance overview.</p></div><span className="ml-role-tag"><ShieldCheck size={16}/> Super admin</span></div>
