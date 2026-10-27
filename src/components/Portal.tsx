@@ -4,7 +4,7 @@ import {onAuthStateChanged} from 'firebase/auth';
 import {useRouter,usePathname} from 'next/navigation';
 import Link from 'next/link';
 import {AccountMenu} from '@/components/AccountMenu';
-import {BarChart3,ChevronLeft,ChevronRight,ClipboardList,FilePlus2,FileCheck,LayoutDashboard,LogOut,Menu,Settings,Users,X,Bell,BookOpen,Newspaper,CalendarDays,Database,User,Wallet} from 'lucide-react';
+import {BarChart3,ChevronLeft,ChevronRight,ClipboardList,FilePlus2,FileCheck,LayoutDashboard,Menu,Settings,Users,X,Bell,BookOpen,Newspaper,CalendarDays,Database,User,Wallet} from 'lucide-react';
 import {auth,authHeaders,firebaseConfigured,signOutClient} from '@/lib/firebase-client';
 import type {Profile} from '@/lib/types';
 import {can} from '@/lib/permissions';
