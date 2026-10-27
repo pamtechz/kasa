@@ -141,7 +141,7 @@
 .newsroom-wrapper{display:grid;gap:24px;margin-top:10px}
 .pinned-notice-card{background:linear-gradient(135deg,#fff,#f6faf7);border:1px solid #b8dac5;box-shadow:0 14px 40px rgba(23,75,54,.08)}
 .pinned-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
-.pinned-badge{background:#e5f5eb;color:var(--green);padding:4px 10px;border-radius:20px;font-weight:800}
+.pinned-badge{display:inline-flex;align-items:center;gap:6px;background:#e5f5eb;color:var(--green);padding:4px 10px;border-radius:20px;font-weight:800}
 .pinned-notice-card h2{font-size:24px;letter-spacing:-.04em;margin:8px 0}
 .pinned-footer{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
 .font-xs{font-size:11px}
@@ -700,9 +700,12 @@
  border-color:rgba(229,183,102,.4);
  color:#ffffff;
 }
-.tag-emoji{
- font-size:14px;
- line-height:1;
+.tag-icon{
+ display:block;
+ width:16px;
+ height:16px;
+ flex:0 0 auto;
+ color:var(--gold,#e5b766);
 }
 .tag-arrow{
  color:var(--gold,#e5b766);
@@ -1149,3 +1152,11 @@
 .kasa-account-signout{color:#a24038!important;border-top:1px solid #edf1ec!important;border-radius:0 0 9px 9px}
 .kasa-account-signout:hover{background:#fff2f1!important}
 @media(max-width:550px){.kasa-account-trigger{padding:5px!important}.kasa-account-popover{right:0}}
+
+/* Consistent Lucide replacements for formerly emoji-based achievement badges. */
+.agent-tier-label{display:inline-flex;align-items:center;gap:8px;vertical-align:middle}
+.agent-tier-bronze svg{color:#b87333}
+.agent-tier-silver svg{color:#8092a6}
+.agent-tier-gold svg{color:#c18b20}
+.agent-tier-diamond svg{color:#1682bb}
+.cloudinary-link-btn svg{vertical-align:middle;margin-left:5px}
