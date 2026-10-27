@@ -1,7 +1,7 @@
 'use client';
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
-import {ArrowRight,CalendarDays,BookOpen,Info,CheckSquare,Square,FileCheck,FileText,ShieldCheck,CheckCircle2} from 'lucide-react';
+import {ArrowRight,CalendarDays,Pin,BookOpen,Info,CheckSquare,Square,FileCheck,FileText,ShieldCheck,CheckCircle2} from 'lucide-react';
 import {defaultSite,type SiteSettings} from '@/lib/site';
 import {getCachedSite,fetchSiteCached,fetchContentCached} from '@/lib/client-cache';
 import type {Programme,Announcement} from '@/lib/content';
@@ -224,7 +224,7 @@ export function CollectionView({kind}:{kind:'programmes'|'announcements'}){
 
    {pinnedItem&&<div className="site-card pinned-notice-card">
     <div className="pinned-head">
-     <span className="overline pinned-badge">📌 FEATURED NOTICE</span>
+     <span className="overline pinned-badge"><Pin size={13} aria-hidden="true"/> FEATURED NOTICE</span>
      <span className="overline tag-green">{pinnedItem.category}</span>
     </div>
     <h2>{pinnedItem.title}</h2>
