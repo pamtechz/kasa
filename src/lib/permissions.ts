@@ -64,6 +64,7 @@ export function routeCapability(pathname:string,method:string):Capability|null{
  const route=pathname.replace(/\/$/,'');
  const verb=method.toUpperCase();
  const path=(pattern:string)=>new RegExp('^'+pattern+'$').test(route);
+ if(path('/api/admin/fee-tariffs')||path('/api/admin/fee-quotes'))return verb==='GET'?'finance.read':verb==='POST'?'finance.record':null;
  if(path('/api/admin/finance'))return verb==='GET'?'finance.read':'finance.record';
  if(path('/api/admin/commissions'))return verb==='GET'?'commissions.read':'commissions.manage';
  if(path('/api/admin/staff(?:/[^/]+)?'))return 'staff.manage';

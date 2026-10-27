@@ -1,6 +1,8 @@
 'use client';
 
 import {useState, useEffect} from 'react';
+import Link from 'next/link';
+import {FinanceQuoteReconcile} from '@/components/FinanceQuoteReconcile';
 import {
   Wallet, DollarSign, CheckCircle2, Search, Filter, RefreshCw, FileText,
   Plus, Download, ShieldCheck, Building2, CreditCard
@@ -14,6 +16,10 @@ type Summary = {
   totalPaymentsReceived: number;
   outstandingBalance: number;
   totalCdfApproved: number;
+  missingFeeQuotes: number;
+  financialTotalsPartial: boolean;
+  paymentReconciliationRequired: number;
+  truncated: boolean;
 };
 
 type LedgerItem = {
@@ -23,9 +29,10 @@ type LedgerItem = {
   programme: string;
   fundingMethod: string;
   status: string;
-  totalPackage: number;
+  totalPackage: number | null;
+  feeStatus: 'approved' | 'requires_reconciliation';
   paidAmount: number;
-  outstandingBalance: number;
+  outstandingBalance: number | null;
   paymentReference?: string;
   verifiedAt?: string;
   submittedAt: string;
@@ -43,6 +50,7 @@ export default function FinanceDashboardPage() {
 
   // Payment Recording Modal State
   const [recordingItem, setRecordingItem] = useState<LedgerItem | null>(null);
+  const [quoteItem,setQuoteItem] = useState<LedgerItem|null>(null);
   const [payAmount, setPayAmount] = useState('');
   const [payMethod, setPayMethod] = useState('Bank Deposit');
   const [payReceipt, setPayReceipt] = useState('');
@@ -65,14 +73,15 @@ export default function FinanceDashboardPage() {
 
   useEffect(() => {
     void loadFinanceData();
-    void api<{profile:{role:Role}}>('/api/me').then(result=>setRole(result.profile.role)).catch(()=>setRole(null));
+    void api<{profile:{role:Role}}>('/api/me').then(v=>setRole(v.profile.role)).catch(()=>setRole(null));
   }, []);
 
   async function handleRecordPayment(e: React.FormEvent) {
     e.preventDefault();
-    if (!recordingItem || !can(role,'finance.record')) return;
+    if (!recordingItem || !can(role,'finance.record') || recordingItem.fundingMethod === 'cdf' ||
+        recordingItem.totalPackage === null || recordingItem.outstandingBalance === 0) return;
     const amount = Number(payAmount);
-    if (amount <= 0) return;
+    if (!Number.isFinite(amount) || amount <= 0) return;
 
     setRecordingBusy(true);
     setError('');
@@ -119,23 +128,25 @@ export default function FinanceDashboardPage() {
       <PageHeader
         title="Financial Management & Tuition Ledger"
         subtitle="Manage self-funded tuition payments, record tuition receipts, and monitor revenue ledgers. Enrollment funding approval remains a separate review."
-        action={
+        action={<div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+          <Link className="btn btn-outline" href="/dashboard/finance/tariffs">Approved tariff registry</Link>
           <button className="btn btn-outline" onClick={() => void loadFinanceData()} disabled={loading} style={{display: 'inline-flex', alignItems: 'center', gap: 6}}>
             <RefreshCw size={15} className={loading ? 'spin' : ''} /> Refresh Ledger
           </button>
-        }
+        </div>}
       />
 
       {error && <div className="alert-error" style={{marginBottom: 16}}>{error}</div>}
       {message && <div className="notice" style={{marginBottom: 16}}><CheckCircle2 size={16} /> {message}</div>}
+      {summary?.financialTotalsPartial && <div className="notice" role="status" style={{marginBottom: 16}}>{summary.missingFeeQuotes} application(s) need approved fee reconciliation; {summary.paymentReconciliationRequired||0} have invalid payment data.{summary.truncated?' Ledger scan limit reached.':''} Totals below exclude unquoted liabilities and cannot be represented as complete. Previously recorded receipts remain visible.</div>}
 
       {/* Finance Metrics Overview */}
       <div className="metric-grid" style={{marginBottom: 24}}>
         <div className="metric-card">
           <div className="metric-icon blue"><DollarSign /></div>
           <span>Total Accrued Revenue</span>
-          <strong>{loading ? '—' : `ZMW ${(summary?.totalRevenueExpected || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`}</strong>
-          <small>Total course fees</small>
+          <strong>{loading ? '—' : summary?.financialTotalsPartial ? 'Incomplete' : `ZMW ${(summary?.totalRevenueExpected || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`}</strong>
+          <small>Approved quoted fees only</small>
         </div>
         <div className="metric-card">
           <div className="metric-icon green"><Wallet /></div>
@@ -146,14 +157,14 @@ export default function FinanceDashboardPage() {
         <div className="metric-card">
           <div className="metric-icon amber"><Building2 /></div>
           <span>CDF Council Approved</span>
-          <strong>{loading ? '—' : `ZMW ${(summary?.totalCdfApproved || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`}</strong>
+          <strong>{loading ? '—' : summary?.financialTotalsPartial ? 'Incomplete' : `ZMW ${(summary?.totalCdfApproved || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`}</strong>
           <small>Government bursary funding</small>
         </div>
         <div className="metric-card">
           <div className="metric-icon purple"><CreditCard /></div>
           <span>Outstanding Balance</span>
-          <strong>{loading ? '—' : `ZMW ${(summary?.outstandingBalance || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`}</strong>
-          <small>Pending student payments</small>
+          <strong>{loading ? '—' : summary?.financialTotalsPartial ? 'Incomplete' : `ZMW ${(summary?.outstandingBalance || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`}</strong>
+          <small>Reconciled balances only</small>
         </div>
       </div>
 
@@ -211,21 +222,25 @@ export default function FinanceDashboardPage() {
                       </span>
                     </td>
                     <td>
-                      <strong style={{color: item.paidAmount >= item.totalPackage ? 'var(--green)' : 'var(--ink)'}}>
+                      <strong style={{color: item.totalPackage !== null && item.paidAmount >= item.totalPackage ? 'var(--green)' : 'var(--ink)'}}>
                         ZMW {item.paidAmount.toLocaleString('en-US', {minimumFractionDigits: 2})}
                       </strong>
-                      <small className="table-sub">of ZMW {item.totalPackage.toLocaleString('en-US', {minimumFractionDigits: 2})}</small>
+                      <small className="table-sub">{item.totalPackage === null ? 'Fee reconciliation required' : `of ZMW ${item.totalPackage.toLocaleString('en-US', {minimumFractionDigits: 2})}`}</small>
                     </td>
                     <td>
                       {item.paymentReference ? <code>{item.paymentReference}</code> : <span className="muted">—</span>}
                     </td>
                     <td>
-                      {can(role,'finance.record') ? <button
+                      {item.feeStatus === 'requires_reconciliation' ? can(role,'finance.record') ? <button type="button"
+                        className="btn btn-sm btn-primary" onClick={()=>setQuoteItem(item)}>
+                        Reconcile quote
+                      </button> : <span className="muted">Unquoted</span>
+                    : item.fundingMethod === 'cdf' ? <span className="muted">CDF funding — separate approval</span> : item.outstandingBalance === 0 ? <span className="muted">Settled</span> : can(role,'finance.record') ? <button
                         type="button"
                         className="btn btn-sm btn-primary"
                         onClick={() => {
                           setRecordingItem(item);
-                          setPayAmount(item.outstandingBalance > 0 ? String(item.outstandingBalance) : '1000');
+                          setPayAmount('');
                           setPayReceipt('');
                           setPayNote('');
                         }}
@@ -242,6 +257,8 @@ export default function FinanceDashboardPage() {
         </div>
       </div>
 
+      {quoteItem && can(role,'finance.record') && <FinanceQuoteReconcile item={quoteItem}
+        onClose={()=>setQuoteItem(null)} onSaved={loadFinanceData}/>}
       {/* RECORD PAYMENT MODAL PAGE */}
       {recordingItem && can(role,'finance.record') && (
         <div className="modal-page-overlay" role="dialog" aria-modal="true">
@@ -263,11 +280,12 @@ export default function FinanceDashboardPage() {
                   <div style={{background: '#f8faf9', padding: 14, borderRadius: 10, border: '1px solid var(--border)', marginBottom: 16, fontSize: 13, lineHeight: 1.6}}>
                     Student Name: <strong>{recordingItem.studentName}</strong><br />
                     Course: <strong>{recordingItem.programme}</strong><br />
-                    Total Package Fee: <strong>ZMW {recordingItem.totalPackage.toLocaleString('en-US', {minimumFractionDigits: 2})}</strong><br />
+                    Total Package Fee: <strong>{recordingItem.totalPackage === null ? 'Requires reconciliation' : `ZMW ${recordingItem.totalPackage.toLocaleString('en-US', {minimumFractionDigits: 2})}`}</strong><br />
                     Total Paid to Date: <strong>ZMW {recordingItem.paidAmount.toLocaleString('en-US', {minimumFractionDigits: 2})}</strong><br />
-                    Remaining Balance: <strong style={{color: 'var(--green)'}}>ZMW {recordingItem.outstandingBalance.toLocaleString('en-US', {minimumFractionDigits: 2})}</strong>
+                    Remaining Balance: <strong style={{color: 'var(--green)'}}>{recordingItem.outstandingBalance === null ? 'Not confirmed' : `ZMW ${recordingItem.outstandingBalance.toLocaleString('en-US', {minimumFractionDigits: 2})}`}</strong>
                   </div>
 
+                  <p className="field-hint">Enter only the amount verified against the actual payment receipt. No amount is suggested where fees need reconciliation.</p>
                   <div className="form-grid">
                     <div className="field">
                       <label>Payment Amount (ZMW) *</label>

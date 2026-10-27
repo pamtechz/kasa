@@ -59,6 +59,11 @@ export type AcceptancePackData = {
   boardingMealsFees: string;
   totalFees: string;
   initialPayment: string;
+  suppressProposedFees?: boolean;
+  approvedBreakdown?: {
+    version:string;approvalReference:string;tuition:number;practical:number;
+    administration:number;accommodation:number;food:number;total:number;
+  };
   signatory: string;
   signatoryTitle: string;
   fundingMethod: string;
@@ -346,11 +351,50 @@ export async function generateAcceptancePackPdf(
   y = 734;
   page2.drawText('COURSES AND FEES', {x: 40, y, size: 14, font: bold, color: green});
   y -= 14;
-  page2.drawText('Proposed fees from the supplied KASA schedule, in Zambian kwacha (ZMW).', {
+  page2.drawText(data.approvedBreakdown ? 'Approved applicant-specific fee quotation (ZMW).' : 'Proposed fees from the supplied KASA schedule, in Zambian kwacha (ZMW).', {
     x: 40, y, size: 8.5, font: italic, color: mutedText
   });
   y -= 18;
 
+  if (data.approvedBreakdown) {
+    // The signed-off student's amounts replace the generic/proposed price
+    // table; otherwise a letter could legally disagree with the ledger.
+    const q = data.approvedBreakdown;
+    page2.drawText('Approved course and package fee breakdown', {x:40,y,size:10,font:bold,color:darkInk});
+    y -= 18;
+    const rows: Array<[string,number]> = [
+      ['Tuition',q.tuition],['Practical training',q.practical],
+      ['Administration',q.administration],['Accommodation',q.accommodation],
+      ['Food and meals',q.food],['TOTAL APPROVED FEES',q.total]
+    ];
+    for (let i=0;i<rows.length;i++) {
+      const [name,value]=rows[i];
+      page2.drawRectangle({x:38,y:y-7,width:519,height:22,
+        color:i===rows.length-1?rgb(0.93,0.96,0.94):(i%2===0?lightBg:rgb(1,1,1)),
+        borderColor:borderCol,borderWidth:0.5});
+      page2.drawText(name,{x:48,y,size:9,font:i===rows.length-1?bold:regular,color:darkInk});
+      page2.drawText('K'+value.toFixed(2),{x:452,y,size:9,font:i===rows.length-1?bold:regular,color:darkInk});
+      y -= 22;
+    }
+    y -= 15;
+    for (const line of wrap('Approved tariff version: '+q.version+
+      ' | Original approval reference: '+q.approvalReference,8,500,regular)) {
+      page2.drawText(ascii(line),{x:40,y,size:8,font:regular,color:darkInk});
+      y -= 12;
+    }
+    y -= 10;
+    for (const line of wrap('Payment instalments and deadlines are governed by the separately approved agreement. No deposit percentage is inferred by this letter.',8.5,500,regular)) {
+      page2.drawText(ascii(line),{x:40,y,size:8.5,font:italic,color:mutedText});
+      y -= 13;
+    }
+  } else if (data.suppressProposedFees) {
+    page2.drawText('Historical fee amounts awaiting reconciliation', {x:40,y,size:11,font:bold,color:darkInk});
+    y -= 21;
+    for (const line of wrap('The historical acceptance was issued before an approved fee snapshot was recorded. KASA Finance must verify the original signed schedule and reconcile this application. No fee value, balance, or deposit is inferred by this reconstructed copy.',9,510,regular)) {
+      page2.drawText(ascii(line),{x:40,y,size:9,font:regular,color:darkInk});
+      y -= 15;
+    }
+  } else {
   // Main Programmes Table
   page2.drawText('Main programmes', {x: 40, y, size: 10, font: bold, color: darkInk});
   y -= 14;
@@ -417,6 +461,8 @@ export async function generateAcceptancePackPdf(
   page2.drawText('KASA must confirm the approved tariff before issue. A separate Agri-Sport fee must be entered in the offer letter.', {
     x: 40, y, size: 7.5, font: italic, color: mutedText
   });
+
+  }
 
   drawFooter(page2, 2);
 

@@ -2,6 +2,7 @@ import {db} from '@/lib/firebase-admin';
 import {fail, json, HttpError} from '@/lib/errors';
 import {requireCapability, newId, safeText, sameOrigin, audit, digest} from '@/lib/security';
 import {invalidateSubmissionsCache} from '@/lib/server-cache';
+import {readApprovedFeeQuote} from '@/lib/approved-fee-quote';
 
 export const runtime = 'nodejs';
 
@@ -9,34 +10,50 @@ export async function GET(req: Request) {
   try {
     await requireCapability(req,'finance.read');
 
-    const snap = await db.collection('submissions').where('formKind', '==', 'student').limit(500).get();
-    const docs = snap.docs.map(d => ({id: d.id, ...d.data()}));
+    // Read all pages; reporting just the first 500 can materially understate liabilities.
+    // Bound the scan and expose incomplete results rather than inventing a full total.
+    const docs: Array<Record<string, any>> = [];
+    let cursor: FirebaseFirestore.QueryDocumentSnapshot | undefined;
+    let truncated = false;
+    for (let page = 0; page < 40; page++) {
+      let query = db.collection('submissions').where('formKind', '==', 'student')
+        .orderBy('__name__').limit(250);
+      if (cursor) query = query.startAfter(cursor);
+      const snap = await query.get();
+      docs.push(...snap.docs.map(d => ({id: d.id, ...d.data()})));
+      if (snap.size < 250) break;
+      cursor = snap.docs[snap.docs.length - 1];
+      if (page === 39) truncated = true;
+    }
 
     let totalRevenueExpected = 0;
     let totalPaymentsReceived = 0;
     let totalCdfApproved = 0;
+    let missingFeeQuotes = 0;
+    let paymentReconciliationRequired = 0;
+    let outstandingBalance = 0;
 
     const studentLedger = docs.map((x: any) => {
       const answers = x.answers || {};
       const studentName = String(answers['full-name'] || answers['fullNames'] || 'Student Applicant');
       const programme = String(answers['programme-pathway'] || x.formTitle || 'General Agriculture');
 
-      let tuitionFee = 8200; // Default approved tuition fee
-      if (programme.includes('K4,800')) tuitionFee = 4800;
-      else if (programme.includes('K2,600')) tuitionFee = 2600;
-      else if (programme.includes('K3,000')) tuitionFee = 3000;
-
-      const isBoarding = String(answers['package-option'] || answers['attendance'] || '').toLowerCase().includes('boarding');
-      const totalPackage = isBoarding ? tuitionFee + 9000 : tuitionFee;
-
-      totalRevenueExpected += totalPackage;
-
-      const paidAmount = Number(x.paymentVerification?.amount) || 0;
+      // An approved, versioned quote is the only valid source for a due balance.
+      const quote = readApprovedFeeQuote(x.feeQuote);
+      const totalPackage = quote?.total ?? null;
+      if (totalPackage === null) missingFeeQuotes++;
+      else totalRevenueExpected += totalPackage;
+      const rawPaid = x.paymentVerification?.amount;
+      const recorded = rawPaid == null ? 0 : Number(rawPaid);
+      const paymentValid = Number.isFinite(recorded) && recorded >= 0 &&
+        Math.abs(Math.round(recorded * 100) - recorded * 100) < 0.000001;
+      if (!paymentValid) paymentReconciliationRequired++;
+      const paidAmount = paymentValid ? recorded : 0;
       totalPaymentsReceived += paidAmount;
-
-      if (x.fundingMethod === 'cdf' && ['cdf_approved', 'commission_paid'].includes(x.status)) {
-        totalCdfApproved += totalPackage;
-      }
+      const cdfApproved = x.fundingMethod === 'cdf' && ['cdf_approved','commission_paid'].includes(x.status);
+      if (cdfApproved && totalPackage !== null) totalCdfApproved += totalPackage;
+      const due = totalPackage === null ? null : Math.max(0,totalPackage - paidAmount);
+      if (due !== null && !cdfApproved) outstandingBalance += due;
 
       return {
         id: x.id,
@@ -46,8 +63,9 @@ export async function GET(req: Request) {
         fundingMethod: x.fundingMethod || 'self_funded',
         status: x.status,
         totalPackage,
+        feeStatus: quote ? 'approved' : 'requires_reconciliation',
         paidAmount,
-        outstandingBalance: Math.max(0, totalPackage - paidAmount),
+        outstandingBalance: due,
         paymentReference: x.paymentVerification?.reference || null,
         verifiedAt: x.paymentVerification?.verifiedAt || null,
         submittedAt: x.submittedAt
@@ -58,8 +76,12 @@ export async function GET(req: Request) {
       summary: {
         totalRevenueExpected,
         totalPaymentsReceived,
-        outstandingBalance: Math.max(0, totalRevenueExpected - totalPaymentsReceived - totalCdfApproved),
-        totalCdfApproved
+        outstandingBalance,
+        totalCdfApproved,
+        missingFeeQuotes,
+        paymentReconciliationRequired,
+        truncated,
+        financialTotalsPartial: missingFeeQuotes > 0 || paymentReconciliationRequired > 0 || truncated
       },
       ledger: studentLedger
     });
@@ -110,6 +132,13 @@ export async function POST(req: Request) {
         throw new HttpError(409, 'Existing student ledger requires reconciliation.');
       }
       newPaidTotal = existingPaid + amountPaid;
+      // Never allow a receipt to exceed a valid contractual quote. Unknown
+      // historic quotes remain visible for staff reconciliation, not guessed.
+      const approvedQuote = readApprovedFeeQuote(app.feeQuote);
+      if (!approvedQuote) throw new HttpError(409, 'Approve and reconcile the application fee quote before accepting a new tuition receipt.');
+      if (Math.round(newPaidTotal * 100) > Math.round(approvedQuote.total * 100)) {
+        throw new HttpError(409, 'Receipt would exceed the approved programme fee. Reconcile the application before recording this amount.');
+      }
       reference = String(app.reference || '');
       const updates: Record<string, unknown> = {
         updatedAt: now,

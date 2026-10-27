@@ -1,3 +1,4 @@
+import {readApprovedFeeQuote} from '@/lib/approved-fee-quote';
 import {loadCustomAcceptancePdf} from '@/lib/custom-acceptance-pdf';
 import {db} from '@/lib/firebase-admin';
 import {fail, HttpError} from '@/lib/errors';
@@ -23,6 +24,19 @@ export async function GET(req: Request, {params}: {params: Promise<{id: string}>
       throw new HttpError(400, 'Acceptance packs are for student applications only.');
     }
 
+    const approvedFee = readApprovedFeeQuote(data.feeQuote);
+    const legacyIssued = ['letter_issued','cdf_submitted','cdf_approved','payment_verified','commission_paid'].includes(String(data.status));
+    if (!approvedFee && !legacyIssued)
+      throw new HttpError(409,'An approved documented fee quote is required before an acceptance pack can be generated.');
+    // Previously issued letters remain retrievable, without retrospectively
+    // replacing their unknown amounts with fabricated tuition or board rates.
+    const money = (amount:number) => 'K' + amount.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const academicFees = approvedFee ? money(approvedFee.tuition + approvedFee.practical + approvedFee.administration) : 'Reconciliation required';
+    const boardingMealsFees = approvedFee ? money(approvedFee.accommodation + approvedFee.food) : 'Reconciliation required';
+    const totalFees = approvedFee ? money(approvedFee.total) : 'Unverified';
+    const approvedBreakdown = approvedFee ? {...approvedFee,approvalReference:String(data.feeQuote?.approvalReference||''),
+     version:approvedFee.version} : undefined;
+    
     const answers = data.answers || {};
 
     // Fetch custom letter configuration from settings
@@ -70,17 +84,10 @@ export async function GET(req: Request, {params}: {params: Promise<{id: string}>
     const isShort = programme.toLowerCase().includes('short');
     const category = isTeve ? 'General Agriculture (TEVETA)' : isShort ? 'Independent short course' : 'Agri-Sport';
 
-    let academicFees = 'K8,200 (6 Months)';
-    if (programme.includes('K4,700') || programme.includes('K4,800')) academicFees = 'K4,800 (3 Months)';
-    else if (programme.includes('K8,000')) academicFees = 'K8,000 (6 Months)';
-    else if (programme.includes('K2,600')) academicFees = 'K2,600 (8 Weeks)';
-    else if (programme.includes('K3,000')) academicFees = 'K3,000 (8 Weeks)';
-    else if (programme.includes('K3,100')) academicFees = 'K3,100 (8 Weeks)';
-    else if (programme.includes('K2,500')) academicFees = 'K2,500 (8 Weeks)';
-    else if (programme.includes('K3,500')) academicFees = 'K3,500 (8 Weeks)';
+    // Attendance is selected from the independently reconciled package, never
+    // used to infer prices from student-entered text.
+    const isBoarding = String(data.feeQuote?.packageId||'').includes('boarding');
 
-    const isBoarding = String(answers['package-option'] || answers['boarding-preference'] || answers['attendance'] || '').toLowerCase().includes('boarding');
-    const totalFees = isBoarding ? 'K17,200 (Full Package)' : academicFees;
 
     const packData: AcceptancePackData = {
       reference: data.reference,
@@ -98,9 +105,11 @@ export async function GET(req: Request, {params}: {params: Promise<{id: string}>
       reportingTime: '08:00 - 15:00 hrs',
       acceptanceDeadline: '14 days from issue date',
       academicFees,
-      boardingMealsFees: isBoarding ? 'K9,000 (Meals & Bed Space)' : 'K0.00 (Day scholar)',
+      boardingMealsFees,
       totalFees,
-      initialPayment: isBoarding ? '40% registration deposit' : 'Refer to 2027 schedule',
+      initialPayment: 'Per approved payment agreement',
+      approvedBreakdown,
+      suppressProposedFees: !approvedFee,
       signatory: letterConfig.letter.signatory || 'Authorised Admissions Officer',
       signatoryTitle: letterConfig.letter.signatoryTitle || 'Admissions Directorate / Registrar',
       fundingMethod: data.fundingMethod || 'CDF',
