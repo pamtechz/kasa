@@ -10,7 +10,7 @@ export function MarathonAssignmentPanel({task,members,currentUid,canAssign,offli
  const [saving,setSaving]=useState(false);
  // Keep checkbox edits across periodic bootstrap refreshes returning equivalent assignee lists.
  const assignmentKey=JSON.stringify(task.assigneeUids||[]);
- useEffect(()=>setSelected(task.assigneeUids||[]),[task.id,assignmentKey]);
+ useEffect(()=>setSelected(JSON.parse(assignmentKey) as string[]),[task.id,assignmentKey]);
  const activeMembers=members.filter(m=>m.active);
  async function save(){
   if(saving||offline)return;
