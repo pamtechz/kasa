@@ -73,7 +73,7 @@ async function sendPush(audience:Audience,title:string,body:string,path:string,r
  return {delivered,failed};
 }
 /** Reverify School + secondary Marathon role immediately before pushing. */
-export function sendMarathonPush(title:string,body:string,path='/marthon/operations'){
+export function sendMarathonPush(title:string,body:string,path='/marathon/operations'){
  return sendPush('marathon',title,body,path);
 }
 /** Respect the existing School recipient scope, not client-supplied device roles. */
