@@ -33,7 +33,7 @@ test('Dedicated editors replace account, agent, programme/announcement and Marat
  assert.match(content,/editor-page-layout/);
  assert.match(marathon,/ml-task-editor-page/);
  assert.match(finance,/\/dashboard\/finance\//);
- assert.match(read('src/app/(portal)/dashboard/staff/[uid]/edit/page.tsx'),/sendReset/);
+ assert.match(read('src/app/(portal)/dashboard/staff/[uid]/edit/page.tsx'),/initial-password/);
  assert.match(read('src/app/(portal)/dashboard/finance/[id]/[action]/page.tsx'),/FinanceQuoteReconcile/);
 });
 test('New edit pages preserve server-side permissions and write origin verification',()=>{
@@ -41,6 +41,7 @@ test('New edit pages preserve server-side permissions and write origin verificat
  const agent=read('src/app/api/admin/agents/[id]/route.ts');
  assert.match(school,/Only a Super Administrator can assign account roles/);
  assert.match(school,/Password changes must use verified account recovery/);
+ assert.match(read('src/app/api/admin/users/[id]/initial-password/route.ts'),/operator\(req,\['super_admin'\]\)/);
  assert.match(agent,/sameOrigin\(req\)/);
  assert.match(agent,/operator\(req,\['super_admin','admin'\]\)/);
 });
