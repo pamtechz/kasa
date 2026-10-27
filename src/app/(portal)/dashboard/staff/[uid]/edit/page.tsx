@@ -92,7 +92,7 @@ export default function EditSchoolAccount(){
    </section>
    <aside className="panel pad-panel">
     <h2><ShieldCheck size={18}/> Identity and recovery</h2>
-    <p>Existing passwords cannot be viewed. Password recovery uses Firebase's verified email recovery process.</p>
+    <p>Existing passwords cannot be viewed. Password recovery uses Firebase&apos;s verified email recovery process.</p>
     {actorRole==='super_admin'&&account.role!=='super_admin'?<>
      <h3><KeyRound size={17}/> Reset this user&apos;s password</h3>
      <p className="muted">Only a super administrator may request recovery for another user. The reset link goes directly to the registered account email; it is never displayed to an administrator. Requests have a 15-minute cooldown and are audited.</p>
