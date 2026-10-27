@@ -74,7 +74,7 @@ export function EmailVerificationNudge(){
     <h2 id="verify-prompt-title"><Mail size={22} style={{verticalAlign:'middle'}}/> Verify your email address</h2>
     <p>You have been allowed to sign in with a super-admin-provided initial password. This does not verify ownership of your email. Please complete verification within 30 days.</p>
     <p><strong>Where to find the message:</strong> Open your email app, check your <strong>Inbox</strong>, then <strong>Spam/Junk</strong> or <strong>Promotions</strong>. Search for <strong>Firebase</strong> or <strong>KASA verification</strong>. Open the verification email and select its verification link.</p>
-    <p>If you cannot find it, select <strong>Send verification email</strong> below. After following the link, return here and select <strong>I've verified</strong>.</p>
+    <p>If you cannot find it, select <strong>Send verification email</strong> below. After following the link, return here and select <strong>I&apos;ve verified</strong>.</p>
     {notice&&<p role="status">{notice}</p>}
     <div style={{display:'flex',flexWrap:'wrap',gap:10}}>
      <button type="button" className="btn btn-primary" disabled={busy} onClick={()=>void send()}><Mail size={16}/> Send verification email</button>
