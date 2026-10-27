@@ -73,7 +73,7 @@ export function Portal({children}:{children:React.ReactNode}){
       return;
      }
      if(result.profile.role==='marathon_only'){
-      router.replace('/marthon');
+      router.replace('/marathon');
       return;
      }
      setProfile(result.profile);
@@ -110,7 +110,7 @@ export function Portal({children}:{children:React.ReactNode}){
   ...(allowed('settings.manage')?[{name:'Settings',href:'/dashboard/settings',icon:Settings}]:[]),
   ...(allowed('staff.manage')?[{name:'Staff roles',href:'/dashboard/staff',icon:Users}]:[]),
   ...(allowed('bootstrap.manage')?[{name:'Data setup',href:'/dashboard/setup',icon:Database}]:[]),
-  ...(role==='super_admin'||profile?.marathonAccess?.active===true?[{name:'KASA Life Marathon',href:'/marthon',icon:CalendarDays}]:[]),
+  ...(role==='super_admin'||profile?.marathonAccess?.active===true?[{name:'KASA Life Marathon',href:'/marathon',icon:CalendarDays}]:[]),
   ...(allowed('profile.read')?[{name:'My profile',href:'/dashboard/profile',icon:User}]:[])
  ];
  if(loading)return <main className="page-loader" role="status">Loading your secure workspace…</main>;
