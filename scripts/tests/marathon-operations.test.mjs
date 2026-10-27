@@ -81,7 +81,8 @@ test('Marathon shares one KASA login and redirects only after server-verified ro
  assert.match(redirect,/redirect\('\/login\?next=%2Fmarathon'\)/);
  assert.doesNotMatch(redirect,/signInWithEmailAndPassword/);
  assert.match(login,/signInWithEmailAndPassword\(firebaseAuth,/);
- assert.match(login,/sendEmailVerification\(credential\.user\)/);
+ assert.match(login,/sendEmailVerification\(cred\.user\)/);
+ assert.match(login,/adminPasswordProvisionedAt/);
  assert.match(login,/workspaceDestination\(data\.profile as Profile,requested\)/);
  assert.match(routing,/role==='marathon_only'/);
  assert.match(routing,/profile\.role!=='student'/);
