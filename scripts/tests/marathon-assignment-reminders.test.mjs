@@ -31,6 +31,11 @@ test('private pushes target members, three daily slots and exclude completed wor
  const config=JSON.parse(read('vercel.json'));
  assert.match(push,/recipientUid\|\|d\.uid===recipientUid/);
  assert.match(cron,/SLOTS=\[8,13,18\]/);
+ assert.match(cron,/requestedSlot!==null\?Number\(requestedSlot\)/);
+ const workflow=read('.github/workflows/marathon-assignment-reminders.yml');
+ assert.match(workflow,/cron: '0 11 \* \* \*'/);
+ assert.match(workflow,/cron: '0 16 \* \* \*'/);
+ assert.match(workflow,/\?slot=\$\{SLOT\}/);
  assert.match(cron,/today\+'-'\+slot/);
  assert.match(cron,/task\.confirmationByUid\?\.\[uid\]\?\.status==='done'/);
  assert.match(cron,/task\.status==='done'/);
@@ -47,6 +52,13 @@ test('the workspace exposes assignment pages and member outcome popup',()=>{
  assert.match(work,/MarathonConfirmationPrompt uid=\{uid\}/);
  assert.match(panel,/Assigned members/);
  assert.match(panel,/Report done/);
+ assert.match(panel,/assignmentKey=JSON\.stringify\(task\.assigneeUids\|\|\[\]\)/);
+ assert.match(prompt,/clock\.slot==='00'/);
+ const bootstrap=read('src/app/api/marathon/bootstrap/route.ts');
+ assert.match(bootstrap,/superProfiles/);
+ assert.match(bootstrap,/p\.role==='super_admin'/);
+ const assignees=read('src/app/api/marathon/tasks/[id]/assignees/route.ts');
+ assert.match(assignees,/before\.archived\|\|before\.status==='done'/);
  assert.match(prompt,/Has this task been completed\?/);
  assert.match(prompt,/Remind me later/);
 });
