@@ -8,7 +8,9 @@ type Props={task:MarathonTask;members:Member[];currentUid:string;canAssign:boole
 export function MarathonAssignmentPanel({task,members,currentUid,canAssign,offline,onSaved,onConfirmed,onError}:Props){
  const [selected,setSelected]=useState<string[]>(task.assigneeUids||[]);
  const [saving,setSaving]=useState(false);
- useEffect(()=>setSelected(task.assigneeUids||[]),[task.id,task.assigneeUids]);
+ // Keep checkbox edits across periodic bootstrap refreshes returning equivalent assignee lists.
+ const assignmentKey=JSON.stringify(task.assigneeUids||[]);
+ useEffect(()=>setSelected(task.assigneeUids||[]),[task.id,assignmentKey]);
  const activeMembers=members.filter(m=>m.active);
  async function save(){
   if(saving||offline)return;
