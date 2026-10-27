@@ -1,5 +1,6 @@
 import {db} from '@/lib/firebase-admin';
 import {ensureSchoolIdentity} from '@/lib/account-onboarding';
+import {validateInitialPassword} from '@/lib/admin-initial-password';
 import {fail, json, HttpError} from '@/lib/errors';
 import {operator, newId, sameOrigin, safeText, audit} from '@/lib/security';
 import {FieldValue} from 'firebase-admin/firestore';
@@ -18,6 +19,10 @@ export async function POST(req: Request) {
     if (actor.role !== 'super_admin' && ['admin','reviewer'].includes(role)) {
       throw new HttpError(403, 'Only a super administrator can assign staff roles.');
     }
+    if(body.initialPassword!==undefined){
+     if(actor.role!=='super_admin')throw new HttpError(403,'Only the global super administrator may set an initial password.');
+     validateInitialPassword(body.initialPassword);
+    }
     const district = safeText(body.district, 100).trim();
     const phone = safeText(body.phone, 40).trim();
 
@@ -32,7 +37,7 @@ export async function POST(req: Request) {
     // Users choose their own passwords and must verify their own email.
     const account=await ensureSchoolIdentity({
       email,displayName,schoolRole:role as 'student'|'agent'|'admin'|'reviewer',
-      actorUid:actor.uid
+      actorUid:actor.uid,initialPassword:body.initialPassword
     });
     const previousRole = account.profile.role;
     if(previousRole==='marathon_only')throw new HttpError(409,'This is a Marathon-only account. Manage its access from Marathon Team; it cannot be assigned a School role through School provisioning.');
@@ -93,7 +98,9 @@ export async function POST(req: Request) {
       onboardingEmailSent: account.onboardingEmailSent,
       verificationPending: account.verificationPending,
       agentCode: agentCode || studentCode || null,
-      message: account.verificationPending
+      message: account.authCreated&&body.initialPassword
+        ? 'Account created with initial password. Share it privately; the member may sign in while email verification is pending for up to 30 days.'
+        : account.verificationPending
         ? account.onboardingEmailSent
           ? `School account created for ${displayName}; password setup email requested. The user must verify their email before sign-in.`
           : `School account prepared for ${displayName}. Ask the user to select Forgot password on KASA School login, then verify their email.`
