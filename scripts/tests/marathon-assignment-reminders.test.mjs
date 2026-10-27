@@ -45,7 +45,7 @@ test('the workspace exposes assignment pages and member outcome popup',()=>{
  assert.match(work,/My assignments/);
  assert.match(work,/MarathonAssignmentPanel task=\{drawer\}/);
  assert.match(work,/MarathonConfirmationPrompt uid=\{uid\}/);
- assert.match(panel,/assigned task/i);
+ assert.match(panel,/Assigned members/);
  assert.match(panel,/Report done/);
  assert.match(prompt,/Has this task been completed\?/);
  assert.match(prompt,/Remind me later/);
