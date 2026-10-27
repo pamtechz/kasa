@@ -6,7 +6,7 @@ import {useRouter, usePathname} from 'next/navigation';
 import Link from 'next/link';
 import {AccountMenu} from '@/components/AccountMenu';
 import {
-  ClipboardList, Share2, Bell, User, LogOut, ChevronLeft, ChevronRight,
+  ClipboardList, Share2, Bell, User, ChevronLeft, ChevronRight,
   Menu, X, ShieldCheck, Download, FileText, LockKeyhole
 } from 'lucide-react';
 import {auth, authHeaders, firebaseConfigured, signOutClient} from '@/lib/firebase-client';
@@ -70,7 +70,7 @@ export function StudentPortal({children}: {children: React.ReactNode}) {
           if (res.ok && data.profile) {
             if(data.profile.role!=='student'){
               setProfile(null);
-              router.replace(data.profile.role==='marathon_only'?'/marthon':'/dashboard');
+              router.replace(data.profile.role==='marathon_only'?'/marathon':'/dashboard');
               return;
             }
             setProfile(data.profile);
