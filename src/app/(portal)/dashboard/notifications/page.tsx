@@ -1,5 +1,6 @@
 'use client';
-import {useEffect, useState, useMemo} from 'react';
+import {useEffect, useState, useMemo, useRef} from 'react';
+import {useRouter} from 'next/navigation';
 import {
   Bell, Plus, Search, Trash2, CheckCircle2, AlertTriangle, Info,
   Filter, X, ArrowLeft, Save, ExternalLink, RefreshCw, Eye, EyeOff, Edit
@@ -22,7 +23,10 @@ type Notice = {
   createdBy?: string;
 };
 
-export default function Notifications() {
+export default function Notifications({editorId}:{editorId?:string}={}) {
+  const router=useRouter();
+  const loadedEditor=useRef(false);
+  const editorHref=(id:string)=>'/dashboard/notifications/editor/'+encodeURIComponent(id);
   const [items, setItems] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -96,7 +100,19 @@ export default function Notifications() {
   function closeModal() {
     setModalOpen(false);
     setEditingNotice(null);
+    if(editorId)router.push('/dashboard/notifications');
   }
+
+  useEffect(()=>{
+    if(!editorId||loading||loadedEditor.current)return;
+    loadedEditor.current=true;
+    if(editorId==='new')openCreateModal();
+    else{
+      const item=items.find(x=>x.id===editorId);
+      if(item)openEditModal(item);
+      else setError('Notification not found. Return to the notices list.');
+    }
+  },[editorId,loading,items]);
 
   async function handleSaveNotice(e: React.FormEvent) {
     e.preventDefault();
@@ -234,6 +250,7 @@ export default function Notifications() {
 
   return (
     <>
+      {!editorId&&<>
       <PageHeader
         title="Notifications"
         subtitle="Internal broadcasts, review alerts, sponsorship decisions and network updates."
@@ -257,9 +274,9 @@ export default function Notifications() {
                 <Trash2 size={15} /> Clear read
               </button>
             )}
-            <button className="btn btn-primary" onClick={openCreateModal}>
+            <a className="btn btn-primary" href={editorHref('new')}>
               <Plus size={16} /> Broadcast notice
-            </button>
+            </a>
           </div>
         }
       />
@@ -452,7 +469,7 @@ export default function Notifications() {
                     <button
                       className="icon-btn"
                       title="Edit notification"
-                      onClick={() => openEditModal(n)}
+                      onClick={() => router.push(editorHref(n.id))}
                       aria-label="Edit notification"
                     >
                       <Edit size={16} />
@@ -474,10 +491,13 @@ export default function Notifications() {
         )}
       </div>
 
-      {/* Full Modal Page for Broadcast / Edit Notification */}
+      </>}
+      {editorId&&<PageHeader title="Notification editor" subtitle="Dedicated page for composing or revising system notices."/>}
+      {editorId&&error&&<div className="alert-error" role="alert">{error}</div>}
+      {/* Routed form page for notices */}
       {modalOpen && (
-        <div className="modal-page-overlay" role="dialog" aria-modal="true">
-          <div className="modal-page">
+        <div className="editor-page-layout">
+          <div className="modal-page editor-page-surface">
             <header className="modal-page-header">
               <div className="modal-page-title-group">
                 <button
