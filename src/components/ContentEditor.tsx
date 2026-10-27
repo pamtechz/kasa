@@ -1,5 +1,7 @@
 'use client';
-import {useEffect, useState, useCallback} from 'react';
+import {useEffect, useState, useCallback, useRef} from 'react';
+import Link from 'next/link';
+import {useRouter} from 'next/navigation';
 import {
   Save, Plus, Trash2, Search, ExternalLink, X, ArrowLeft,
   CheckCircle2, AlertCircle, BookOpen, Clock, FileText, DollarSign,
@@ -53,7 +55,13 @@ function dateInput(s: string | null) {
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 }
 
-export function ContentEditor({kind}: {kind: Type}) {
+export function ContentEditor({kind,editorId}: {kind: Type;editorId?:string}) {
+  const router=useRouter();
+  const pageOnly=typeof editorId==='string';
+  const listHref='/dashboard/'+kind;
+  const editorHref=(id:string)=>'/dashboard/content-editor/'+kind+'/'+encodeURIComponent(id);
+  const initializedEditor=useRef(false);
+  const closeEditor=()=>{if(pageOnly)router.push(listHref);else setCurrent(null);};
   const isProgramme = kind === 'programmes';
   const [items, setItems] = useState<(Programme | Announcement)[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,17 +98,19 @@ export function ContentEditor({kind}: {kind: Type}) {
     void load();
   }, [load]);
 
-  // Handle ESC key to close modal page
-  useEffect(() => {
-    if (!current) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setCurrent(null);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [current]);
+  // Page editor state is initialized from the currently authorized collection.
+  useEffect(()=>{
+    if(!pageOnly||loading||initializedEditor.current)return;
+    initializedEditor.current=true;
+    if(editorId==='new'){
+      setEditing(false);
+      setCurrent(isProgramme?structuredClone(emptyProgramme):structuredClone(emptyAnnouncement));
+      return;
+    }
+    const match=items.find(x=>x.id===editorId);
+    if(match){setEditing(true);setCurrent(structuredClone(match));}
+    else setError('Record not found. Return to the directory to choose another record.');
+  },[pageOnly,loading,items,editorId,isProgramme]);
 
   function editField(field: string, value: unknown) {
     setCurrent(p => (p ? {...p, [field]: value} : p));
@@ -238,22 +248,6 @@ export function ContentEditor({kind}: {kind: Type}) {
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [bulkDeleteTarget, setBulkDeleteTarget] = useState<'selected' | 'all' | null>(null);
 
-  function openCreate() {
-    setCurrent(isProgramme ? structuredClone(emptyProgramme) : structuredClone(emptyAnnouncement));
-    setEditing(false);
-    setError('');
-    setMessage('');
-    setModalTab('basic');
-  }
-
-  function openEdit(item: Programme | Announcement) {
-    setCurrent(structuredClone(item));
-    setEditing(true);
-    setError('');
-    setMessage('');
-    setModalTab('basic');
-  }
-
   async function save() {
     if (!current) return;
     setBusy(true);
@@ -293,6 +287,7 @@ export function ContentEditor({kind}: {kind: Type}) {
         body: JSON.stringify({kind, item: cleanItem})
       });
       setCurrent(null);
+      if(pageOnly)router.push(listHref);
       await load(true);
       setMessage(isProgramme ? 'Programme record saved successfully.' : 'Announcement saved successfully.');
     } catch (e) {
@@ -357,6 +352,7 @@ export function ContentEditor({kind}: {kind: Type}) {
 
   return (
     <>
+      {!pageOnly&&<>
       <PageHeader
         title={isProgramme ? 'Programmes and fees' : 'Announcements'}
         subtitle={
@@ -365,9 +361,9 @@ export function ContentEditor({kind}: {kind: Type}) {
             : 'Create, publish, pin, schedule and withdraw official institutional announcements.'
         }
         action={
-          <button className="btn btn-primary" onClick={openCreate}>
+          <Link className="btn btn-primary" href={editorHref('new')}>
             <Plus size={16} /> Add new
-          </button>
+          </Link>
         }
       />
 
@@ -438,9 +434,7 @@ export function ContentEditor({kind}: {kind: Type}) {
                       </span>
                     </td>
                     <td>
-                      <button className="text-link" onClick={() => openEdit(x)}>
-                        Edit
-                      </button>
+                      <Link className="text-link" href={editorHref(x.id)}>Edit</Link>
                       <button className="text-link" onClick={() => setDeletingItem(x)}>
                         <Trash2 size={14} /> Delete
                       </button>
@@ -459,30 +453,23 @@ export function ContentEditor({kind}: {kind: Type}) {
         </div>
       </div>
 
-      {/* FULL MODAL PAGE (NOT A MODAL POP UP) */}
+      </>}
+      {pageOnly&&<p><Link className="btn btn-outline" href={listHref}><ArrowLeft size={16}/> Back to {isProgramme?'programmes':'announcements'}</Link></p>}
+      {pageOnly&&error&&!current&&<div className="alert-error" role="alert">{error}</div>}
+      {/* Dedicated, navigable full-page record editor */}
       {current && (() => {
         const prog = isProgramme && 'fee' in current ? (current as Programme) : null;
         const ann = !isProgramme && 'body' in current ? (current as Announcement) : null;
         return (
-        <div
-          className="modal-page-overlay"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="modal-page-title"
-          onClick={e => {
-            if (e.target === e.currentTarget) {
-              setConfirmingDiscard(true);
-            }
-          }}
-        >
-          <div className="modal-page">
+        <div className="editor-page-layout">
+          <div className="modal-page editor-page-surface">
             {/* Modal Page Top Header */}
             <div className="modal-page-header">
               <div className="modal-page-header-left">
                 <button
                   type="button"
                   className="icon-btn"
-                  onClick={() => setCurrent(null)}
+                  onClick={closeEditor}
                   title="Back to list (Esc)"
                   aria-label="Back to list"
                 >
@@ -520,7 +507,7 @@ export function ContentEditor({kind}: {kind: Type}) {
                 <button
                   type="button"
                   className="btn btn-outline"
-                  onClick={() => setCurrent(null)}
+                  onClick={closeEditor}
                   style={{fontSize: 12, padding: '8px 14px', minHeight: 36}}
                 >
                   Cancel
@@ -1264,7 +1251,7 @@ export function ContentEditor({kind}: {kind: Type}) {
         cancelLabel="Keep Editing"
         onConfirm={() => {
           setConfirmingDiscard(false);
-          setCurrent(null);
+          closeEditor();
         }}
         onCancel={() => setConfirmingDiscard(false)}
       />
