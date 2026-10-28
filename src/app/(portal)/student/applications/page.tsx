@@ -102,7 +102,7 @@ export default function StudentApplicationsPage() {
           </div>
         ) : (
           items.map(app => {
-            const isAccepted = ['accepted', 'letter_issued', 'cdf_submitted', 'cdf_approved', 'payment_verified', 'commission_paid'].includes(app.status);
+            const isAccepted = ['accepted', 'letter_issued', 'cdf_submitted', 'cdf_approved','cdf_funds_received', 'payment_verified', 'commission_paid'].includes(app.status);
             const tokenQuery = app.downloadToken ? `?token=${encodeURIComponent(app.downloadToken)}` : '';
             const letterUrl = `/api/public/submissions/${app.id}/letter${tokenQuery}`;
             const formUrl = `/api/public/submissions/${app.id}/enrollment-form${tokenQuery}`;
