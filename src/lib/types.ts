@@ -8,17 +8,19 @@ export type Section = {id:string;title:string;description?:string;fields:Field[]
 export type FormKind = 'agent'|'student'|'custom';
 export type FormSchema = {id:string;slug:string;title:string;subtitle:string;kind:FormKind;
   published:boolean;version:number;sections:Section[];createdAt?:string;updatedAt?:string};
-export type SubmissionStatus = 'submitted'|'under_review'|'needs_information'|'accepted'|'rejected'|'letter_issued'|'cdf_submitted'|'cdf_approved'|'payment_verified'|'commission_paid';
+export type SubmissionStatus = 'submitted'|'under_review'|'needs_information'|'accepted'|'rejected'|'letter_issued'|'cdf_submitted'|'cdf_approved'|'cdf_funds_received'|'payment_verified'|'commission_paid';
 export type ApplicantRecord = {id:string;reference:string;formId:string;formTitle:string;formKind:FormKind;
   formVersion:number;status:SubmissionStatus;answers:Record<string,unknown>;agentId:string|null;applicantUid?:string|null;
   submittedAt:string;updatedAt:string;cdfVerification?:{reference:string;verifiedAt:string;verifiedBy:string;fundingMethod?:'cdf';documentChecklist?:string[]};
   formSnapshot?:Pick<FormSchema,'title'|'slug'|'sections'|'version'>;
+  cdfDisbursement?:{governmentReference:string;bankReference:string;amount:number;verifiedAt:string;verifiedBy:string;enrollmentConfirmed:true};
+  referralVerified?:{at:string;by:string};
   paymentVerification?:{reference:string;amount:number;verifiedAt?:string;verifiedBy?:string;recordedAt?:string;recordedBy?:string;verificationPending?:boolean};
   internalNotes?:{body:string;at:string;by:string}[];
   fundingMethod?:'cdf'|'self_funded'; autoApproved?:boolean; autoApprovalReason?:string; downloadToken?:string;
-  fundingStatus?:'government_approval_verified'|'enrollment_payment_verified'|'payment_recorded_pending_enrollment_verification';
+  fundingStatus?:'government_approval_verified'|'enrollment_payment_verified'|'payment_recorded_pending_enrollment_verification'|'government_funds_received_verified';
   documents?:Record<string,{kind:string;label:string;path:string;fileName:string;contentType:string;size:number;uploadedAt:string;uploadedBy:string;verifiedAt:string|null;verifiedBy:string|null}>;
-  commission?:{amount:number;currency:string;trigger?:'cdf_approval'|'payment';approvedAt?:string;paidAt?:string;paymentReference?:string};
+  commission?:{amount:number;currency:string;trigger?:'cdf_approval'|'cdf_disbursement'|'payment';approvedAt?:string;paidAt?:string;paymentReference?:string};
 };
 export type Role = 'super_admin'|'admin'|'reviewer'|'agent'|'student'|'finance'|'marathon_only';
 /** Optional second workspace role. The existing school role stays authoritative for school routes. */
