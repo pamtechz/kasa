@@ -11,7 +11,7 @@ const ALLOWED_MIME:Record<string,string>={
  'application/pdf':'pdf','image/png':'png','image/jpeg':'jpg'
 };
 const MAX_BYTES=4*1024*1024;
-const BLOCKED_STATUSES=['rejected','cdf_approved','payment_verified','commission_paid'];
+const BLOCKED_STATUSES=['rejected','cdf_approved','cdf_funds_received','payment_verified','commission_paid'];
 
 function matchesMime(bytes:Buffer,mime:string):boolean{
  if(mime==='application/pdf')return bytes.subarray(0,5).toString('ascii')==='%PDF-';
