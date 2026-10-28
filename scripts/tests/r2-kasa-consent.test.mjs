@@ -80,3 +80,12 @@ test('the file picker shows explicit opt-in and revocation actions',()=>{
  assert.match(src,/file\.purpose==='personal-document'/);
  assert.match(read('src/app/api/r2/files/route.ts'),/sharedWithKasa/);
 });
+
+test('staff get a dedicated view and each download is authorized on the server',()=>{
+ const profile=read('src/app/(portal)/dashboard/profile/page.tsx');
+ const panel=read('src/components/R2KasaSharedFilesPanel.tsx');
+ assert.match(profile,/R2KasaSharedFilesPanel/);
+ assert.match(panel,/\/api\/admin\/r2\/shared/);
+ assert.match(panel,/Open authorized document/);
+ assert.match(panel,/authHeaders/);
+});
