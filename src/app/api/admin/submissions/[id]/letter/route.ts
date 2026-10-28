@@ -25,7 +25,7 @@ export async function GET(req: Request, {params}: {params: Promise<{id: string}>
     }
 
     const approvedFee = readApprovedFeeQuote(data.feeQuote);
-    const legacyIssued = ['letter_issued','cdf_submitted','cdf_approved','payment_verified','commission_paid'].includes(String(data.status));
+    const legacyIssued = ['letter_issued','cdf_submitted','cdf_approved','cdf_funds_received','payment_verified','commission_paid'].includes(String(data.status));
     if (!approvedFee && !legacyIssued)
       throw new HttpError(409,'An approved documented fee quote is required before an acceptance pack can be generated.');
     // Previously issued letters remain retrievable, without retrospectively
