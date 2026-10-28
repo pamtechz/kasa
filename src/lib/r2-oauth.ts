@@ -120,13 +120,14 @@ export function oauthObjectPath(v:OAuthBucket,key:string):string{
  // Slashes in an object key must remain literal according to the Cloudflare R2 REST API.
  return '/accounts/'+v.accountId+'/r2/buckets/'+v.bucket+'/objects/'+key;
 }
-export async function authorizedOAuthObject(uid:string,method:'GET'|'PUT',target:OAuthBucket,key:string,body?:FormData):Promise<Response>{
+export async function authorizedOAuthObject(uid:string,method:'GET'|'PUT',target:OAuthBucket,key:string,body?:Uint8Array,contentType?:string):Promise<Response>{
  const url=CLOUD_API+oauthObjectPath(target,key);
  const bearer=await cloudflareBearer(uid);
  let response:Response;
  try{
-  response=await fetch(url,{method,headers:{Authorization:'Bearer '+bearer,'cf-r2-jurisdiction':target.jurisdiction},
-   ...(body?{body}:{}),cache:'no-store',redirect:'error',signal:AbortSignal.timeout(20000)});
+  response=await fetch(url,{method,headers:{Authorization:'Bearer '+bearer,'cf-r2-jurisdiction':target.jurisdiction,
+    ...(contentType?{'Content-Type':contentType}:{})},
+   ...(body?{body:Buffer.from(body)}:{}),cache:'no-store',redirect:'error',signal:AbortSignal.timeout(20000)});
  }catch{throw new HttpError(502,'Cloudflare object storage is unavailable.');}
  if(response.status===401||response.status===403)throw new HttpError(403,'Cloudflare access to this R2 object was not approved or has been revoked.');
  if(!response.ok)throw new HttpError(502,'Cloudflare rejected this R2 object request.');

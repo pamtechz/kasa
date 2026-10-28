@@ -7,6 +7,9 @@ import {selectR2Destination} from '@/lib/r2-storage-selection';
 type Connection={id:string;label:string;accountId:string;bucket:string;jurisdiction:string;status:string;createdAt:string};
 type PrivateFile={id:string;fileName:string;purpose:string;byteSize:number;connectionId:string;createdAt:string;sharedCount:number;sharedWithKasa:boolean};
 type Configuration={platformAvailable:boolean;byobAvailable:boolean;connections:Connection[]};
+type OAuthStatus={available:boolean;connected:boolean;selectedBucket:{accountId:string;bucket:string;jurisdiction:string}|null};
+type CloudflareAccount={id:string;name:string};
+type CloudflareBucket={name:string;jurisdiction:string};
 type AdminStatus={platformConfigured:boolean;missingVariables:string[];byobEncryptionConfigured:boolean;connectivity:'not_checked'|'not_configured'|'ready'|'rejected'|'unreachable'|'invalid_configuration'};
 async function request<T>(path:string,init:RequestInit={}):Promise<T>{
  const headers=await authHeaders(),response=await fetch(path,{...init,headers:{...headers,...(init.body?{'Content-Type':'application/json'}:{}),...init.headers},cache:'no-store'});
@@ -23,6 +26,14 @@ export function R2StoragePanel({onPhotoUploaded,administrator=false}:{onPhotoUpl
  const [accessKeyId,setAccessKeyId]=useState(''),[secretAccessKey,setSecretAccessKey]=useState('');
  const [busy,setBusy]=useState(false),[message,setMessage]=useState(''),[error,setError]=useState('');
  const [showConnect,setShowConnect]=useState(false);
+ const [showAdvanced,setShowAdvanced]=useState(false);
+ const [oauth,setOauth]=useState<OAuthStatus>({available:false,connected:false,selectedBucket:null});
+ const [accounts,setAccounts]=useState<CloudflareAccount[]>([]);
+ const [selectedAccount,setSelectedAccount]=useState('');
+ const [buckets,setBuckets]=useState<CloudflareBucket[]>([]);
+ const [selectedBucket,setSelectedBucket]=useState('');
+ const [oauthBusy,setOauthBusy]=useState(false);
+ const [oauthError,setOauthError]=useState('');
  const [adminStatus,setAdminStatus]=useState<AdminStatus|null>(null);
  const [checkingStatus,setCheckingStatus]=useState(false);
  const [statusError,setStatusError]=useState('');
@@ -36,14 +47,97 @@ export function R2StoragePanel({onPhotoUploaded,administrator=false}:{onPhotoUpl
   finally{setCheckingStatus(false);}
  },[administrator]);
  const refresh=useCallback(async()=>{
-  const [b,f]=await Promise.all([
-   request<Configuration>('/api/r2/connections'),request<{files:PrivateFile[]}>('/api/r2/files')
+  const [b,f,o]=await Promise.all([
+   request<Configuration>('/api/r2/connections'),
+   request<{files:PrivateFile[]}>('/api/r2/files'),
+   request<OAuthStatus>('/api/r2/oauth')
   ]);
-  setConfig(b);setFiles(f.files);
+  setConfig(b);setFiles(f.files);setOauth(o);
   setSelected(old=>selectR2Destination(old,b));
  },[]);
  useEffect(()=>{void refresh().catch(e=>setError(e instanceof Error?e.message:'Storage unavailable.'));},[refresh]);
  useEffect(()=>{if(administrator)void checkPlatform(false);},[administrator,checkPlatform]);
+ useEffect(()=>{
+  if(!oauth.connected||oauth.selectedBucket)return;
+  void discoverCloudflareBuckets();
+ // Recheck only when connection state changes, avoiding duplicate consent calls.
+ // eslint-disable-next-line react-hooks/exhaustive-deps
+ },[oauth.connected,oauth.selectedBucket?.bucket]);
+ async function beginCloudflare(){
+  setOauthBusy(true);setOauthError('');
+  try{
+   const result=await request<{url:string}>('/api/r2/oauth/start',{method:'POST'});
+   // Cloudflare's own website handles sign-in and permission consent.
+   window.location.assign(result.url);
+  }catch(e){setOauthError(e instanceof Error?e.message:'Cloudflare sign-in unavailable.');setOauthBusy(false);}
+ }
+ async function chooseBucket(accountId:string,bucket:CloudflareBucket){
+  await request('/api/r2/oauth/select',{method:'POST',body:JSON.stringify({
+   accountId,bucket:bucket.name,jurisdiction:bucket.jurisdiction
+  })});
+  await refresh();
+ }
+ async function discoverCloudflareBuckets(){
+  setOauthBusy(true);setOauthError('');
+  try{
+   const data=await request<{accounts:CloudflareAccount[]}>('/api/r2/oauth/accounts');
+   setAccounts(data.accounts);
+   if(data.accounts.length===1){
+    const id=data.accounts[0].id;setSelectedAccount(id);
+    const response=await request<{buckets:CloudflareBucket[]}>('/api/r2/oauth/buckets?accountId='+encodeURIComponent(id));
+    setBuckets(response.buckets);
+    if(response.buckets.length===1){
+     await chooseBucket(id,response.buckets[0]);
+     setMessage('Cloudflare connected automatically to your only available R2 bucket.');
+     return;
+    }
+   }
+   if(!data.accounts.length)setOauthError('No Cloudflare account was authorized. Check your consent.');
+  }catch(e){setOauthError(e instanceof Error?e.message:'Could not discover your Cloudflare storage.');}
+  finally{setOauthBusy(false);}
+ }
+ async function accountSelected(id:string){
+  setSelectedAccount(id);setSelectedBucket('');setBuckets([]);
+  if(!id)return;
+  setOauthBusy(true);setOauthError('');
+  try{
+   const data=await request<{buckets:CloudflareBucket[]}>('/api/r2/oauth/buckets?accountId='+encodeURIComponent(id));
+   setBuckets(data.buckets);
+   if(!data.buckets.length)setOauthError('This account has no eligible R2 buckets. Select another account or create your bucket at Cloudflare.');
+  }catch(e){setOauthError(e instanceof Error?e.message:'Unable to load Cloudflare buckets.');}
+  finally{setOauthBusy(false);}
+ }
+ async function selectCloudflareBucket(){
+  const bucket=buckets.find(b=>b.name===selectedBucket);
+  if(!selectedAccount||!bucket)return;
+  setOauthBusy(true);setOauthError('');
+  try{await chooseBucket(selectedAccount,bucket);setMessage('Your Cloudflare R2 bucket is connected to KASA.');}
+  catch(e){setOauthError(e instanceof Error?e.message:'Unable to select your bucket.');}
+  finally{setOauthBusy(false);}
+ }
+ async function disconnectCloudflare(){
+  if(!window.confirm('Disconnect Cloudflare from KASA? Your files stay in your own account, but KASA will no longer be able to access them through this connection.'))return;
+  setOauthBusy(true);setOauthError('');
+  try{
+   await request('/api/r2/oauth/disconnect',{method:'POST'});
+   await refresh();setAccounts([]);setBuckets([]);
+   setMessage('Cloudflare disconnected from KASA. To invalidate provider authorization, also revoke KASA under Cloudflare authorized applications.');
+  }catch(e){setOauthError(e instanceof Error?e.message:'Unable to disconnect Cloudflare.');}
+  finally{setOauthBusy(false);}
+ }
+ async function uploadCloudflare(file:File){
+  setOauthBusy(true);setOauthError('');setMessage('');
+  try{
+   if(file.size>3*1024*1024)throw Error('One-click Cloudflare uploads currently support up to 3 MB. For larger documents use the advanced R2 connection.');
+   const data=new FormData();data.append('file',file);
+   const headers=await authHeaders();
+   const response=await fetch('/api/r2/oauth/upload',{method:'POST',headers,body:data,cache:'no-store'});
+   const result=await response.json().catch(()=>({}));
+   if(!response.ok)throw Error(result.error||'Upload failed.');
+   await refresh();setMessage('Your private document was uploaded into your own Cloudflare R2 bucket.');
+  }catch(e){setOauthError(e instanceof Error?e.message:'Unable to upload document.');}
+  finally{setOauthBusy(false);}
+ }
  async function connect(event:React.FormEvent){
   event.preventDefault();setBusy(true);setError('');setMessage('');
   try{
@@ -89,7 +183,18 @@ export function R2StoragePanel({onPhotoUploaded,administrator=false}:{onPhotoUpl
  }
  async function openFile(id:string){
   setError('');
-  try{const url=await r2ReadUrl(id);window.open(url,'_blank','noopener,noreferrer');}
+  try{
+   const file=files.find(f=>f.id===id);
+   if(file?.connectionId==='oauth'){
+    const headers=await authHeaders();
+    const response=await fetch('/api/r2/oauth/files/'+encodeURIComponent(id)+'/content',{headers,cache:'no-store'});
+    if(!response.ok)throw Error((await response.json().catch(()=>({})).error||'Unable to read your private document.');
+    const blob=await response.blob(),url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download=file.fileName;a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
+   }else{
+    const url=await r2ReadUrl(id);window.open(url,'_blank','noopener,noreferrer');
+   }
   catch(e){setError(e instanceof Error?e.message:'Unable to open file.');}
  }
  return <section className="profile-section-card" aria-label="Cloudflare R2 storage">
@@ -156,7 +261,49 @@ export function R2StoragePanel({onPhotoUploaded,administrator=false}:{onPhotoUpl
    {!files.length&&<p className="muted">No R2 files yet. Existing Cloudinary and Firebase documents remain available while migration is prepared.</p>}
   </div>
   <div style={{marginTop:20,borderTop:'1px solid #d9e6dd',paddingTop:15}}>
-   <h3><ShieldCheck size={17}/> Bring your own bucket (BYOB)</h3>
+   <h3><Cloud size={17}/> Connect your own Cloudflare storage</h3>
+   <p className="muted">Sign in directly with Cloudflare and authorize KASA once. You own your files and the storage billing. Only files you explicitly share are available to KASA staff.</p>
+   {oauthError&&<p role="alert" className="alert-error">{oauthError}</p>}
+   {!oauth.available&&<p className="muted">Cloudflare one-click connection is awaiting KASA's registered OAuth application. Ordinary users will not need account IDs or access keys once enabled.</p>}
+   {oauth.available&&!oauth.connected&&<button className="btn btn-primary" type="button" disabled={oauthBusy} onClick={()=>void beginCloudflare()}>
+    <Cloud size={17}/> {oauthBusy?'Connecting…':'Connect with Cloudflare'}
+   </button>}
+   {oauth.connected&&<div style={{display:'grid',gap:10,marginTop:12}}>
+    <p role="status">{oauth.selectedBucket
+      ?'Connected to your Cloudflare R2 bucket: '+oauth.selectedBucket.bucket
+      :'Cloudflare authorized. KASA is discovering the available R2 buckets.'}</p>
+    <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+     {!oauth.selectedBucket&&<button type="button" className="btn btn-outline" disabled={oauthBusy}
+      onClick={()=>void discoverCloudflareBuckets()}>{oauthBusy?'Finding buckets…':'Find my R2 bucket'}</button>}
+     <button type="button" className="btn btn-outline" disabled={oauthBusy} onClick={()=>void disconnectCloudflare()}>Disconnect Cloudflare</button>
+    </div>
+    {!oauth.selectedBucket&&accounts.length>1&&<label className="field">Your Cloudflare account
+     <select value={selectedAccount} onChange={e=>void accountSelected(e.target.value)}>
+      <option value="">Choose an authorized Cloudflare account</option>
+      {accounts.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}
+     </select>
+    </label>}
+    {!oauth.selectedBucket&&buckets.length>0&&<label className="field">Your R2 bucket
+     <select value={selectedBucket} onChange={e=>setSelectedBucket(e.target.value)}>
+      <option value="">Choose a bucket</option>
+      {buckets.map(b=><option key={b.name} value={b.name}>{b.name}</option>)}
+     </select>
+    </label>}
+    {!oauth.selectedBucket&&selectedBucket&&<button type="button" className="btn btn-primary"
+     disabled={oauthBusy} onClick={()=>void selectCloudflareBucket()}>Use this bucket for KASA</button>}
+    {oauth.selectedBucket&&<label className="btn btn-outline" style={{cursor:oauthBusy?'not-allowed':'pointer'}}>
+     <FolderUp size={16}/> Upload to my Cloudflare bucket (max 3 MB)
+     <input type="file" accept="image/png,image/jpeg,application/pdf" hidden disabled={oauthBusy}
+      onChange={e=>{const file=e.target.files?.[0];if(file)void uploadCloudflare(file);e.target.value='';}}/>
+    </label>}
+   </div>}
+  </div>
+  <div style={{marginTop:20,borderTop:'1px solid #d9e6dd',paddingTop:15}}>
+   <button type="button" className="btn btn-outline" onClick={()=>setShowAdvanced(x=>!x)}>
+    {showAdvanced?'Hide technical connection settings':'Advanced: connect using R2 API credentials'}
+   </button>
+   {showAdvanced&&<div style={{marginTop:12}}>
+   <h3><ShieldCheck size={17}/> Advanced bucket connection</h3>
    {!config.byobAvailable&&<p className="alert-error" role="status">KASA must configure its encrypted BYOB storage key before members can connect personal buckets. Existing uploads remain available.</p>}
    <p className="muted">In Cloudflare, create a private R2 bucket, issue an <strong>Object Read & Write</strong> token scoped only to that bucket, and configure bucket CORS for the KASA website origin and PUT Content-Type.</p>
    {config.connections.map(c=><div key={c.id} style={{display:'flex',gap:10,alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
@@ -174,6 +321,7 @@ export function R2StoragePanel({onPhotoUploaded,administrator=false}:{onPhotoUpl
     <button className="btn btn-primary" type="submit" disabled={busy}><ShieldCheck size={17}/> {busy?'Connecting…':'Verify & connect bucket'}</button>
    </form>}
    <p className="muted" style={{marginTop:12}}>Do not provide an account-wide Cloudflare token. Disconnect destroys the stored encrypted credentials, never the objects in your bucket. If you revoke the key in Cloudflare, future reads and uploads stop until you reconnect.</p>
+  </div>}
   </div>
  </section>;
 }

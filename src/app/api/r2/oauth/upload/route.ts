@@ -38,10 +38,8 @@ export async function POST(req:NextRequest){
    purpose:'personal-document',visibility:'private',status:'pending',writeOnce:true,
    fileName:input.name,contentType:input.type,byteSize:input.size,createdAt,updatedAt:createdAt,
    sharedWith:[],sharedWithKasa:false});
-  const body=new FormData();
-  body.append('body',new Blob([bytes],{type:input.type}),input.name);
-  // The Cloudflare REST API accepts an object upload as multipart field "body".
-  await authorizedOAuthObject(uid,'PUT',target,key,body);
+  // Cloudflare REST R2 object PUT expects the raw object bytes, never multipart.
+  await authorizedOAuthObject(uid,'PUT',target,key,bytes,input.type);
   await ref.update({status:'ready',verifiedAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
   return json({ok:true,fileId:id,provider:'cloudflare-r2-rest'},201);
  }catch(e){return fail(e);}

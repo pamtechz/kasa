@@ -62,3 +62,22 @@ test('OAuth URL generation requests exact configured scopes without guessing Clo
  assert.equal(url.searchParams.get('code_challenge_method'),'S256');
  assert.equal(url.searchParams.get('state'),'state-value');
 });
+
+test('OAuth primary UI hides manual credentials by default and supports automatic one-bucket selection',()=>{
+ const panel=read('src/components/R2StoragePanel.tsx');
+ assert.match(panel,/const \[showAdvanced,setShowAdvanced\]=useState\(false\)/);
+ assert.match(panel,/showAdvanced&&<div/);
+ assert.match(panel,/Connect with Cloudflare/);
+ assert.match(panel,/data\.accounts\.length===1/);
+ assert.match(panel,/response\.buckets\.length===1/);
+ assert.match(panel,/await chooseBucket\(id,response\.buckets\[0\]\)/);
+ const staff=read('src/components/R2KasaSharedFilesPanel.tsx');
+ assert.match(staff,/result\.proxyUrl/);
+});
+test('Cloudflare REST object uploads send raw object bytes, never multipart fields',()=>{
+ const cloud=read('src/lib/r2-oauth.ts');
+ const up=read('src/app/api/r2/oauth/upload/route.ts');
+ assert.match(cloud,/body:Buffer\.from\(body\)/);
+ assert.match(up,/await authorizedOAuthObject\(uid,'PUT',target,key,bytes,input\.type\)/);
+ assert.doesNotMatch(up,/body\.append\('body'/);
+});
