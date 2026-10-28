@@ -1,6 +1,6 @@
 import {db} from '@/lib/firebase-admin';
 import {fail,json,HttpError} from '@/lib/errors';
-import {sameOrigin} from '@/lib/security';
+import {sameOrigin,requireAppCheck} from '@/lib/security';
 import {storageIdentity,resolveR2} from '@/lib/r2-storage';
 import {signR2Url} from '@/lib/r2-signing';
 import {loadIntake} from '@/lib/intake-server';
@@ -12,7 +12,10 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
   const ref=db.collection('r2Files').doc(id);
   const snap=await ref.get(),file=snap.data();
   if(!file||file.ownerUid!==uid)throw new HttpError(404,'Upload not found.');
+  if(file.purpose==='cdf-document'&&identity.profile.role==='student')await requireAppCheck(req);
   if(file.status==='ready')return json({ok:true,fileId:id,alreadyComplete:true});
+  // Older pending capabilities can overwrite their key. Never promote one.
+  if(file.writeOnce!==true)throw new HttpError(409,'Start a new upload to use protected file storage.');
   if(file.status!=='pending'||Date.parse(file.uploadExpiresAt)<Date.now())
    throw new HttpError(409,'The upload has expired. Start a new upload.');
   const bucket=await resolveR2(uid,file.connectionId);
@@ -42,6 +45,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
    const submission=submissionRef?await tx.get(submissionRef):null;
    if(!data||data.ownerUid!==uid)throw new HttpError(404,'Upload not found.');
    if(data.status==='ready')return;
+   if(data.writeOnce!==true)throw new HttpError(409,'Start a new protected upload.');
    if(data.status!=='pending'||Date.parse(data.uploadExpiresAt)<Date.now())
     throw new HttpError(409,'This upload has expired.');
    if(submissionRef){

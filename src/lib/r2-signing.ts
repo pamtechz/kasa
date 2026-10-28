@@ -19,7 +19,8 @@ export function r2Host(c:R2Credentials){
  return c.accountId+'.'+(c.jurisdiction==='default'?'':c.jurisdiction+'.')+'r2.cloudflarestorage.com';
 }
 /** S3 AWS Signature V4 query authorization, region auto. No SDK/large request bodies.
- * Sign PUT with exact Content-Type header, GET/HEAD with host only.
+ * PUT capabilities are create-only: the signed If-None-Match header prevents
+ * reuse from replacing the bytes after completion (including concurrent PUTs).
  */
 export function signR2Url(c:R2Credentials,method:'GET'|'HEAD'|'PUT'|'DELETE',
  objectKey:string,ttlSeconds:number,contentType?:string,extraQuery:Record<string,string>={}):string{
@@ -32,9 +33,10 @@ export function signR2Url(c:R2Credentials,method:'GET'|'HEAD'|'PUT'|'DELETE',
  const query:Record<string,string>={...extraQuery,
   'X-Amz-Algorithm':'AWS4-HMAC-SHA256','X-Amz-Credential':c.accessKeyId+'/'+scope,
   'X-Amz-Date':date,'X-Amz-Expires':String(ttlSeconds),
-  'X-Amz-SignedHeaders':contentType?'content-type;host':'host'};
+  'X-Amz-SignedHeaders':(contentType?'content-type;host':'host')+(method==='PUT'?';if-none-match':'')};
  const queryString=Object.entries(query).sort(([a],[b])=>a<b?-1:a>b?1:0).map(([k,v])=>safe(k)+'='+safe(v)).join('&');
- const canonicalHeaders=contentType?'content-type:'+contentType.trim()+'\nhost:'+host+'\n':'host:'+host+'\n';
+ const canonicalHeaders=(contentType?'content-type:'+contentType.trim()+'\nhost:'+host+'\n':'host:'+host+'\n')+
+  (method==='PUT'?'if-none-match:*\n':'');
  const canonical=[method,uri,queryString,canonicalHeaders,query['X-Amz-SignedHeaders'],'UNSIGNED-PAYLOAD'].join('\n');
  const signatureKey=hmac(hmac(hmac(hmac('AWS4'+c.secretAccessKey,day),'auto'),'s3'),'aws4_request');
  const signature=createHmac('sha256',signatureKey).update(['AWS4-HMAC-SHA256',date,scope,sha(canonical)].join('\n')).digest('hex');

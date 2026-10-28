@@ -3,6 +3,7 @@ import {useCallback,useEffect,useState} from 'react';
 import {Cloud,CloudOff,FolderUp,Link2,LockKeyhole,ShieldCheck,Trash2} from 'lucide-react';
 import {authHeaders} from '@/lib/firebase-client';
 import {uploadToR2,r2ReadUrl} from '@/lib/r2-upload-client';
+import {selectR2Destination} from '@/lib/r2-storage-selection';
 type Connection={id:string;label:string;accountId:string;bucket:string;jurisdiction:string;status:string;createdAt:string};
 type PrivateFile={id:string;fileName:string;purpose:string;byteSize:number;connectionId:string;createdAt:string;sharedCount:number};
 type Configuration={platformAvailable:boolean;byobAvailable:boolean;connections:Connection[]};
@@ -26,8 +27,7 @@ export function R2StoragePanel({onPhotoUploaded}:{onPhotoUploaded?:(fileId:strin
    request<Configuration>('/api/r2/connections'),request<{files:PrivateFile[]}>('/api/r2/files')
   ]);
   setConfig(b);setFiles(f.files);
-  setSelected(old=>old!=='platform'&&b.connections.some(c=>c.id===old&&c.status==='active')?old:
-   b.connections.find(c=>c.status==='active')?.id||(b.platformAvailable?'platform':''));
+  setSelected(old=>selectR2Destination(old,b));
  },[]);
  useEffect(()=>{void refresh().catch(e=>setError(e instanceof Error?e.message:'Storage unavailable.'));},[refresh]);
  async function connect(event:React.FormEvent){
