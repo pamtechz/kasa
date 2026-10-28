@@ -13,7 +13,7 @@ export async function GET(req: Request, {params}: {params: Promise<{id: string}>
     const data = snap.data()!;
     await authorizeSubmissionDocument(req,data);
 
-    if (!['cdf_approved','payment_verified','commission_paid'].includes(String(data.status))) {
+    if (!['cdf_funds_received','payment_verified','commission_paid'].includes(String(data.status))) {
       throw new HttpError(403,'A student ID is available only after verified enrollment.');
     }
 
