@@ -230,7 +230,7 @@ export default function ApplicationDetailPage({params}:{params:Promise<{id:strin
      </div>
 
      <div style={{display:'flex',gap:12,flexWrap:'wrap',marginTop:20}}>
-      {role!=='agent'&&selected.formKind==='student'&&['accepted','letter_issued','cdf_submitted','cdf_approved','payment_verified','commission_paid'].includes(selected.status)&&(
+      {role!=='agent'&&selected.formKind==='student'&&['letter_issued','cdf_submitted','cdf_approved','payment_verified','commission_paid'].includes(selected.status)&&(
        <button className="btn btn-primary" type="button" onClick={()=>void downloadLetter()}><Download size={16}/> Download Acceptance Pack (PDF)</button>
       )}
       {role!=='agent'&&selected.formKind==='student'&&(
