@@ -173,7 +173,7 @@ export default function StudentPortalApplicationsPage() {
           </div>
         ) : (
           items.map(app => {
-            const isAccepted = ['accepted', 'letter_issued', 'cdf_submitted', 'cdf_approved','cdf_funds_received', 'payment_verified', 'commission_paid'].includes(app.status);
+            const isAccepted = ['letter_issued', 'cdf_submitted', 'cdf_approved','cdf_funds_received', 'payment_verified', 'commission_paid'].includes(app.status);
 
             return (
               <div key={app.id} className="panel pad-panel" style={{borderLeft: '4px solid var(--green, #103f2c)'}}>
@@ -193,6 +193,7 @@ export default function StudentPortalApplicationsPage() {
                 {/* PDF Downloads Bar */}
                 <div style={{background: '#f8faf9', padding: 14, borderRadius: 10, border: '1px solid var(--border)', marginBottom: 20, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center'}}>
                   <strong style={{fontSize: 13, color: 'var(--ink)'}}>Official Documents:</strong>
+                  {app.status==='accepted'&&<span className="muted">Admission accepted. The official offer is still being prepared by KASA and is not yet available.</span>}
                   {isAccepted && (
                     <button type="button" onClick={()=>void handleDownload(app.id,'letter',app.reference)} className="btn btn-outline"
                       style={{padding: '6px 14px', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--green)', borderColor: 'var(--green)'}}
