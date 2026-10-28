@@ -1,6 +1,10 @@
 import 'server-only';
 import {randomBytes,createCipheriv,createDecipheriv} from 'node:crypto';
 
+export function r2EncryptionReady():boolean{
+ const raw=process.env.R2_CREDENTIALS_KEY||'';
+ return /^[A-Za-z0-9+/]{43}=$/.test(raw)&&Buffer.from(raw,'base64').length===32;
+}
 function key():Buffer{
  const raw=process.env.R2_CREDENTIALS_KEY||'';
  if(!/^[A-Za-z0-9+/]{43}=$/.test(raw))throw Error('R2_CREDENTIALS_KEY must be an exact 32-byte base64 secret.');
