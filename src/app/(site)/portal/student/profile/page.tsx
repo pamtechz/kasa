@@ -4,6 +4,7 @@ import {useState, useEffect} from 'react';
 import {StudentPortal} from '@/components/StudentPortal';
 import {User, Save, LockKeyhole, CheckCircle2, ShieldCheck} from 'lucide-react';
 import {authHeaders} from '@/lib/firebase-client';
+import {R2StoragePanel} from '@/components/R2StoragePanel';
 import {PasswordInput} from '@/components/PasswordInput';
 
 export default function StudentProfilePage() {
@@ -146,6 +147,7 @@ export default function StudentProfilePage() {
           </div>
         </div>
       </div>
+      <R2StoragePanel/>
     </StudentPortal>
   );
 }
