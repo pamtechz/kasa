@@ -14,7 +14,7 @@ import {invalidateAdminCache, fetchWithSwr, getAdminCache} from '@/lib/admin-cac
 export async function api<T=any>(path:string,init:RequestInit={}):Promise<T>{
  const headers=await authHeaders();
  const method=(init.method||'GET').toUpperCase();
- const response=await fetch(path,{...init,cache:'no-store',headers:{...headers,...(init.body instanceof FormData?{}:{'Content-Type':'application/json'}),...init.headers}});
+ const response=await fetch(path,{...init,cache:'no-store',headers:{...headers,'Content-Type':'application/json',...init.headers}});
  const body=await response.json().catch(()=>({error:`The server returned HTTP ${response.status}. Please retry.`}));
  if(!response.ok)throw Error(typeof body.error==='string'?body.error:'The request could not be completed.');
  if(method!=='GET'){

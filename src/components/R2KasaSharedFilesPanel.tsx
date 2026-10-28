@@ -29,14 +29,8 @@ export function R2KasaSharedFilesPanel(){
  async function openFile(file:SharedFile){
   setError('');
   try{
-   const result=await request<{url?:string;proxyUrl?:string}>('/api/admin/r2/shared/'+encodeURIComponent(file.id));
-   if(result.proxyUrl){
-    const headers=await authHeaders(),response=await fetch(result.proxyUrl,{headers,cache:'no-store'});
-    if(!response.ok)throw Error('The document is no longer accessible.');
-    const blob=await response.blob(),url=URL.createObjectURL(blob);
-    const a=document.createElement('a');a.href=url;a.download=file.fileName;a.click();
-    setTimeout(()=>URL.revokeObjectURL(url),60000);
-   }else if(result.url)window.open(result.url,'_blank','noopener,noreferrer');
+   const result=await request<{url?:string}>('/api/admin/r2/shared/'+encodeURIComponent(file.id));
+   if(result.url)window.open(result.url,'_blank','noopener,noreferrer');
    else throw Error('This document is unavailable.');
   }catch(e){setError(e instanceof Error?e.message:'This file is no longer available.');}
  }

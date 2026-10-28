@@ -37,26 +37,22 @@ test('institutional R2 refuses arbitrary and private user paths',()=>{
  assert.throws(()=>library(false).institutionalReadUrl('r2-staging/00000000-0000-4000-8000-000000000000.pdf'),/not configured/);
 });
 
-test('new institutional objects cannot replace existing R2 objects',async t=>{
- const calls=[];
- t.mock.method(globalThis,'fetch',async(url,opts)=>{calls.push({url,opts});return new Response(null,{status:200});});
- const lib=library();
- const path='r2-staging/00000000-0000-4000-8000-000000000000.pdf';
- await lib.uploadInstitutionalObject(path,Buffer.from('%PDF-TEST'),'application/pdf');
- assert.equal(calls.length,1);
- assert.equal(calls[0].opts.method,'PUT');
- assert.equal(calls[0].opts.headers['If-None-Match'],'*');
- assert.equal(calls[0].opts.headers['Content-Type'],'application/pdf');
- assert.equal(calls[0].opts.redirect,'error');
+test('retired binary upload routes reject the request without reading its body',async()=>{
+ for(const path of ['src/app/api/public/upload/route.ts','src/app/api/admin/settings/acceptance-letter/upload/route.ts','src/app/api/r2/oauth/upload/route.ts']){
+  const route=load(path,{'@/lib/errors':{json:(data,status)=>Response.json(data,{status})}});
+  const request={formData:()=>assert.fail('must not consume binary data'),arrayBuffer:()=>assert.fail('must not consume binary data')};
+  const response=await route.POST(request);assert.equal(response.status,410);
+  assert.equal((await response.json()).code,'DIRECT_UPLOAD_REQUIRED');
+ }
+ assert.equal(library().uploadInstitutionalObject,undefined);
 });
-test('R2 failures fail closed, never silently fall back to a second provider',async t=>{
- t.mock.method(globalThis,'fetch',async()=>new Response(null,{status:403}));
- const lib=library();
- await assert.rejects(lib.uploadInstitutionalObject('r2-staging/00000000-0000-4000-8000-000000000000.pdf',
-  Buffer.from('%PDF-TEST'),'application/pdf'),/rejected/);
- const guest=read('src/app/api/public/upload/route.ts');
- assert.match(guest,/if\(useR2\)await uploadInstitutionalObject/);
- assert.match(guest,/else await storage\.bucket\(\)\.file\(path\)\.save/);
+test('external-only client has no server or shared-bucket fallback',()=>{
+ const client=read('src/lib/r2-upload-client.ts');
+ assert.doesNotMatch(client,/new FormData|platformAvailable|return false/);
+ assert.match(client,/credentials:'omit',redirect:'error'/);
+ const start=read('src/app/api/r2/uploads/route.ts');
+ assert.match(start,/connectionId==='platform'/);
+ assert.match(start,/active.some/);
 });
 test('KASA preserves old file reads, guest forms, and image picker path validation',()=>{
  const validator=read('src/lib/schema.ts');
@@ -83,7 +79,8 @@ test('large official PDF uses admin-only direct uploads with a reviewed ready as
  assert.match(start,/v.contentType!=='application\/pdf'/);
  assert.match(start,/connectionId/);
  assert.match(finish,/data.status==='ready'/);
- assert.match(client,/uploadToR2\(file,'acceptance-pdf','platform'\)/);
+ assert.match(client,/uploadToR2\(file,'acceptance-pdf'\)/);
+ assert.doesNotMatch(client,/new FormData/);
  assert.match(client,/\/api\/admin\/settings\/acceptance-letter\/attach/);
  assert.match(attach,/operator\(req,\['super_admin','admin'\]\)/);
  assert.match(attach,/asset.ownerUid!==actor.uid/);
@@ -97,11 +94,13 @@ test('official PDF storage remains private with legacy reading and public media 
  const ad=read('src/app/api/admin/ads/media/route.ts');
  const publicImage=read('src/app/api/public/media/[id]/route.ts');
  const permissions=read('src/lib/permissions.ts');
- assert.match(admin,/uploadInstitutionalObject/);
+ assert.match(admin,/DIRECT_UPLOAD_REQUIRED/);
  assert.match(pdf,/readInstitutionalObject/);
  assert.match(pdf,/storage\.bucket\(\)\.file/);
  assert.match(ad,/operator\(req,\['super_admin','admin'\]\)/);
- assert.match(ad,/uploadInstitutionalObject/);
+ assert.match(ad,/file.ownerUid!==actor.uid/);
+ assert.match(ad,/publish!==true/);
+ assert.doesNotMatch(publicImage,/arrayBuffer|response.body/);
  assert.match(publicImage,/record\.status!=='active'/);
  assert.match(publicImage,/R2_PUBLIC_MEDIA\.test/);
  assert.match(permissions,/\/api\/admin\/ads/);

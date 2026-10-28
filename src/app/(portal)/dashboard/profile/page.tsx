@@ -101,7 +101,7 @@ export default function ProfilePage(){
           constituency:constituency.trim(),
           ward:ward.trim(),
           bio:bio.trim(),
-          photoUrl:photoUrl.trim(),
+
           notifications:{
             emailAlerts,
             newsUpdates,

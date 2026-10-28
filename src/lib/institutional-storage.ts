@@ -14,16 +14,6 @@ function configured(path:string){
  if(!bucket)throw new HttpError(503,'KASA institutional R2 storage is not configured.');
  return bucket;
 }
-export async function uploadInstitutionalObject(path:string,bytes:Buffer,contentType:string){
- const url=signR2Url(configured(path),'PUT',path,120,contentType);
- let result:Response;
- try{
-  result=await fetch(url,{method:'PUT',body:new Uint8Array(bytes),headers:{
-   'Content-Type':contentType,'If-None-Match':'*'
-  },redirect:'error',signal:AbortSignal.timeout(20000),cache:'no-store'});
- }catch{throw new HttpError(502,'Cloudflare R2 institutional upload was interrupted.');}
- if(!result.ok)throw new HttpError(502,'Cloudflare R2 rejected the institutional upload.');
-}
 export async function institutionalObjectHead(path:string):Promise<{size:number;contentType:string;lastModified:string}>{
  let res:Response;
  try{

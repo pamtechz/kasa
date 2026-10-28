@@ -135,7 +135,7 @@ export function cleanAnswers(schema:FormSchema,answers:unknown){
   if(f.type==='file'||(f.type==='image'&&typeof v==='object')){
    if(!v||typeof v!=='object'||Array.isArray(v))throw new HttpError(400,`Invalid attachment: ${f.label}.`);
    const a=v as Record<string,unknown>;
-   if(typeof a.path!=='string'||!/^(?:staging|r2-staging)\/[0-9a-f-]{36}\.(pdf|png|jpg)$/i.test(a.path)||typeof a.fileName!=='string'||typeof a.contentType!=='string')
+   if(typeof a.path!=='string'||!(/^(?:staging|r2-staging)\/[0-9a-f-]{36}\.(pdf|png|jpg)$/i.test(a.path)||/^r2:[a-f0-9-]{36}$/i.test(a.path))||typeof a.fileName!=='string'||typeof a.contentType!=='string')
     throw new HttpError(400,`Invalid attachment: ${f.label}.`);
    if(f.type==='image'&&!['image/png','image/jpeg'].includes(a.contentType))
     throw new HttpError(400,`Only JPG or PNG images are accepted: ${f.label}.`);
@@ -145,7 +145,7 @@ export function cleanAnswers(schema:FormSchema,answers:unknown){
    if(typeof v!=='string'||!v.trim())throw new HttpError(400,`Invalid image URL: ${f.label}.`);
    const s=v.trim();
    if(!/^https:\/\/res\.cloudinary\.com\/[a-zA-Z0-9_-]+\/image\/upload\/.+/i.test(s))
-    throw new HttpError(400,`Uploading images must be from https://console.cloudinary.com/app strictly (URL must start with https://res.cloudinary.com/): ${f.label}.`);
+    throw new HttpError(400,`Choose an image through your authorized external storage: ${f.label}.`);
    clean[f.id]=s;continue;
   }
 

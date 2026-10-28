@@ -15,7 +15,7 @@ type OAuthConfig={clientId:string;clientSecret:string;scopes:string;redirectUri:
 export function oauthConfig():OAuthConfig|null{
  const clientId=process.env.CLOUDFLARE_OAUTH_CLIENT_ID?.trim()||'';
  const clientSecret=process.env.CLOUDFLARE_OAUTH_CLIENT_SECRET?.trim()||'';
- const scopes=process.env.CLOUDFLARE_OAUTH_SCOPES?.trim()||'';
+ const scopes=process.env.CLOUDFLARE_OAUTH_SCOPES?.trim().split(/\s+/).join(' ')||'';
  const redirectUri=process.env.CLOUDFLARE_OAUTH_REDIRECT_URI?.trim()||'';
  if(!clientId||!clientSecret||!scopes||!redirectUri||!r2EncryptionReady())return null;
  let url:URL;
@@ -109,27 +109,3 @@ export async function cloudflareAccounts(uid:string):Promise<{id:string;name:str
  return data.result.filter(a=>/^[a-f0-9]{32}$/i.test(a.id||'')).map(a=>({id:a.id!,name:String(a.name||'Cloudflare account').slice(0,150)}));
 }
 export function oauthStateExpires(){return Date.now()+EXPIRY;}
-
-export type OAuthBucket={accountId:string;bucket:string;jurisdiction:string};
-export function oauthObjectPath(v:OAuthBucket,key:string):string{
- if(!/^[a-f0-9]{32}$/i.test(v.accountId)||!/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(v.bucket)||
-    v.bucket.includes('..')||!['default','eu','us','fedramp'].includes(v.jurisdiction))
-  throw new HttpError(400,'Invalid Cloudflare R2 destination.');
- if(!/^kasa\/[a-zA-Z0-9_-]{3,128}\/personal-document\/[a-f0-9-]{36}\.(pdf|png|jpg)$/.test(key))
-  throw new HttpError(400,'Invalid KASA object key.');
- // Slashes in an object key must remain literal according to the Cloudflare R2 REST API.
- return '/accounts/'+v.accountId+'/r2/buckets/'+v.bucket+'/objects/'+key;
-}
-export async function authorizedOAuthObject(uid:string,method:'GET'|'PUT',target:OAuthBucket,key:string,body?:Uint8Array,contentType?:string):Promise<Response>{
- const url=CLOUD_API+oauthObjectPath(target,key);
- const bearer=await cloudflareBearer(uid);
- let response:Response;
- try{
-  response=await fetch(url,{method,headers:{Authorization:'Bearer '+bearer,'cf-r2-jurisdiction':target.jurisdiction,
-    ...(contentType?{'Content-Type':contentType}:{})},
-   ...(body?{body:Buffer.from(body)}:{}),cache:'no-store',redirect:'error',signal:AbortSignal.timeout(20000)});
- }catch{throw new HttpError(502,'Cloudflare object storage is unavailable.');}
- if(response.status===401||response.status===403)throw new HttpError(403,'Cloudflare access to this R2 object was not approved or has been revoked.');
- if(!response.ok)throw new HttpError(502,'Cloudflare rejected this R2 object request.');
- return response;
-}

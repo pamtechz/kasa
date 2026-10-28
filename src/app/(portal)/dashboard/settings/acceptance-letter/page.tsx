@@ -9,6 +9,7 @@ import {
 import {api, PageHeader} from '@/components/Portal';
 import {VisualPdfCoordinateMapper} from '@/components/VisualPdfCoordinateMapper';
 import {authHeaders} from '@/lib/firebase-client';
+import {ExternalStorageConnection} from '@/components/ExternalStorageConnection';
 import {uploadToR2} from '@/lib/r2-upload-client';
 import {
   type AcceptanceLetterConfig,
@@ -63,22 +64,10 @@ export default function AcceptanceLetterDesigner() {
     setMessage('');
     try {
       const headers = await authHeaders();
-      const probe=await fetch('/api/r2/connections',{headers,cache:'no-store'});
-      if(!probe.ok)throw Error('Unable to check KASA institutional storage.');
-      const platforms=await probe.json();
-      let res:Response;
-      if(platforms.platformAvailable){
-        const fileId=await uploadToR2(file,'acceptance-pdf','platform');
-        res=await fetch('/api/admin/settings/acceptance-letter/attach',{
-         method:'POST',headers:{...headers,'Content-Type':'application/json'},
-         body:JSON.stringify({fileId})
-        });
-      }else{
-        const fd=new FormData();fd.append('file',file);
-        res=await fetch('/api/admin/settings/acceptance-letter/upload',{
-         method:'POST',headers,body:fd
-        });
-      }
+      const fileId=await uploadToR2(file,'acceptance-pdf');
+      const res=await fetch('/api/admin/settings/acceptance-letter/attach',{
+       method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({fileId})
+      });
       const data = await res.json();
       if (!res.ok) throw Error(data.error || 'Failed to upload Acceptance Pack PDF.');
       setConfig(prev => ({
@@ -92,6 +81,17 @@ export default function AcceptanceLetterDesigner() {
     } finally {
       setUploadingPdf(false);
     }
+  }
+
+  async function handleEnrollmentUpload(file?:File){
+    if(!file)return;setUploadingPdf(true);setError('');
+    try{
+      const id=await uploadToR2(file,'enrollment-pdf');
+      const headers=await authHeaders();
+      const response=await fetch('/api/admin/settings/enrollment-form/attach',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({fileId:id})});
+      const result=await response.json();if(!response.ok)throw Error(result.error||'Unable to save the official form.');
+      setConfig(prev=>({...prev,enrollmentForm:result.enrollmentForm}));setMessage('Official blank enrollment form saved to your external storage.');
+    }catch(e){setError(e instanceof Error?e.message:'Upload failed.');}finally{setUploadingPdf(false);}
   }
 
   async function previewPdf() {
@@ -374,7 +374,7 @@ export default function AcceptanceLetterDesigner() {
                   style={{width: 18, height: 18, accentColor: '#103f2c'}}
                 />
               </div>
-              <h3 style={{margin: '0 0 6px', fontSize: 16}}>Upload Official Acceptance Pack PDF</h3>
+              <h3 style={{margin: '0 0 6px', fontSize: 16}}>Upload Official Acceptance Pack PDF</h3><ExternalStorageConnection/>
               <p className="muted" style={{fontSize: 13, lineHeight: 1.6, margin: 0}}>
                 Provide an official pre-designed PDF document. When accepted, applicants download this exact official institutional PDF document.
               </p>
@@ -421,30 +421,7 @@ export default function AcceptanceLetterDesigner() {
                     gap: 6
                   }}
                 >
-                  <UploadCloud size={15}/> Option 1: Upload PDF File
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfig({
-                    ...config,
-                    customPdf: {...config.customPdf, type: 'link'}
-                  })}
-                  style={{
-                    padding: '8px 18px',
-                    borderRadius: 6,
-                    border: 'none',
-                    background: config.customPdf.type === 'link' ? '#fff' : 'transparent',
-                    color: config.customPdf.type === 'link' ? '#103f2c' : '#556660',
-                    fontWeight: 700,
-                    fontSize: 13,
-                    cursor: 'pointer',
-                    boxShadow: config.customPdf.type === 'link' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6
-                  }}
-                >
-                  <LinkIcon size={15}/> Option 2: PDF via Link / URL
+                  <UploadCloud size={15}/> Choose PDF file
                 </button>
               </div>
 
@@ -523,7 +500,7 @@ export default function AcceptanceLetterDesigner() {
                     <label>External PDF Link / URL</label>
                     <div style={{display: 'flex', gap: 10, flexWrap: 'wrap'}}>
                       <input
-                        type="url"
+                        type="url" readOnly aria-label="Previously configured PDF URL"
                         placeholder="https://example.com/documents/KASA-Official-Acceptance-Pack.pdf"
                         value={config.customPdf.url}
                         onChange={e => setConfig({
@@ -595,43 +572,17 @@ export default function AcceptanceLetterDesigner() {
           }}>
             <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:6}}>
               <FileText size={22} style={{color:'var(--green)'}}/>
-              <h3 style={{margin:0,fontSize:17}}>Official Blank Enrollment Form PDF (Google Drive / Cloudinary / Asset Link)</h3>
+              <h3 style={{margin:0,fontSize:17}}>Official blank enrollment form PDF</h3>
             </div>
             <p className="muted" style={{fontSize:13,lineHeight:1.6,marginBottom:18}}>
-              Configure the download link for the blank official KASA Enrollment Form. Applicants, students, and district agents can download this exact document directly via Google Drive, Cloudinary, or built-in template asset.
+              Choose a PDF from your device. It goes directly to your authorized external storage and becomes the official blank form. Leave it empty to use the built-in template.
             </p>
 
             <div style={{display:'grid',gap:16,background:'#f8faf9',border:'1px solid #dbe5e0',borderRadius:12,padding:22}}>
-              <div className="field">
-                <label>Download Link / Asset URL (Google Drive or Cloudinary)</label>
-                <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-                  <input
-                    type="url"
-                    placeholder="https://drive.google.com/file/d/... or https://res.cloudinary.com/..."
-                    value={config.enrollmentForm?.url || ''}
-                    onChange={e => setConfig({
-                      ...config,
-                      enrollmentForm: {
-                        ...config.enrollmentForm,
-                        url: e.target.value.trim()
-                      }
-                    })}
-                    style={{flex:1,minWidth:280}}
-                  />
-                  <a
-                    href="/api/public/download-enrollment-form"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn btn-outline"
-                    style={{display:'inline-flex',alignItems:'center',gap:6,whiteSpace:'nowrap'}}
-                  >
-                    <ExternalLink size={15}/> Test Public Download Link
-                  </a>
-                </div>
-                <small className="muted" style={{fontSize:12,marginTop:6,display:'block'}}>
-                  Paste a public Google Drive sharing link or Cloudinary file URL. Leave blank to use the official built-in template document automatically.
-                </small>
-              </div>
+              <ExternalStorageConnection/>
+              <div className="field"><label htmlFor="blank-enrollment-pdf">Choose official blank enrollment PDF</label><input id="blank-enrollment-pdf" type="file" accept="application/pdf" disabled={uploadingPdf} onChange={e=>void handleEnrollmentUpload(e.target.files?.[0])}/>
+              {config.enrollmentForm?.url&&<p className="field-hint">Current file: {config.enrollmentForm.fileName||'Official form'}</p>}
+              <a href="/api/public/download-enrollment-form" target="_blank" rel="noopener noreferrer" className="text-link">Test public download</a></div>
             </div>
           </div>
         </section>

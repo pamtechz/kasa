@@ -12,9 +12,12 @@ export async function POST(req:NextRequest){
   await rateLimit(req,'r2-oauth-start:'+uid,6,15);
   const config=oauthConfig();
   if(!config)throw new HttpError(503,'Cloudflare OAuth is not yet configured by KASA.');
+  const body=await req.json().catch(()=>({}));
+  const requested=typeof body.returnTo==='string'?body.returnTo:'';
+  const returnTo=/^\/(?:apply\/[a-z0-9-]+|account|marathon\/profile|dashboard(?:\/[a-zA-Z0-9_/-]+)?|student(?:-portal)?(?:\/[a-zA-Z0-9_/-]+)?)(?:\?[^#\\]*)?$/.test(requested)&&!requested.includes('//')?requested:'/account';
   const state=oauthRandom(),verifier=oauthRandom(),expiresAt=oauthStateExpires();
   await db.collection('r2OAuthStates').doc(oauthStateHash(state)).create({
-   uid,verifier,expiresAt,createdAt:new Date().toISOString()
+   uid,verifier,expiresAt,returnTo,createdAt:new Date().toISOString()
   });
   const res=NextResponse.json({url:authorizationUrl(config,state,oauthChallenge(verifier))},
    {headers:{'Cache-Control':'no-store'}});

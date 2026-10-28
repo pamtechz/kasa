@@ -42,8 +42,8 @@ test('storage readiness remains privileged, never a public R2 configuration endp
  const panel=read('src/components/R2StoragePanel.tsx');
  const roles=read('src/lib/permissions.ts');
  const profile=read('src/app/(portal)/dashboard/profile/page.tsx');
- assert.match(panel,/administrator&&/);
- assert.match(panel,/missingVariables/);
+ assert.doesNotMatch(panel,/institutional bucket status|R2_PLATFORM_/i);
+ assert.match(panel,/ExternalStorageConnection/);
  assert.match(profile,/administrator=\{profile\?\.role==='super_admin'/);
  assert.match(roles,/\/api\/admin\/settings\/storage-status/);
 });

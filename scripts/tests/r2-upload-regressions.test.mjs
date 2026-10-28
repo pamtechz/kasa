@@ -115,7 +115,7 @@ test('financially locked CDF records cannot attach completed evidence',async t=>
  assert.deepEqual(fixture.updates,[]);
 });
 
-test('student CDF initiation enforces App Check before granting a platform upload',async()=>{
+test('student CDF initiation enforces App Check before granting an upload',async()=>{
  const created=[];
  const route=load('src/app/api/r2/uploads/route.ts',{
   '@/lib/firebase-admin':{db:{collection:()=>({doc:()=>({create:async value=>created.push(value)})})}},
@@ -132,7 +132,7 @@ test('student CDF initiation enforces App Check before granting a platform uploa
 test('upload initiation returns the signed condition and records protected completion metadata',async()=>{
  let created;
  const route=load('src/app/api/r2/uploads/route.ts',{
-  '@/lib/firebase-admin':{db:{collection:()=>({doc:()=>({create:async value=>{created=value;}})})}},
+  '@/lib/firebase-admin':{db:{collection:name=>name==='r2Files'?{doc:()=>({create:async value=>{created=value;}})}:name==='r2OAuthSessions'?{doc:()=>({get:async()=>({data:()=>({connectionId:'own'})})})}:{where:()=>({limit:()=>({get:async()=>({docs:[{id:'own',data:()=>({status:'active'})}]})})})}}},
   '@/lib/errors':errors,'@/lib/security':{sameOrigin:()=>{},rateLimit:async()=>{},requireAppCheck:async()=>{}},
   '@/lib/r2-storage':storage,'@/lib/r2-signing':{signR2Url},'@/lib/intake-server':{loadIntake:async()=>({})}
  });
@@ -176,21 +176,22 @@ test('refresh retains platform or personal selection and falls back only when un
  assert.equal(selectR2Destination('old',both),'platform');
  assert.equal(selectR2Destination('platform',{...both,platformAvailable:false}),'own');
  assert.equal(selectR2Destination('own',{platformAvailable:false,connections:[]}),'');
- assert.match(read('src/components/R2StoragePanel.tsx'),/setSelected\(old=>selectR2Destination\(old,b\)\)/);
+ assert.match(read('src/components/R2StoragePanel.tsx'),/ExternalStorageConnection/);
+ assert.doesNotMatch(read('src/components/R2StoragePanel.tsx'),/platformAvailable/);
 });
 
 test('CDF client includes fresh attestation on both API calls and never sends it to R2',async t=>{
  const calls=[];
  let attestations=0;
  const {uploadToR2}=load('src/lib/r2-upload-client.ts',{'./firebase-client':{
-  authHeaders:async()=>({Authorization:'Bearer example'}),appCheckToken:async()=>'attestation-'+(++attestations)
+  getClientAuth:()=>({currentUser:{getIdToken:async()=>'example'}}),appCheckToken:async()=>'attestation-'+(++attestations)
  }});
  t.mock.method(globalThis,'fetch',async(url,init)=>{
   calls.push({url,headers:init.headers});
-  return Response.json(calls.length===1?{fileId:id,uploadUrl:'https://r2.test/object',
+  return Response.json(calls.length===1?{fileId:id,uploadUrl:'https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.r2.cloudflarestorage.com/own/object',
    headers:{'Content-Type':'image/png','If-None-Match':'*'},completionEndpoint:'/api/r2/uploads/'+id+'/complete'}:{ok:true});
  });
- await uploadToR2(new File([png],'nrc.png',{type:'image/png'}),'cdf-document','platform',{submissionId:'submission01',kind:'nrc'});
+ await uploadToR2(new File([png],'nrc.png',{type:'image/png'}),'cdf-document','own',{submissionId:'submission01',kind:'nrc'});
  assert.equal(calls[0].headers['X-Firebase-AppCheck'],'attestation-1');
  assert.equal(calls[2].headers['X-Firebase-AppCheck'],'attestation-2');
  assert.deepEqual(calls[1].headers,{'Content-Type':'image/png','If-None-Match':'*'});

@@ -11,8 +11,9 @@ export const runtime='nodejs';
 const schema=z.object({fileName:z.string().trim().min(1).max(160),
  contentType:z.enum(['image/jpeg','image/png','application/pdf']),
  byteSize:z.number().int().min(1).max(25*1024*1024),
- purpose:z.enum(['profile-photo','personal-document','cdf-document','acceptance-pdf']),
+ purpose:z.enum(['profile-photo','personal-document','cdf-document','acceptance-pdf','application-attachment','public-media','enrollment-pdf']),
  submissionId:z.string().max(64).optional(),kind:z.string().max(60).optional(),
+ formSlug:z.string().regex(/^[a-z0-9-]{1,120}$/).optional(),
  connectionId:z.string().min(1).max(100).optional()
 }).strict();
 export async function POST(req:NextRequest){
@@ -22,11 +23,21 @@ export async function POST(req:NextRequest){
   const parsed=schema.safeParse(await req.json().catch(()=>({})));
   if(!parsed.success)throw new HttpError(400,'Choose an image or PDF and provide an accurate byte size.');
   const v=parsed.data;
+  if(identity.guest&&v.purpose!=='application-attachment')throw new HttpError(403,'Applicant storage is limited to application attachments.');
   if(v.purpose==='profile-photo'&&(!v.contentType.startsWith('image/')||v.byteSize>4*1024*1024))
    throw new HttpError(400,'Profile photos must be PNG or JPEG and no larger than 4 MB.');
-  if(v.purpose==='acceptance-pdf'&&
-   (!['super_admin','admin'].includes(identity.profile.role)||v.contentType!=='application/pdf'))
-   throw new HttpError(403,'Only KASA administrators can upload an institutional acceptance PDF.');
+  if(['acceptance-pdf','enrollment-pdf','public-media'].includes(v.purpose)&&!['super_admin','admin'].includes(identity.profile.role))
+   throw new HttpError(403,'Only administrators may publish official documents and media.');
+  if(['acceptance-pdf','enrollment-pdf'].includes(v.purpose)&&v.contentType!=='application/pdf')
+   throw new HttpError(400,'Choose a PDF document.');
+  if(v.purpose==='public-media'&&(!v.contentType.startsWith('image/')||v.byteSize>4*1024*1024))
+   throw new HttpError(400,'Choose a PNG or JPG banner up to 4 MB.');
+  if(v.purpose==='application-attachment'){
+   await requireAppCheck(req);
+   if(v.byteSize>4*1024*1024||!v.formSlug)throw new HttpError(400,'Choose an application file up to 4 MB.');
+   const form=await db.collection('forms').where('slug','==',v.formSlug).where('published','==',true).limit(1).get();
+   if(form.empty)throw new HttpError(404,'Application form is unavailable.');
+  }
   if(v.purpose==='cdf-document'){
    if(identity.profile.role==='student')await requireAppCheck(req);
    if(!v.submissionId||!v.kind||!/^[a-zA-Z0-9_-]{8,64}$/.test(v.submissionId)||!/^[a-z][a-z0-9-]{1,60}$/.test(v.kind)||v.byteSize>4*1024*1024)
@@ -40,9 +51,12 @@ export async function POST(req:NextRequest){
    if(['rejected','cdf_approved','cdf_funds_received','payment_verified','commission_paid'].includes(String(record.status)))
     throw new HttpError(409,'CDF evidence is locked after financial approval or rejection.');
   }
-  // Regulated institutional CDF documents always use the KASA-controlled bucket.
-  // A user's revocable personal BYOB connection cannot hold institutional evidence.
-  const connectionId=['cdf-document','acceptance-pdf'].includes(v.purpose)?'platform':(v.connectionId||'platform');
+  const session=(await db.collection('r2OAuthSessions').doc(identity.uid).get()).data();
+  const ownConnections=await db.collection('r2Connections').where('ownerUid','==',identity.uid).limit(25).get();
+  const active=ownConnections.docs.filter(d=>d.data().status==='active');
+  const connectionId=v.connectionId||session?.connectionId||active[0]?.id;
+  if(!connectionId||connectionId==='platform'||!active.some(d=>d.id===connectionId))
+   throw new HttpError(409,'Connect your own Cloudflare storage before uploading.');
   const bucket=await resolveR2(identity.uid,connectionId);
   const id=randomUUID(),suffix=v.contentType==='image/png'?'png':v.contentType==='image/jpeg'?'jpg':'pdf';
   const key='private/'+identity.uid+'/'+v.purpose+'/'+id+'.'+suffix;
@@ -51,6 +65,7 @@ export async function POST(req:NextRequest){
   await db.collection('r2Files').doc(id).create({ownerUid:identity.uid,connectionId,key,
    purpose:v.purpose,fileName:v.fileName,contentType:v.contentType,byteSize:v.byteSize,
    ...(v.purpose==='cdf-document'?{submissionId:v.submissionId,kind:v.kind}:{}),
+   ...(v.formSlug?{formSlug:v.formSlug}:{}),
    status:'pending',writeOnce:true,visibility:'private',sharedWith:[],createdAt:now,
    uploadExpiresAt:new Date(Date.now()+5*60*1000).toISOString()});
   return json({fileId:id,uploadUrl,uploadMethod:'PUT',headers:{'Content-Type':v.contentType,'If-None-Match':'*'},

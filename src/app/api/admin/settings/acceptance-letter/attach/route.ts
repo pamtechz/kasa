@@ -10,7 +10,7 @@ export async function POST(req:Request){
    throw new HttpError(400,'Choose a completed PDF upload.');
   const asset=(await db.collection('r2Files').doc(id).get()).data();
   if(!asset||asset.status!=='ready'||asset.ownerUid!==actor.uid||
-     asset.purpose!=='acceptance-pdf'||asset.connectionId!=='platform'||
+     asset.purpose!=='acceptance-pdf'||asset.connectionId==='platform'||
      asset.contentType!=='application/pdf'||asset.key!=='private/'+actor.uid+'/acceptance-pdf/'+id+'.pdf'||
      !Number.isFinite(asset.byteSize)||asset.byteSize<1||asset.byteSize>25*1024*1024)
    throw new HttpError(403,'Only your verified KASA acceptance PDF can be attached.');

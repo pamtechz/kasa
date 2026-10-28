@@ -40,14 +40,14 @@ export async function loadCustomAcceptancePdf(source:CustomPdfSource):Promise<Bu
       const fileId=source.url.slice(8);
       const asset=(await db.collection('r2Files').doc(fileId).get()).data();
       if(!asset||asset.status!=='ready'||asset.purpose!=='acceptance-pdf'||
-         asset.connectionId!=='platform'||asset.contentType!=='application/pdf'||
+         asset.contentType!=='application/pdf'||
          typeof asset.ownerUid!=='string'||asset.ownerUid.length<3||
          asset.key!=='private/'+asset.ownerUid+'/acceptance-pdf/'+fileId+'.pdf')
        throw new HttpError(403,'Unrecognized institutional acceptance PDF.');
       const meta=Number(asset.byteSize);
       if(!Number.isFinite(meta)||meta<1||meta>MAX_PDF_BYTES)
        throw new HttpError(413,'Acceptance PDF exceeds the permitted size.');
-      const url=await signedR2Read(asset.ownerUid,'platform',asset.key);
+      const url=await signedR2Read(asset.ownerUid,asset.connectionId,asset.key);
       const result=await fetch(url,{redirect:'error',signal:AbortSignal.timeout(20000),cache:'no-store'});
       if(!result.ok)throw new HttpError(502,'Unable to read institutional acceptance PDF.');
       const reported=Number(result.headers.get('content-length')||'0');

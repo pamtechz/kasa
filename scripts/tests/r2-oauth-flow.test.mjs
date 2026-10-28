@@ -63,21 +63,19 @@ test('OAuth URL generation requests exact configured scopes without guessing Clo
  assert.equal(url.searchParams.get('state'),'state-value');
 });
 
-test('OAuth primary UI hides manual credentials by default and supports automatic one-bucket selection',()=>{
+test('shared OAuth connection UI requires no pasted credentials and auto-provisions a private bucket',()=>{
  const panel=read('src/components/R2StoragePanel.tsx');
- assert.match(panel,/const \[showAdvanced,setShowAdvanced\]=useState\(false\)/);
- assert.match(panel,/showAdvanced&&<div/);
- assert.match(panel,/Connect with Cloudflare/);
- assert.match(panel,/data\.accounts\.length===1/);
- assert.match(panel,/response\.buckets\.length===1/);
- assert.match(panel,/await chooseBucket\(id,response\.buckets\[0\]\)/);
- const staff=read('src/components/R2KasaSharedFilesPanel.tsx');
- assert.match(staff,/result\.proxyUrl/);
+ const connect=read('src/components/ExternalStorageConnection.tsx');
+ const provision=read('src/app/api/r2/oauth/provision/route.ts');
+ assert.match(panel,/ExternalStorageConnection/);assert.doesNotMatch(panel,/secretAccessKey|platformAvailable|showAdvanced/);
+ assert.match(connect,/Connect with Cloudflare/);assert.match(connect,/oauth\/provision/);
+ assert.match(provision,/accounts.length>1/);assert.match(provision,/prepareOAuthBucket/);
 });
-test('Cloudflare REST object uploads send raw object bytes, never multipart fields',()=>{
- const cloud=read('src/lib/r2-oauth.ts');
+test('OAuth object upload proxy is disabled and direct scoped token provisioning replaces it',()=>{
  const up=read('src/app/api/r2/oauth/upload/route.ts');
- assert.match(cloud,/body:Buffer\.from\(body\)/);
- assert.match(up,/await authorizedOAuthObject\(uid,'PUT',target,key,bytes,input\.type\)/);
- assert.doesNotMatch(up,/body\.append\('body'/);
+ const direct=read('src/lib/r2-oauth-direct.ts');
+ assert.match(up,/DIRECT_UPLOAD_REQUIRED/);assert.doesNotMatch(up,/formData|arrayBuffer/);
+ assert.match(direct,/expires_on/);assert.match(direct,/Workers R2 Storage Bucket Item Write/);
+ assert.match(direct,/com.cloudflare.edge.r2.bucket/);assert.match(direct,/encryptR2Secrets/);
+ assert.doesNotMatch(direct,/new FormData/);
 });

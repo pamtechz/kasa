@@ -44,12 +44,14 @@ test('private files cannot leak to other KASA users and public access is not sil
  assert.match(disconnect,/tx\.delete\(secret\)/);
  assert.doesNotMatch(disconnect,/DeleteObject|signR2Url|\.delete\(.*bucket/);
 });
-test('CDF evidence is KASA-controlled and legacy Firebase attachments remain readable',()=>{
+test('CDF evidence uses owner storage with KASA consent and legacy attachments remain readable',()=>{
  const start=read('src/app/api/r2/uploads/route.ts');
  const finish=read('src/app/api/r2/uploads/[id]/complete/route.ts');
  const staff=read('src/app/api/admin/submissions/[id]/documents/route.ts');
  const student=read('src/app/api/student/applications/[id]/documents/route.ts');
- assert.match(start, /\['cdf-document','acceptance-pdf'\]\.includes\(v\.purpose\)/);
+ assert.match(start,/connectionId==='platform'/);
+ assert.match(start,/Connect your own Cloudflare storage/);
+ assert.match(finish,/sharedWithKasa:true/);
  assert.match(start,/record\.applicantUid===identity\.uid/);
  assert.match(finish,/submissionRef/);
  assert.match(finish,/r2FileId:id/);
