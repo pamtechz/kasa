@@ -1,6 +1,7 @@
 import {db} from '@/lib/firebase-admin';
 import {fail,json,HttpError} from '@/lib/errors';
 import {operator,audit,newId,sameOrigin} from '@/lib/security';
+import {presentFormUploads} from '@/lib/form-upload-presentation';
 import {parseForm} from '@/lib/schema';
 export const runtime='nodejs';
 
@@ -21,7 +22,7 @@ export async function GET(req:Request){
 export async function POST(req:Request){
  try{
   sameOrigin(req);const user=await operator(req,['super_admin','admin']);
-  const data=parseForm(await req.json());
+  const data=presentFormUploads(parseForm(await req.json()));
   const same=await db.collection('forms').where('slug','==',data.slug).limit(1).get();
   if(!same.empty)throw new HttpError(409,'This form URL is already used.');
   const id=newId(),now=new Date().toISOString();
