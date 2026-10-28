@@ -19,7 +19,7 @@ export type ApplicantRecord = {id:string;reference:string;formId:string;formTitl
   internalNotes?:{body:string;at:string;by:string}[];
   fundingMethod?:'cdf'|'self_funded'; autoApproved?:boolean; autoApprovalReason?:string; downloadToken?:string;
   fundingStatus?:'government_approval_verified'|'enrollment_payment_verified'|'payment_recorded_pending_enrollment_verification'|'government_funds_received_verified';
-  documents?:Record<string,{kind:string;label:string;path:string;fileName:string;contentType:string;size:number;uploadedAt:string;uploadedBy:string;verifiedAt:string|null;verifiedBy:string|null}>;
+  documents?:Record<string,{kind:string;label:string;path:string;r2FileId?:string;fileName:string;contentType:string;size:number;uploadedAt:string;uploadedBy:string;verifiedAt:string|null;verifiedBy:string|null}>;
   commission?:{amount:number;currency:string;trigger?:'cdf_approval'|'cdf_disbursement'|'payment';approvedAt?:string;paidAt?:string;paymentReference?:string};
 };
 export type Role = 'super_admin'|'admin'|'reviewer'|'agent'|'student'|'finance'|'marathon_only';
