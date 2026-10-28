@@ -27,14 +27,16 @@ test('student tuition must be fully received as real finance receipts before eli
 });
 test('single fail-closed commission rule gates ledger and both referral summaries',()=>{
  const eligibility=read('src/lib/commission-eligibility.ts');
+ const funding=read('src/lib/funded-enrollment.ts');
  const ledger=read('src/app/api/admin/commissions/route.ts');
  const student=read('src/app/api/student/referrals/route.ts');
  const agent=read('src/app/api/agent/referrals/route.ts');
  const board=read('src/app/api/agent/leaderboard/route.ts');
  for(const src of [ledger,student,agent,board])assert.match(src,/commissionDecision/);
- assert.match(eligibility,/readApprovedFeeQuote/);
+ assert.match(funding,/readApprovedFeeQuote/);
+ assert.match(eligibility,/fundedEnrollment/);
  assert.match(eligibility,/status\)\)/);
- assert.match(eligibility,/cdfDisbursement/);
+ assert.match(funding,/cdfDisbursement/);
  assert.match(eligibility,/record\.referralVerified\?\.at/);
  assert.doesNotMatch(board,/fundingMethod === 'cdf' \? 300 : 400/);
  assert.doesNotMatch(agent,/amount: 300/);
@@ -56,7 +58,7 @@ test('student ID, payouts and approvals have distinct proof and state',()=>{
  const route=read('src/app/api/admin/submissions/[id]/route.ts');
  const admission=read('src/app/(portal)/dashboard/applications/[id]/page.tsx');
  assert.doesNotMatch(card,/\['cdf_approved','payment_verified','commission_paid'\]/);
- assert.match(card,/cdf_funds_received/);
+ assert.match(card,/fundedEnrollment\\(data\\)\\.funded/);
  assert.match(admission,/Government disbursement/);
  assert.match(admission,/KASA bank remittance/);
  assert.match(route,/commissionDecision/);
