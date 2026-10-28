@@ -39,7 +39,7 @@ If KASA platform R2 is not configured, **CDF upload remains on Firebase Storage*
 ]
 ```
 For preview domains add an explicit allowed origin, never wildcard in production.
-3. Set the environment values and redeploy. Open **My Profile & Account > Cloudflare R2 storage** to test a personal bucket connection.
+3. Deploy `firestore.indexes.json` and wait for the `r2Files` owner/status/creation-time index to be ready before deploying the updated file listing. Alternatively run `node scripts/ensure-r2-file-index.mjs` with the existing Firebase Admin deployment environment; it creates only the declared additive index and waits for readiness. This is an explicit release step, not part of ordinary local builds. Set the environment values and redeploy. Open **My Profile & Account > Cloudflare R2 storage** to test a personal bucket connection.
 4. Upload an image or document and confirm Firestore `r2Files.status=ready`. Check signed reads and access denial with another user.
 5. With a platform bucket configured, upload CDF evidence as a student and as an authorized admissions staff member. Confirm the submission document reference and verification workflow, including old Firebase files.
 6. Disable BYOB connection and confirm **no R2 objects are deleted**. Old objects become unavailable through KASA after secret deletion, exactly as the UI warns.
