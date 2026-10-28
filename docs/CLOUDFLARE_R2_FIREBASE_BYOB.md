@@ -66,3 +66,44 @@ All presigned PUTs sign `If-None-Match: *`. R2 evaluates this condition atomical
 Provider reference: https://developers.cloudflare.com/r2/api/s3/extensions/#conditional-operations-in-putobject
 
 No master secrets in Flutter, browser bundles, source control, Firestore profile reads or R2 URL response bodies. Verify authorization, key rotation, R2 jurisdiction, CORS and typed file constraints. R2 signing uses AWS SigV4 query authorization scoped to the fixed Cloudflare endpoint (never an arbitrary user URL). No live connection can be tested until valid keys are provided through secure Vercel/BYOB settings.
+
+## Unified upload coverage (October 2026 rollout)
+
+The new storage routes choose a backend **based on ownership and purpose**, not on
+an untrusted browser URL or the user's selected personal bucket:
+
+| Upload surface | New storage when platform R2 is configured | Legacy behavior |
+|---|---|---|
+| Personal profile photos and private files (School, Marathon, account pages) | Owner-selected platform or BYOB through authenticated presigned direct PUT; signed private GET | Existing Cloudinary profile URLs remain viewable |
+| Student/staff CDF evidence | KASA platform bucket only, authenticated presigned PUT, App Check for students | Old Firebase CDF files remain readable; Firebase upload fallback while platform R2 is unconfigured |
+| Guest admissions application PDF/JPG/PNG and image questions | KASA platform bucket via App Check-protected 4 MB server upload; random private r2-staging object; authenticated staff signed GET | Old staging/ Firebase Storage references remain readable; no Cloudinary account required for new images |
+| Official acceptance-pack PDFs | KASA platform bucket, signed/private read via authorized letter generation; 25 MB limit | Old Firebase acceptance-pack objects and approved external links remain readable |
+| Website advertising images | Admin upload to KASA platform R2; approved public delivery via /api/public/media/{id}, never public bucket access | Existing campaign image URLs remain functional |
+| Generated enrollment forms and acceptance letters | Generated on demand, not a user-uploaded binary; no needless R2 write | Same |
+
+The 4 MB guest/form upload uses the server as a transport (rather than a browser
+presigned PUT) until guest upload-initiation and completion authorization are
+released. This is a bounded compatibility step, not a claim that *all* uploads
+already use direct-to-R2 transfer.
+
+**Prerequisites before enabling institutional R2:** supply the four platform
+credentials in protected Vercel environment variables for production and
+preview, restrict the token to the private KASA bucket, and configure PUT
+\`If-None-Match\` on the bucket's browser CORS allowlist for authenticated direct
+uploads. Never place these values in Firestore client documents or GitHub.
+If the platform bucket is absent, the existing Firebase path remains active.
+If a configured R2 service is failing, the system returns an error instead of
+silently copying sensitive evidence to a different provider.
+
+**Privacy:** Public media is intentionally marked public by authorized staff and
+served by a controlled application endpoint. Guest application attachments,
+CDF evidence and acceptance templates remain private. Personal BYOB keys never
+gain permission to read KASA institutional records. Migration of historical
+files is separately controlled, verified and auditable; no old objects are
+deleted during rollout.
+
+**Acceptance verification:** Check a guest file upload, a guest image upload, a
+staff attachment read, an approved acceptance-pack upload/read, a public
+advertisement image, a profile/BYOB upload, both CDF uploader roles, denial
+for cross-account file reads, legacy Firebase references, expired presigned
+URLs, R2 outage behavior and rollback of the platform credentials.
