@@ -499,7 +499,7 @@ export default function ProfilePage(){
               </button>
             </div>
           </section>
-          <R2StoragePanel onPhotoUploaded={()=>{setPhotoUrl('');void (async()=>{try{
+          <R2StoragePanel administrator={profile?.role==='super_admin'||profile?.role==='admin'} onPhotoUploaded={()=>{setPhotoUrl('');void (async()=>{try{
            const headers=await authHeaders();const response=await fetch('/api/profile/photo',{headers,cache:'no-store'});
            if(response.ok){const data=await response.json();setR2PhotoUrl(data.url||'');}
           }catch{}})();}}/>

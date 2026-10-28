@@ -7,13 +7,14 @@ import {selectR2Destination} from '@/lib/r2-storage-selection';
 type Connection={id:string;label:string;accountId:string;bucket:string;jurisdiction:string;status:string;createdAt:string};
 type PrivateFile={id:string;fileName:string;purpose:string;byteSize:number;connectionId:string;createdAt:string;sharedCount:number};
 type Configuration={platformAvailable:boolean;byobAvailable:boolean;connections:Connection[]};
+type AdminStatus={platformConfigured:boolean;missingVariables:string[];byobEncryptionConfigured:boolean;connectivity:'not_checked'|'not_configured'|'ready'|'rejected'|'unreachable'|'invalid_configuration'};
 async function request<T>(path:string,init:RequestInit={}):Promise<T>{
  const headers=await authHeaders(),response=await fetch(path,{...init,headers:{...headers,...(init.body?{'Content-Type':'application/json'}:{}),...init.headers},cache:'no-store'});
  const result=await response.json().catch(()=>({}));
  if(!response.ok)throw Error(result.error||'Storage request failed.');
  return result as T;
 }
-export function R2StoragePanel({onPhotoUploaded}:{onPhotoUploaded?:(fileId:string)=>void}){
+export function R2StoragePanel({onPhotoUploaded,administrator=false}:{onPhotoUploaded?:(fileId:string)=>void;administrator?:boolean}){
  const [config,setConfig]=useState<Configuration>({platformAvailable:false,byobAvailable:false,connections:[]});
  const [files,setFiles]=useState<PrivateFile[]>([]);
  const [selected,setSelected]=useState('platform');
@@ -22,6 +23,18 @@ export function R2StoragePanel({onPhotoUploaded}:{onPhotoUploaded?:(fileId:strin
  const [accessKeyId,setAccessKeyId]=useState(''),[secretAccessKey,setSecretAccessKey]=useState('');
  const [busy,setBusy]=useState(false),[message,setMessage]=useState(''),[error,setError]=useState('');
  const [showConnect,setShowConnect]=useState(false);
+ const [adminStatus,setAdminStatus]=useState<AdminStatus|null>(null);
+ const [checkingStatus,setCheckingStatus]=useState(false);
+ const [statusError,setStatusError]=useState('');
+ const checkPlatform=useCallback(async(verify:boolean)=>{
+  if(!administrator)return;
+  setCheckingStatus(true);setStatusError('');
+  try{
+   const status=await request<AdminStatus>('/api/admin/settings/storage-status'+(verify?'?verify=1':''));
+   setAdminStatus(status);
+  }catch(e){setStatusError(e instanceof Error?e.message:'Storage status unavailable.');}
+  finally{setCheckingStatus(false);}
+ },[administrator]);
  const refresh=useCallback(async()=>{
   const [b,f]=await Promise.all([
    request<Configuration>('/api/r2/connections'),request<{files:PrivateFile[]}>('/api/r2/files')
@@ -30,6 +43,7 @@ export function R2StoragePanel({onPhotoUploaded}:{onPhotoUploaded?:(fileId:strin
   setSelected(old=>selectR2Destination(old,b));
  },[]);
  useEffect(()=>{void refresh().catch(e=>setError(e instanceof Error?e.message:'Storage unavailable.'));},[refresh]);
+ useEffect(()=>{if(administrator)void checkPlatform(false);},[administrator,checkPlatform]);
  async function connect(event:React.FormEvent){
   event.preventDefault();setBusy(true);setError('');setMessage('');
   try{
@@ -70,6 +84,34 @@ export function R2StoragePanel({onPhotoUploaded}:{onPhotoUploaded?:(fileId:strin
   <p>Upload photos and documents directly without visiting Cloudinary. KASA keeps file metadata in Firebase Firestore. A personal bucket remains yours; KASA never owns its contents.</p>
   {error&&<p className="alert-error" role="alert">{error}</p>}
   {message&&<p className="notice" role="status">{message}</p>}
+  {administrator&&<div className="admin-edit-item" aria-label="Institutional storage configuration">
+   <h3><ShieldCheck size={17}/> KASA institutional bucket status</h3>
+   <p className="muted">Configuration names only — credentials are never shown or entered here. This does not change your personal bucket.</p>
+   {adminStatus&&<p role="status">{adminStatus.platformConfigured
+    ?'All four platform environment variables are present.'
+    :'Institutional R2 is not yet configured; KASA uses its documented legacy storage fallback.'}</p>}
+   {adminStatus&&adminStatus.missingVariables.length>0&&<div>
+    <p className="muted">Missing Vercel environment variables:</p>
+    <ul>{adminStatus.missingVariables.map(k=><li key={k}><code>{k}</code></li>)}</ul>
+   </div>}
+   {adminStatus&&adminStatus.platformConfigured&&<p className="muted">Connection check: {({
+    ready:'R2 accepted the private-bucket read check.',
+    rejected:'Cloudflare rejected the credentials or bucket access.',
+    unreachable:'Cloudflare R2 is unreachable from the app.',
+    invalid_configuration:'The account ID, bucket name or jurisdiction is invalid.',
+    not_checked:'Not checked yet.',
+    not_configured:'Configuration incomplete.'
+   } as Record<AdminStatus['connectivity'],string>)[adminStatus.connectivity]}</p>}
+   {statusError&&<p className="alert-error" role="alert">{statusError}</p>}
+   <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
+    <button type="button" className="btn btn-outline" disabled={checkingStatus} onClick={()=>void checkPlatform(true)}>
+     {checkingStatus?'Checking…':'Refresh & test connection'}
+    </button>
+    <a href="https://vercel.com/dashboard" target="_blank" rel="noopener noreferrer">Open Vercel settings</a>
+    <a href="https://dash.cloudflare.com/" target="_blank" rel="noopener noreferrer">Open Cloudflare R2</a>
+   </div>
+   <p className="field-hint">In Vercel: Pamtech → kasa → Settings → Environment Variables. Add the required names for Production and Preview. Create a replacement scoped R2 API token if its Secret Access Key was lost. Redeploy after saving.</p>
+  </div>}
   <label className="field">Where new files are stored
    <select value={selected} onChange={e=>setSelected(e.target.value)}>
     {config.platformAvailable&&<option value="platform">KASA managed private R2</option>}
