@@ -1,0 +1,70 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const read=path=>readFileSync(new URL('../../'+path,import.meta.url),'utf8');
+
+test('Firebase remains primary identity/data store; encrypted BYOB metadata is server only',()=>{
+ const rules=read('firestore.rules');
+ for(const collection of ['r2Connections','r2ConnectionSecrets','r2Files'])assert.match(rules,new RegExp('match /'+collection+'\\/\\{id\\} \\{ allow read, write: if false'));
+ const conn=read('src/app/api/r2/connections/route.ts');
+ const crypto=read('src/lib/r2-crypto.ts');
+ const auth=read('src/lib/r2-storage.ts');
+ assert.match(conn,/storageIdentity\(req\)/);
+ assert.match(conn,/encryptR2Secrets/);
+ assert.match(conn,/signR2Url\(v,'GET','',30/);
+ assert.match(crypto,/aes-256-gcm/);
+ assert.match(crypto,/setAAD\(Buffer\.from\(connectionId\)\)/);
+ assert.match(auth,/adminAuth\.verifyIdToken/);
+ assert.doesNotMatch(conn,/secretAccessKey:v\.secretAccessKey.*return json/);
+});
+test('signed direct PUT and verified completion require private owner and exact content properties',()=>{
+ const signing=read('src/lib/r2-signing.ts');
+ const begin=read('src/app/api/r2/uploads/route.ts');
+ const end=read('src/app/api/r2/uploads/[id]/complete/route.ts');
+ assert.match(signing,/AWS4-HMAC-SHA256/);
+ assert.match(signing,/UNSIGNED-PAYLOAD/);
+ assert.match(signing,/content-type;host/);
+ assert.match(begin,/signR2Url\(bucket,'PUT'/);
+ assert.match(begin,/new Date\(Date\.now\(\)\+5\*60\*1000\)/);
+ assert.match(end,/signR2Url\(bucket,'HEAD'/);
+ assert.match(end,/content-length/);
+ assert.match(end,/Range:'bytes=0-7'/);
+ assert.match(end,/data\.ownerUid!==uid/);
+ assert.match(end,/status:'ready'/);
+ assert.doesNotMatch(begin,/formData\(\)|arrayBuffer\(\)/);
+});
+test('private files cannot leak to other KASA users and public access is not silently enabled',()=>{
+ const readRoute=read('src/app/api/r2/files/[id]/read/route.ts');
+ const share=read('src/app/api/r2/files/[id]/shares/route.ts');
+ const disconnect=read('src/app/api/r2/connections/[id]/route.ts');
+ assert.match(readRoute,/file\.ownerUid!==uid/);
+ assert.match(readRoute,/file\.sharedWith\.includes\(uid\)/);
+ assert.match(share,/data\.ownerUid!==uid/);
+ assert.match(share,/p\.data\(\)\?\.active!==true/);
+ assert.match(disconnect,/tx\.delete\(secret\)/);
+ assert.doesNotMatch(disconnect,/DeleteObject|signR2Url|\.delete\(.*bucket/);
+});
+test('CDF evidence is KASA-controlled and legacy Firebase attachments remain readable',()=>{
+ const start=read('src/app/api/r2/uploads/route.ts');
+ const finish=read('src/app/api/r2/uploads/[id]/complete/route.ts');
+ const staff=read('src/app/api/admin/submissions/[id]/documents/route.ts');
+ const student=read('src/app/api/student/applications/[id]/documents/route.ts');
+ assert.match(start,/v\.purpose==='cdf-document'\?'platform'/);
+ assert.match(start,/record\.applicantUid===identity\.uid/);
+ assert.match(finish,/submissionRef/);
+ assert.match(finish,/r2FileId:id/);
+ assert.match(staff,/signedR2Read/);
+ assert.match(student,/signedR2Read/);
+ assert.match(student,/storage\.bucket\(\)\.file\(document\.path\)/);
+});
+test('new profile photos use file picker; external Cloudinary links stay legacy-readable',()=>{
+ const profile=read('src/app/(portal)/dashboard/profile/page.tsx');
+ const panel=read('src/components/R2StoragePanel.tsx');
+ const photo=read('src/app/api/profile/photo/route.ts');
+ assert.match(profile,/R2StoragePanel/);
+ assert.doesNotMatch(profile,/Open Cloudinary Console/);
+ assert.match(panel,/type="file"/);
+ assert.match(panel,/uploadToR2/);
+ assert.match(photo,/data\.ownerUid!==uid/);
+ assert.match(photo,/photoAssetId/);
+});
