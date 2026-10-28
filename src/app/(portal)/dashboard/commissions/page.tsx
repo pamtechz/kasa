@@ -71,7 +71,7 @@ export default function Commissions(){
 
   <section className="panel" style={{marginTop:20}}>
    <div className="panel-title"><h2>Historical and incomplete commission records needing reconciliation</h2>
-    <p>These records have a previous commission amount but fail today's fully-funded eligibility controls. No further payouts can be recorded until authorized evidence is reconciled. Previously recorded transfers are not erased.</p></div>
+    <p>These records have a previous commission amount but fail today&apos;s fully-funded eligibility controls. No further payouts can be recorded until authorized evidence is reconciled. Previously recorded transfers are not erased.</p></div>
    <div className="table-scroll"><table className="data-table"><thead><tr><th>Application</th><th>Agent</th><th>Legacy amount</th><th>Recorded payout</th><th>Reason held</th></tr></thead>
     <tbody>{reconciliation.map(row=><tr key={row.submissionId}><td><Link href={'/dashboard/applications/'+encodeURIComponent(row.submissionId)}>{row.reference}</Link></td>
      <td>{row.agentId}</td><td>K{row.recordedAmount.toFixed(2)}</td><td>{row.previouslyPaid?'Historical transfer recorded':'No payout'}</td><td>{row.reason}</td></tr>)}
