@@ -267,7 +267,7 @@ export function R2StoragePanel({onPhotoUploaded,administrator=false}:{onPhotoUpl
    <h3><Cloud size={17}/> Connect your own Cloudflare storage</h3>
    <p className="muted">Sign in directly with Cloudflare and authorize KASA once. You own your files and the storage billing. Only files you explicitly share are available to KASA staff.</p>
    {oauthError&&<p role="alert" className="alert-error">{oauthError}</p>}
-   {!oauth.available&&<p className="muted">Cloudflare one-click connection is awaiting KASA's registered OAuth application. Ordinary users will not need account IDs or access keys once enabled.</p>}
+   {!oauth.available&&<p className="muted">Cloudflare one-click connection is awaiting KASA&apos;s registered OAuth application. Ordinary users will not need account IDs or access keys once enabled.</p>}
    {oauth.available&&!oauth.connected&&<button className="btn btn-primary" type="button" disabled={oauthBusy} onClick={()=>void beginCloudflare()}>
     <Cloud size={17}/> {oauthBusy?'Connecting…':'Connect with Cloudflare'}
    </button>}
