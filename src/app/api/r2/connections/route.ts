@@ -6,7 +6,7 @@ import {fail,json,HttpError} from '@/lib/errors';
 import {sameOrigin,rateLimit,audit} from '@/lib/security';
 import {storageIdentity,platformR2} from '@/lib/r2-storage';
 import {validateR2Address,signR2Url} from '@/lib/r2-signing';
-import {encryptR2Secrets} from '@/lib/r2-crypto';
+import {encryptR2Secrets,r2EncryptionReady} from '@/lib/r2-crypto';
 export const runtime='nodejs';
 const schema=z.object({label:z.string().trim().min(1).max(80),
  accountId:z.string().trim().length(32),bucket:z.string().min(3).max(63),
@@ -17,7 +17,7 @@ export async function GET(req:Request){
  try{
   const {uid}=await storageIdentity(req);
   const list=await db.collection('r2Connections').where('ownerUid','==',uid).limit(25).get();
-  return json({platformAvailable:Boolean(platformR2()),
+  return json({platformAvailable:Boolean(platformR2()),byobAvailable:r2EncryptionReady(),
    connections:list.docs.map(d=>({id:d.id,label:d.data().label,accountId:d.data().accountId,bucket:d.data().bucket,
     jurisdiction:d.data().jurisdiction,status:d.data().status,createdAt:d.data().createdAt}))});
  }catch(e){return fail(e);}
@@ -25,6 +25,7 @@ export async function GET(req:Request){
 export async function POST(req:NextRequest){
  try{
   sameOrigin(req);const {uid}=await storageIdentity(req);
+  if(!r2EncryptionReady())throw new HttpError(503,'R2 BYOB encryption is not configured by KASA. Contact an administrator.');
   await rateLimit(req,'r2-connect:'+uid,4,60);
   const parsed=schema.safeParse(await req.json().catch(()=>({})));
   if(!parsed.success)throw new HttpError(400,'Enter a valid R2 account ID, bucket name, and scoped access credentials.');
