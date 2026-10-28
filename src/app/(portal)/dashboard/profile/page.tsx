@@ -4,6 +4,8 @@ import Image from 'next/image';
 import {EmailAuthProvider,reauthenticateWithCredential,sendPasswordResetEmail,updatePassword} from 'firebase/auth';
 import {User,Phone,MapPin,Lock,Save,KeyRound,Copy,Check,ShieldCheck,CheckCircle2,Sparkles,ExternalLink} from 'lucide-react';
 import {api,PageHeader} from '@/components/Portal';
+import {R2StoragePanel} from '@/components/R2StoragePanel';
+import {authHeaders} from '@/lib/firebase-client';
 import {PasswordInput} from '@/components/PasswordInput';
 import {requireClientAuth} from '@/lib/firebase-client';
 import type {Profile} from '@/lib/types';
@@ -26,9 +28,21 @@ export default function ProfilePage(){
   const [ward,setWard]=useState('');
   const [bio,setBio]=useState('');
   const [photoUrl,setPhotoUrl]=useState('');
+  const [r2PhotoUrl,setR2PhotoUrl]=useState('');
   const [emailAlerts,setEmailAlerts]=useState(true);
   const [newsUpdates,setNewsUpdates]=useState(true);
   const [smsAlerts,setSmsAlerts]=useState(false);
+
+  useEffect(()=>{
+    let mounted=true;
+    async function refreshPhoto(){
+     try{const headers=await authHeaders();const response=await fetch('/api/profile/photo',{headers,cache:'no-store'});
+      if(response.ok){const result=await response.json();if(mounted)setR2PhotoUrl(result.url||'');}}
+     catch{}
+    }
+    void refreshPhoto();const timer=window.setInterval(()=>void refreshPhoto(),70000);
+    return()=>{mounted=false;window.clearInterval(timer);};
+  },[]);
 
   // Password fields
   const [currentPassword,setCurrentPassword]=useState('');
@@ -75,10 +89,6 @@ export default function ProfilePage(){
     setStatusMsg('');
     setSaving(true);
     try{
-      if(photoUrl.trim() && !photoUrl.startsWith('https://res.cloudinary.com/') && !photoUrl.startsWith('https://console.cloudinary.com/')){
-        throw new Error('Profile photos must strictly be from Cloudinary (https://console.cloudinary.com/app).');
-      }
-
       const res = await api<{ok:boolean;profile:Profile}>('/api/profile',{
         method:'PATCH',
         body:JSON.stringify({
@@ -189,9 +199,9 @@ export default function ProfilePage(){
         {/* Left Card: Summary & Visual Overview */}
         <aside className="profile-card-sticky">
           <div className="profile-avatar-wrap">
-            {photoUrl ? (
+            {(r2PhotoUrl||photoUrl) ? (
               <Image
-                src={photoUrl}
+                src={r2PhotoUrl||photoUrl}
                 alt={name || 'Profile'}
                 width={96}
                 height={96}
@@ -344,25 +354,7 @@ export default function ProfilePage(){
                 </div>
 
                 <div className="field full">
-                  <label htmlFor="pf-photo">Profile Photo URL (Cloudinary)</label>
-                  <input
-                    id="pf-photo"
-                    type="url"
-                    value={photoUrl}
-                    onChange={e=>setPhotoUrl(e.target.value)}
-                    placeholder="https://res.cloudinary.com/..."
-                  />
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:'4px'}}>
-                    <span className="field-hint">Strictly Cloudinary image URLs are accepted.</span>
-                    <a
-                      href="https://console.cloudinary.com/app"
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{fontSize:'12px',color:'var(--green)',display:'inline-flex',alignItems:'center',gap:'4px',fontWeight:700}}
-                    >
-                      Open Cloudinary Console <ExternalLink size={12}/>
-                    </a>
-                  </div>
+                  <p className="field-hint">Profile photos are uploaded directly to Cloudflare R2 using the private storage panel below. Existing Cloudinary photos remain visible until you replace them.</p>
                 </div>
 
                 <div className="field full">
@@ -507,6 +499,10 @@ export default function ProfilePage(){
               </button>
             </div>
           </section>
+          <R2StoragePanel onPhotoUploaded={()=>{setPhotoUrl('');void (async()=>{try{
+           const headers=await authHeaders();const response=await fetch('/api/profile/photo',{headers,cache:'no-store'});
+           if(response.ok){const data=await response.json();setR2PhotoUrl(data.url||'');}
+          }catch{}})();}}/>
         </div>
       </div>
     </>
