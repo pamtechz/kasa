@@ -5,7 +5,7 @@ import {authHeaders} from '@/lib/firebase-client';
 import {uploadToR2,r2ReadUrl} from '@/lib/r2-upload-client';
 type Connection={id:string;label:string;accountId:string;bucket:string;jurisdiction:string;status:string;createdAt:string};
 type PrivateFile={id:string;fileName:string;purpose:string;byteSize:number;connectionId:string;createdAt:string;sharedCount:number};
-type Configuration={platformAvailable:boolean;connections:Connection[]};
+type Configuration={platformAvailable:boolean;byobAvailable:boolean;connections:Connection[]};
 async function request<T>(path:string,init:RequestInit={}):Promise<T>{
  const headers=await authHeaders(),response=await fetch(path,{...init,headers:{...headers,...(init.body?{'Content-Type':'application/json'}:{}),...init.headers},cache:'no-store'});
  const result=await response.json().catch(()=>({}));
@@ -13,7 +13,7 @@ async function request<T>(path:string,init:RequestInit={}):Promise<T>{
  return result as T;
 }
 export function R2StoragePanel({onPhotoUploaded}:{onPhotoUploaded?:(fileId:string)=>void}){
- const [config,setConfig]=useState<Configuration>({platformAvailable:false,connections:[]});
+ const [config,setConfig]=useState<Configuration>({platformAvailable:false,byobAvailable:false,connections:[]});
  const [files,setFiles]=useState<PrivateFile[]>([]);
  const [selected,setSelected]=useState('platform');
  const [label,setLabel]=useState('My private R2 bucket');
@@ -95,12 +95,13 @@ export function R2StoragePanel({onPhotoUploaded}:{onPhotoUploaded?:(fileId:strin
   </div>
   <div style={{marginTop:20,borderTop:'1px solid #d9e6dd',paddingTop:15}}>
    <h3><ShieldCheck size={17}/> Bring your own bucket (BYOB)</h3>
+   {!config.byobAvailable&&<p className="alert-error" role="status">KASA must configure its encrypted BYOB storage key before members can connect personal buckets. Existing uploads remain available.</p>}
    <p className="muted">In Cloudflare, create a private R2 bucket, issue an <strong>Object Read & Write</strong> token scoped only to that bucket, and configure bucket CORS for the KASA website origin and PUT Content-Type.</p>
    {config.connections.map(c=><div key={c.id} style={{display:'flex',gap:10,alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
     <span><b>{c.label}</b> · {c.bucket} · {c.status}</span>
     {c.status==='active'&&<button className="btn btn-outline" type="button" disabled={busy} onClick={()=>void disconnect(c)}><Trash2 size={15}/> Disconnect</button>}
    </div>)}
-   <button type="button" className="btn btn-outline" onClick={()=>setShowConnect(x=>!x)}>{showConnect?<CloudOff size={16}/>:<Cloud size={16}/>} {showConnect?'Cancel connection':'Connect my R2 bucket'}</button>
+   <button type="button" className="btn btn-outline" disabled={!config.byobAvailable} onClick={()=>setShowConnect(x=>!x)}>{showConnect?<CloudOff size={16}/>:<Cloud size={16}/>} {showConnect?'Cancel connection':'Connect my R2 bucket'}</button>
    {showConnect&&<form onSubmit={e=>void connect(e)} className="form-grid" style={{marginTop:15}}>
     <div className="field full"><label>Connection label</label><input required value={label} onChange={e=>setLabel(e.target.value)}/></div>
     <div className="field"><label>Cloudflare account ID</label><input required value={accountId} maxLength={32} onChange={e=>setAccountId(e.target.value.trim())}/></div>
