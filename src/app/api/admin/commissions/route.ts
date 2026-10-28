@@ -8,8 +8,18 @@ export const runtime='nodejs';
 export async function GET(req:Request){
  try{
   await requireCapability(req,'commissions.read');
-  const result=await db.collection('submissions').where('formKind','==','student').limit(500).get();
-  const commissions=result.docs.flatMap(doc=>{
+  const docs:FirebaseFirestore.QueryDocumentSnapshot[]=[];
+  let cursor:FirebaseFirestore.QueryDocumentSnapshot|undefined;
+  let truncated=false;
+  for(let page=0;page<40;page++){
+   let query=db.collection('submissions').where('formKind','==','student').orderBy('__name__').limit(250);
+   if(cursor)query=query.startAfter(cursor);
+   const pageDocs=await query.get();docs.push(...pageDocs.docs);
+   if(pageDocs.size<250)break;
+   cursor=pageDocs.docs[pageDocs.docs.length-1];
+   if(page===39)truncated=true;
+  }
+  const commissions=docs.flatMap(doc=>{
    const x=doc.data();
    const decision=commissionDecision(x);
    if(!decision.eligible)return [];
@@ -20,7 +30,7 @@ export async function GET(req:Request){
     fundingEvidence:decision.trigger==='payment'?x.paymentVerification?.reference:x.cdfDisbursement?.bankReference
    }];
   });
-  return json({commissions,totals:{
+  return json({commissions,truncated,totals:{
    eligible:commissions.reduce((n,c)=>n+c.amount,0),
    paid:commissions.filter(c=>Boolean(c.paidAt)).reduce((n,c)=>n+c.amount,0),
    pending:commissions.filter(c=>!c.paidAt).reduce((n,c)=>n+c.amount,0)
