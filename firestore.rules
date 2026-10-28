@@ -45,6 +45,7 @@ service cloud.firestore {
   match /r2Connections/{id} { allow read, write: if false; }
   match /r2ConnectionSecrets/{id} { allow read, write: if false; }
   match /r2Files/{id} { allow read, write: if false; }
+  match /r2InstitutionShares/{id} { allow read, write: if false; }
   match /rateLimits/{id} { allow read, write: if false; }
   match /auditLogs/{id} { allow read, write: if false; }
   match /siteContent/{id} { allow read, write: if false; }

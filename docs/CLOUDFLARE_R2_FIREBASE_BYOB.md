@@ -109,3 +109,23 @@ for cross-account file reads, legacy Firebase references, expired presigned
 URLs, R2 outage behavior and rollback of the platform credentials.
 
 **Large official acceptance PDFs:** When platform R2 is enabled, the administrator's PDF editor uses a direct presigned PUT for uploads up to 25 MB, verifies file content during completion, and attaches the completed asset ID through an admin-only endpoint. This avoids the Vercel server multipart request-size ceiling. The older server multipart route remains only for pre-upgrade compatibility while institutional R2 is absent.
+
+
+## User-controlled KASA access to BYOB documents
+
+Private user-owned Cloudflare R2 buckets remain owned and billed by the user.
+KASA does **not** have blanket access to the bucket upon connection.
+For a completed `personal-document` file, the owner can explicitly select
+**Share with KASA**. That creates an auditable `r2InstitutionShares/{fileId}`
+grant and marks the file metadata `sharedWithKasa=true` in a Firestore
+server-only collection. An authenticated KASA administrator/reviewer can list
+granted files through `/api/admin/r2/shared` and get a 90-second signed read
+URL through `/api/admin/r2/shared/{fileId}`, provided the grant is still active
+and the original bucket credentials still work. Revocation removes the grant;
+previously issued URLs may remain valid until their short expiry.
+
+This consent path is distinct from institutional CDF and formal evidence, which
+remain in KASA-managed storage for retention, compliance and continuity.
+Disconnecting the user's bucket deletes KASA's encrypted access credentials,
+does not delete the user's objects, and makes historical BYOB reads inaccessible
+until the owner reconnects or supplies a retained institutional copy.

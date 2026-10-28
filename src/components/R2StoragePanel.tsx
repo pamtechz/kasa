@@ -5,7 +5,7 @@ import {authHeaders} from '@/lib/firebase-client';
 import {uploadToR2,r2ReadUrl} from '@/lib/r2-upload-client';
 import {selectR2Destination} from '@/lib/r2-storage-selection';
 type Connection={id:string;label:string;accountId:string;bucket:string;jurisdiction:string;status:string;createdAt:string};
-type PrivateFile={id:string;fileName:string;purpose:string;byteSize:number;connectionId:string;createdAt:string;sharedCount:number};
+type PrivateFile={id:string;fileName:string;purpose:string;byteSize:number;connectionId:string;createdAt:string;sharedCount:number;sharedWithKasa:boolean};
 type Configuration={platformAvailable:boolean;byobAvailable:boolean;connections:Connection[]};
 type AdminStatus={platformConfigured:boolean;missingVariables:string[];byobEncryptionConfigured:boolean;connectivity:'not_checked'|'not_configured'|'ready'|'rejected'|'unreachable'|'invalid_configuration'};
 async function request<T>(path:string,init:RequestInit={}):Promise<T>{
@@ -74,6 +74,19 @@ export function R2StoragePanel({onPhotoUploaded,administrator=false}:{onPhotoUpl
   }catch(e){setError(e instanceof Error?e.message:'Upload failed.');}
   finally{setBusy(false);}
  }
+ async function grantKasaAccess(file:PrivateFile){
+  setBusy(true);setError('');setMessage('');
+  try{
+   await request('/api/r2/files/'+encodeURIComponent(file.id)+'/kasa-access',{
+    method:'PATCH',body:JSON.stringify({approved:!file.sharedWithKasa})
+   });
+   await refresh();
+   setMessage(file.sharedWithKasa?
+    'KASA access revoked. Any previously issued short-lived read link expires within 90 seconds.':
+    'You have authorized KASA staff to view this document while your bucket stays connected.');
+  }catch(e){setError(e instanceof Error?e.message:'Unable to change KASA access.');}
+  finally{setBusy(false);}
+ }
  async function openFile(id:string){
   setError('');
   try{const url=await r2ReadUrl(id);window.open(url,'_blank','noopener,noreferrer');}
@@ -128,10 +141,17 @@ export function R2StoragePanel({onPhotoUploaded,administrator=false}:{onPhotoUpl
    </label>
   </div>
   <h3><LockKeyhole size={17}/> My uploaded files</h3>
+  <p className="muted">Your files remain private until you choose to share a document with KASA. Authorized staff can view only approved documents, and you can revoke access. Previously issued links expire within 90 seconds.</p>
   <div style={{display:'grid',gap:8}}>
    {files.slice(0,40).map(file=><div key={file.id} style={{display:'flex',gap:12,justifyContent:'space-between',borderBottom:'1px solid #d9e6dd',padding:'8px 0',flexWrap:'wrap'}}>
     <div><b>{file.fileName}</b><div className="muted" style={{fontSize:12}}>{(file.byteSize/1024).toFixed(1)} KB · {file.purpose==='profile-photo'?'Profile image':'Private document'} · {file.sharedCount} shares</div></div>
-    <button className="btn btn-outline" disabled={busy} type="button" onClick={()=>void openFile(file.id)}><Link2 size={16}/> Open securely</button>
+    <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+     <button className="btn btn-outline" disabled={busy} type="button" onClick={()=>void openFile(file.id)}><Link2 size={16}/> Open securely</button>
+     {file.purpose==='personal-document'&&<button className="btn btn-outline" disabled={busy} type="button"
+      onClick={()=>void grantKasaAccess(file)}>
+      {file.sharedWithKasa?'Revoke KASA access':'Share with KASA'}
+     </button>}
+    </div>
    </div>)}
    {!files.length&&<p className="muted">No R2 files yet. Existing Cloudinary and Firebase documents remain available while migration is prepared.</p>}
   </div>

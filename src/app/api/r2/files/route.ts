@@ -10,6 +10,7 @@ export async function GET(req:Request){
   return json({files:snap.docs.map(d=>({
    id:d.id,fileName:d.data().fileName,purpose:d.data().purpose,contentType:d.data().contentType,
    byteSize:d.data().byteSize,connectionId:d.data().connectionId,sharedCount:(d.data().sharedWith||[]).length,
+   sharedWithKasa:d.data().sharedWithKasa===true,
    createdAt:d.data().createdAt
   }))});
  }catch(e){return fail(e);}

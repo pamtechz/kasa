@@ -86,6 +86,7 @@ export function routeCapability(pathname:string,method:string):Capability|null{
  if(path('/api/admin/settings/acceptance-letter/preview'))return 'settings.read';
  if(path('/api/admin/settings(?:/acceptance-letter(?:/(?:upload|attach))?)?'))
   return verb==='GET'?'settings.read':'settings.manage';
+ if(path('/api/admin/r2/shared(?:/[^/]+)?'))return verb==='GET'?'documents.read':null;
  if(path('/api/admin/file'))return 'documents.read';
  if(path('/api/admin/submissions/batch-email'))return 'applications.review';
  if(path('/api/admin/submissions/batch-download'))return 'documents.read';
