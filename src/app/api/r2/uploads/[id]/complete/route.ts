@@ -3,6 +3,7 @@ import {fail,json,HttpError} from '@/lib/errors';
 import {sameOrigin} from '@/lib/security';
 import {storageIdentity,resolveR2} from '@/lib/r2-storage';
 import {signR2Url} from '@/lib/r2-signing';
+import {loadIntake} from '@/lib/intake-server';
 export const runtime='nodejs';
 export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
  try{
@@ -34,12 +35,32 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
   const jpg=first.length>=3&&first[0]===255&&first[1]===216&&first[2]===255;
   if(!(file.contentType==='application/pdf'&&pdf||file.contentType==='image/png'&&png||file.contentType==='image/jpeg'&&jpg))
    throw new HttpError(409,'Uploaded file does not match its declared content type.');
+  const documentPolicy=file.purpose==='cdf-document'?await loadIntake():null;
+  const submissionRef=file.purpose==='cdf-document'?db.collection('submissions').doc(file.submissionId):null;
   await db.runTransaction(async tx=>{
    const recent=await tx.get(ref),data=recent.data();
+   const submission=submissionRef?await tx.get(submissionRef):null;
    if(!data||data.ownerUid!==uid)throw new HttpError(404,'Upload not found.');
    if(data.status==='ready')return;
    if(data.status!=='pending'||Date.parse(data.uploadExpiresAt)<Date.now())
     throw new HttpError(409,'This upload has expired.');
+   if(submissionRef){
+    const record=submission?.data(),kind=String(data.kind||'');
+    if(!record||record.formKind!=='student')throw new HttpError(404,'Student application is missing.');
+    if(identity.profile.role==='student'&&record.applicantUid!==uid)
+     throw new HttpError(403,'Application is not linked to your account.');
+    if(!['student','super_admin','admin','reviewer'].includes(identity.profile.role))
+     throw new HttpError(403,'Your account cannot submit CDF documents.');
+    if(['rejected','cdf_approved','cdf_funds_received','payment_verified','commission_paid'].includes(String(record.status)))
+     throw new HttpError(409,'Funding documentation is locked after approval or rejection.');
+    const rule=documentPolicy?.cdfRequiredDocuments.find(x=>x.id===kind);
+    if(!rule)throw new HttpError(409,'This CDF document type is no longer active.');
+    const now=new Date().toISOString();
+    tx.update(submissionRef,{['documents.'+kind]:{
+     kind,label:rule.label,path:'r2:'+id,r2FileId:id,fileName:data.fileName,
+     contentType:data.contentType,size:data.byteSize,uploadedBy:uid,uploadedAt:now,verifiedAt:null,verifiedBy:null
+    },updatedAt:now});
+   }
    tx.update(ref,{status:'ready',verifiedAt:new Date().toISOString(),
     etag:head.headers.get('etag')||'',contentLength:bytes});
   });
