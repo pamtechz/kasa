@@ -54,8 +54,8 @@ test('public and staff admission submission cannot pre-approve or issue CDF offe
  assert.doesNotMatch(submit,/finalStatus='letter_issued'/);
  assert.match(manual,/const initialStatus:SubmissionStatus='submitted'/);
  assert.match(intake,/Automatic-approval flags in historical policies are ignored/);
- assert.doesNotMatch(publicLetter,/\\['accepted','letter_issued'/);
- assert.doesNotMatch(officialVerify,/\\['accepted','letter_issued'/);
+ assert.equal(publicLetter.includes("['accepted','letter_issued'"),false);
+ assert.equal(officialVerify.includes("'accepted','letter_issued'"),false);
 });
 test('student ID, payouts and approvals have distinct proof and state',()=>{
  const card=read('src/app/api/public/submissions/[id]/id-card/route.ts');
