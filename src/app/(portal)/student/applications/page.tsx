@@ -102,7 +102,7 @@ export default function StudentApplicationsPage() {
           </div>
         ) : (
           items.map(app => {
-            const isAccepted = ['accepted', 'letter_issued', 'cdf_submitted', 'cdf_approved','cdf_funds_received', 'payment_verified', 'commission_paid'].includes(app.status);
+            const isAccepted = ['letter_issued', 'cdf_submitted', 'cdf_approved','cdf_funds_received', 'payment_verified', 'commission_paid'].includes(app.status);
             const tokenQuery = app.downloadToken ? `?token=${encodeURIComponent(app.downloadToken)}` : '';
             const letterUrl = `/api/public/submissions/${app.id}/letter${tokenQuery}`;
             const formUrl = `/api/public/submissions/${app.id}/enrollment-form${tokenQuery}`;
@@ -125,6 +125,7 @@ export default function StudentApplicationsPage() {
                 {/* PDF Downloads Bar */}
                 <div style={{background: '#f8faf9', padding: 14, borderRadius: 10, border: '1px solid var(--border)', marginBottom: 20, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center'}}>
                   <strong style={{fontSize: 13, color: 'var(--ink)'}}>Official Documents:</strong>
+                  {app.status==='accepted'&&<span className="muted">Admission accepted. The official offer is still being prepared by KASA and is not yet available.</span>}
                   {isAccepted && (
                     <a
                       href={letterUrl}
