@@ -2,6 +2,7 @@ import './globals.css';
 import type {Metadata, Viewport} from 'next';
 import {PwaRegister} from '@/components/PwaRegister';
 import {MobilePushRegistration} from '@/components/MobilePushRegistration';
+import {EmailVerificationNudge} from '@/components/EmailVerificationNudge';
 
 export const viewport: Viewport = {
   themeColor: '#103f2c',
@@ -27,6 +28,7 @@ export default function RootLayout({children}:{children:React.ReactNode}){
    <body suppressHydrationWarning>
     <PwaRegister />
     <MobilePushRegistration />
+    <EmailVerificationNudge />
     {children}
    </body>
   </html>

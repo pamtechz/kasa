@@ -2,6 +2,7 @@ import 'server-only';
 import {adminAuth,db} from '@/lib/firebase-admin';
 import {HttpError} from '@/lib/errors';
 import type {Profile,Role} from '@/lib/types';
+import {canUseUnverifiedProvisionedAccount} from '@/lib/provisioned-sign-in';
 
 export const marathonRoles = ['kasaAdmin','kasaOperations','kasaEditor','kasaReviewer','kasaClient'] as const;
 export type MarathonRole = typeof marathonRoles[number] | 'super_admin';
@@ -29,12 +30,14 @@ export async function marathonIdentity(req:Request):Promise<MarathonIdentity>{
  let verified;
  try{verified=await adminAuth.verifyIdToken(raw.slice(7),true);}
  catch{throw new HttpError(401,'Your session has expired. Sign in again.');}
- if(!verified.email_verified)throw new HttpError(403,'Verify your KASA account email before accessing Marathon operations.');
+
  const profileSnapshot=await db.collection('profiles').doc(verified.uid).get();
  const profile=profileSnapshot.data() as Profile|undefined;
  // Marathon may only use an existing, active KASA School profile. No shadow membership.
  if(!profileSnapshot.exists||!profile||profile.active!==true)
   throw new HttpError(403,'An active KASA account is required for Marathon access.');
+ if(!verified.email_verified&&!canUseUnverifiedProvisionedAccount(profile,verified.email))
+  throw new HttpError(403,'Verify your KASA account email to continue. Check Inbox or Spam for the verification link.');
  if(profile.role==='student')throw new HttpError(403,'Student accounts cannot access Marathon operations.');
  if(profile.role==='super_admin'){
   return {uid:verified.uid,email:verified.email||profile.email,displayName:profile.displayName||verified.name||'',schoolRole:profile.role,role:'super_admin'};

@@ -2,7 +2,7 @@
 import {useCallback,useEffect,useState} from 'react';
 import Link from 'next/link';
 import {useParams} from 'next/navigation';
-import {ArrowLeft,Save,ShieldCheck,Mail,KeyRound,AlertTriangle} from 'lucide-react';
+import {ArrowLeft,Save,ShieldCheck,KeyRound,AlertTriangle} from 'lucide-react';
 import {api,PageHeader} from '@/components/Portal';
 
 type Account={uid:string;displayName:string;email:string;role:string;active:boolean;
@@ -16,6 +16,7 @@ export default function EditSchoolAccount(){
  const [district,setDistrict]=useState(''),[phone,setPhone]=useState(''),[province,setProvince]=useState('');
  const [active,setActive]=useState(true);
  const [busy,setBusy]=useState(false),[resetBusy,setResetBusy]=useState(false),[loading,setLoading]=useState(true);
+ const [initialPassword,setInitialPassword]=useState(''),[confirmPassword,setConfirmPassword]=useState('');
  const [confirmedReset,setConfirmedReset]=useState(false);
  const [error,setError]=useState(''),[message,setMessage]=useState('');
  const load=useCallback(async()=>{
@@ -47,17 +48,18 @@ export default function EditSchoolAccount(){
   }catch(e){setError(e instanceof Error?e.message:'Unable to update account.');}
   finally{setBusy(false);}
  }
- async function sendReset(){
-  if(actorRole!=='super_admin'||!account||!confirmedReset||uid===account.uid&&account.role==='super_admin')return;
+ async function setPassword(){
+  if(actorRole!=='super_admin'||!account||!confirmedReset||!initialPassword||initialPassword!==confirmPassword)return;
   setResetBusy(true);setError('');setMessage('');
   try{
-   const result=await api<{message:string}>('/api/admin/users/'+encodeURIComponent(uid)+'/password-reset',{
-    method:'POST',body:JSON.stringify({confirm:true})
+   const result=await api<{message:string}>('/api/admin/users/'+encodeURIComponent(uid)+'/initial-password',{
+    method:'POST',body:JSON.stringify({confirm:true,password:initialPassword})
    });
-   setMessage(result.message);setConfirmedReset(false);
-  }catch(e){setError(e instanceof Error?e.message:'Password reset email was not sent.');}
+   setMessage(result.message);setConfirmedReset(false);setInitialPassword('');setConfirmPassword('');
+  }catch(e){setError(e instanceof Error?e.message:'Unable to set initial password.');}
   finally{setResetBusy(false);}
  }
+
  return <div>
   <PageHeader title="Edit user account" subtitle="Dedicated School account editor with controlled access and verified identity."/>
   <p><Link className="btn btn-outline" href="/dashboard/staff"><ArrowLeft size={16}/> Back to user directory</Link></p>
@@ -92,17 +94,20 @@ export default function EditSchoolAccount(){
    </section>
    <aside className="panel pad-panel">
     <h2><ShieldCheck size={18}/> Identity and recovery</h2>
-    <p>Existing passwords cannot be viewed. Password recovery uses Firebase&apos;s verified email recovery process.</p>
+    <p>Existing passwords cannot be viewed. Only the global super administrator may set a new initial password. This changes the Firebase Auth password; it is not a recovery email.</p>
     {actorRole==='super_admin'&&account.role!=='super_admin'?<>
-     <h3><KeyRound size={17}/> Reset this user&apos;s password</h3>
-     <p className="muted">Only a super administrator may request recovery for another user. The reset link goes directly to the registered account email; it is never displayed to an administrator. Requests have a 15-minute cooldown and are audited.</p>
-     <p><Mail size={15}/> {account.email}</p>
+     <h3><KeyRound size={17}/> Set initial password</h3>
+     <p className="muted">Choose a unique 12–128 character password containing uppercase, lowercase, a number and a symbol. Share it privately. The user can sign in without email verification for up to 30 days and will receive regular reminders to verify. Previously issued credentials will stop working.</p>
+     <div className="field"><label htmlFor="initial-password">Initial password</label>
+      <input id="initial-password" type="password" autoComplete="new-password" minLength={12} maxLength={128} value={initialPassword} onChange={e=>setInitialPassword(e.target.value)}/></div>
+     <div className="field"><label htmlFor="initial-password-confirm">Confirm initial password</label>
+      <input id="initial-password-confirm" type="password" autoComplete="new-password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)}/></div>
      <label className="required-toggle"><input type="checkbox" checked={confirmedReset} onChange={e=>setConfirmedReset(e.target.checked)}/>
-      I confirm that I intend to send password recovery instructions to this account owner.</label>
-     <button type="button" className="btn btn-outline" disabled={!confirmedReset||resetBusy} onClick={()=>void sendReset()}>
-      <KeyRound size={16}/> {resetBusy?'Requesting…':'Send password reset email'}
+      I confirm that I am authorized to replace this user&apos;s sign-in password.</label>
+     <button type="button" className="btn btn-outline" disabled={!confirmedReset||resetBusy||initialPassword!==confirmPassword||initialPassword.length<12} onClick={()=>void setPassword()}>
+      <KeyRound size={16}/> {resetBusy?'Saving…':'Set initial password'}
      </button>
-    </>:<p className="muted"><AlertTriangle size={16}/> Only the global super administrator may initiate another user&apos;s password recovery.</p>}
+    </>:<p className="muted"><AlertTriangle size={16}/> Only the global super administrator may provision another account&apos;s password.</p>}
    </aside>
   </div>}
  </div>;

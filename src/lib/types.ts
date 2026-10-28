@@ -34,6 +34,8 @@ export type Profile = {
   commissionOverride?:number; referralsCount?:number; totalCommission?:number; isStudent?:boolean;
   phone?:string; address?:string; photoUrl?:string; bio?:string;
   mustChangePassword?:boolean;
+  /** Server-issued marker: only global super admin initial-password provisioning. */
+  adminPasswordProvisionedAt?:string;
   notifications?:{emailAlerts?:boolean;newsUpdates?:boolean;smsAlerts?:boolean};
   createdAt?:string; updatedAt?:string;
 };

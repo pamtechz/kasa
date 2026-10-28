@@ -88,7 +88,9 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
  const [events,setEvents]=useState<EventItem[]>([]);
  const [suggestTask,setSuggestTask]=useState(''),[suggestText,setSuggestText]=useState(''),[suggestStatus,setSuggestStatus]=useState<MarathonStatus>('done');
  const [inviteEmail,setInviteEmail]=useState(''),[inviteName,setInviteName]=useState(''),[inviteRole,setInviteRole]=useState<typeof roles[number]>('kasaClient');
- const [resetMemberUid,setResetMemberUid]=useState(''),[resetMemberBusy,setResetMemberBusy]=useState(false);
+ const [invitePassword,setInvitePassword]=useState('');
+ const [memberSearch,setMemberSearch]=useState<{found:boolean;message?:string;member?:{uid:string;email:string;displayName:string;schoolRole:string;eligible:boolean;marathonRole:string|null;marathonActive:boolean;emailVerified:boolean}}|null>(null);
+ const [memberSearchBusy,setMemberSearchBusy]=useState(false);
  const authUid=useRef(''),syncingRef=useRef(false),initializedUid=useRef(''),suggestionRequest=useRef(0),reviewRequest=useRef(0),lastHydrateStarted=useRef(0);
  const [syncing,setSyncing]=useState(false),[reviewEdit,setReviewEdit]=useState<PendingEdit|null>(null);
  const [reviewTask,setReviewTask]=useState<MarathonTask|null>(null),[reviewError,setReviewError]=useState('');
@@ -146,7 +148,6 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
    if(authUid.current!==nextUid){setState(blank);setQueuedEdits([]);setReviewEdit(null);setLoading(true);initializedUid.current='';}
    authUid.current=nextUid;
    if(!user){router.replace('/marathon/login');return;}
-   if(!user.emailVerified){setAuthError('Verify your email address first.');setLoading(false);return;}
    void hydrate(user.uid);
   });
   return ()=>{active=false;authUid.current='';unsub();};
@@ -327,16 +328,19 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
    setState(s=>({...s,tasks:[result.task,...s.tasks]}));closeTaskPage();setNotice('New operation created.');
   }catch(e){setNotice(errorMessage(e));}finally{setSaving(false);}
  }
- async function sendMemberPasswordReset(member:Member){
-  if(!state.permissions.super||resetMemberBusy||resetMemberUid!==member.uid)return;
-  setResetMemberBusy(true);
+ async function lookupMember(){
+  if(!inviteEmail.includes('@')){setNotice('Enter a complete existing School email address.');return;}
+  setMemberSearchBusy(true);setMemberSearch(null);
   try{
-   const response=await api<{message:string}>('/api/admin/users/'+encodeURIComponent(member.uid)+'/password-reset',{
-    method:'POST',body:JSON.stringify({confirm:true})
-   });
-   setNotice(response.message);
-  }catch(e){setNotice('Unable to request password recovery: '+errorMessage(e));}
-  finally{setResetMemberBusy(false);setResetMemberUid('');}
+   const result=await api<{found:boolean;message?:string;member?:{uid:string;email:string;displayName:string;schoolRole:string;eligible:boolean;marathonRole:string|null;marathonActive:boolean;emailVerified:boolean}}>('/api/marathon/members/search?email='+encodeURIComponent(inviteEmail.trim()));
+   setMemberSearch(result);
+   if(result.found&&result.member){
+    setInviteName(result.member.displayName);
+    setInvitePassword('');
+    setNotice(result.member.eligible?'Existing School account found. Choose its Marathon role and link it without creating a second user.':result.message||'This account is not eligible for Marathon operations.');
+   }else setNotice(result.message||'No existing account found. Enter a full name and initial password to create a Marathon-only member.');
+  }catch(e){setNotice(errorMessage(e));}
+  finally{setMemberSearchBusy(false);}
  }
  async function sendSuggestion(e:React.FormEvent){
   e.preventDefault();setSaving(true);
@@ -365,9 +369,9 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
  async function invite(e:React.FormEvent){
   e.preventDefault();setSaving(true);
   try{
-   const result=await api<{member:Member;message:string;verificationPending:boolean;onboardingEmailSent:boolean}>('/api/marathon/members',{method:'POST',body:JSON.stringify({email:inviteEmail,displayName:inviteName,role:inviteRole})});
+   const result=await api<{member:Member;message:string;verificationPending:boolean;onboardingEmailSent:boolean}>('/api/marathon/members',{method:'POST',body:JSON.stringify({email:inviteEmail,displayName:inviteName,role:inviteRole,...(invitePassword?{initialPassword:invitePassword}:{})})});
    setState(x=>({...x,members:[...x.members.filter(y=>y.uid!==result.member.uid),result.member]}));
-   setInviteEmail('');setInviteName('');setNotice(result.message);
+   setInviteEmail('');setInviteName('');setInvitePassword('');setMemberSearch(null);setNotice(result.message);
   }catch(e){setNotice(errorMessage(e));}finally{setSaving(false);}
  }
  function exportCSV(){
@@ -403,7 +407,7 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
   </aside>
   {mobile&&<button className="ml-mobile-overlay" aria-label="Close menu" onClick={()=>setMobile(false)}/>}
   <main className="ml-main">
-   <header className="ml-topbar"><div className="ml-top-left"><button className="ml-mobile-menu" aria-label="Open navigation" aria-controls="ml-workspace-menu" aria-expanded={mobile} onClick={()=>setMobile(true)}><Menu size={22}/></button><button className="ml-desktop-collapse" type="button" aria-label={collapsed?'Expand Marathon sidebar':'Collapse Marathon sidebar'} onClick={toggleSidebar} title={collapsed?'Expand sidebar':'Collapse sidebar'}><Menu size={20}/></button><span className="ml-breadcrumb">KASA Life Marathon</span><ChevronRight size={15}/><strong>{menu.find(x=>x.view===view)?.label||'Home'}</strong></div><div className="ml-top-actions"><Link href="/marathon/sync" className={'ml-sync-status '+(offline?'off':'')} aria-label={pending.length?pending.length+' saved edits. Open offline edits.':'View offline edits'}>{offline?<WifiOff size={15}/>:pending.length?<CloudOff size={15}/>:<Cloud size={15}/>} {syncing?'Syncing…':offline?'Offline':pending.length?pending.length+' pending':'Synced'}</Link><button className="ml-alert-toggle" type="button" aria-label={'Reminders: '+attentionTasks.length+' actions need attention'} title="Action reminders" aria-expanded={alertsOpen} onClick={()=>setAlertsOpen(v=>!v)}><Bell size={18}/>{attentionTasks.length>0&&<span className="ml-alert-count">{attentionTasks.length>99?'99+':attentionTasks.length}</span>}</button><button aria-label="Refresh" title="Refresh data" onClick={()=>void refresh().then(()=>flush())}><RefreshCcw size={18}/></button><span className="ml-top-divider"/><AccountMenu displayName={displayName} email={state.identity.email} roleLabel={(state.identity.schoolRole==='marathon_only'?'Marathon-only · ':'School + Marathon · ')+state.identity.role} profileHref={state.identity.schoolRole==='marathon_only'?undefined:'/dashboard/profile'} onSignOut={logout}/></div>{alertsOpen&&<MarathonAlertCenter tasks={tasks} today={today} onOpen={openTaskPage} onClose={()=>setAlertsOpen(false)}/>}</header>
+   <header className="ml-topbar"><div className="ml-top-left"><button className="ml-mobile-menu" aria-label="Open navigation" aria-controls="ml-workspace-menu" aria-expanded={mobile} onClick={()=>setMobile(true)}><Menu size={22}/></button><button className="ml-desktop-collapse" type="button" aria-label={collapsed?'Expand Marathon sidebar':'Collapse Marathon sidebar'} onClick={toggleSidebar} title={collapsed?'Expand sidebar':'Collapse sidebar'}><Menu size={20}/></button><span className="ml-breadcrumb">KASA Life Marathon</span><ChevronRight size={15}/><strong>{menu.find(x=>x.view===view)?.label||'Home'}</strong></div><div className="ml-top-actions"><Link href="/marathon/sync" className={'ml-sync-status '+(offline?'off':'')} aria-label={pending.length?pending.length+' saved edits. Open offline edits.':'View offline edits'}>{offline?<WifiOff size={15}/>:pending.length?<CloudOff size={15}/>:<Cloud size={15}/>} {syncing?'Syncing…':offline?'Offline':pending.length?pending.length+' pending':'Synced'}</Link><button className="ml-alert-toggle" type="button" aria-label={'Reminders: '+attentionTasks.length+' actions need attention'} title="Action reminders" aria-expanded={alertsOpen} onClick={()=>setAlertsOpen(v=>!v)}><Bell size={18}/>{attentionTasks.length>0&&<span className="ml-alert-count">{attentionTasks.length>99?'99+':attentionTasks.length}</span>}</button><button aria-label="Refresh" title="Refresh data" onClick={()=>void refresh().then(()=>flush())}><RefreshCcw size={18}/></button><span className="ml-top-divider"/><AccountMenu displayName={displayName} email={state.identity.email} roleLabel={(state.identity.schoolRole==='marathon_only'?'Marathon-only · ':'School + Marathon · ')+state.identity.role} profileHref="/marathon/profile" onSignOut={logout}/></div>{alertsOpen&&<MarathonAlertCenter tasks={tasks} today={today} onOpen={openTaskPage} onClose={()=>setAlertsOpen(false)}/>}</header>
    <div className="ml-content">
     {!!notice&&<div className="ml-notice" role="status"><span>{notice}</span><button onClick={()=>setNotice('')} aria-label="Dismiss notification"><X size={17}/></button></div>}
     {!!authError&&uid&&<div className="ml-notice ml-warning"><AlertTriangle size={17}/>{authError}</div>}
@@ -475,14 +479,23 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
     </>}
     {(view==='settings'||view==='team')&&state.permissions.super&&<>
      <div className="ml-heading-row"><div><span className="ml-eyebrow">ACCESS & RESPONSIBILITY</span><h1>Marathon settings & roles</h1><p>Add a new team member or link an existing School account automatically. The original School role is preserved.</p></div></div>
-     {state.permissions.super&&<div className="ml-panel ml-team-invite"><div className="ml-panel-head"><div><span className="ml-eyebrow">SUPER ADMIN CONTROL</span><h3>Register or add a Marathon team member</h3></div><UserPlus size={22}/></div><form onSubmit={invite} className="ml-invite-form"><label>Full name (for new accounts)<input type="text" maxLength={120} placeholder="Full name" value={inviteName} onChange={e=>setInviteName(e.target.value)}/></label><label>Email address<input type="email" required placeholder="Member email address" value={inviteEmail} onChange={e=>setInviteEmail(e.target.value)}/></label><label>Marathon role<select value={inviteRole} onChange={e=>setInviteRole(e.target.value as typeof inviteRole)}>{roles.map(r=><option key={r} value={r}>{r}</option>)}</select></label><button className="ml-primary" disabled={saving}>Add member <ArrowRight size={17}/></button></form><p className="ml-form-help">New people receive a Marathon-only KASA account: they can sign in on the same KASA page and will go directly to Marathon, without access to School or Student portals. Existing non-student staff retain their School access and receive a second Marathon role. Existing student accounts cannot be added. Members set their own password and verify their email before first sign-in.</p></div>}
+     <section className="ml-panel ml-team-invite">
+      <div className="ml-panel-head"><div><span className="ml-eyebrow">SUPER ADMIN CONTROL</span><h3>Find or add a Marathon member</h3></div><UserPlus size={22}/></div>
+      <p className="ml-form-help">Search existing KASA School accounts by exact email. Matching members retain their current School identity and password. New members require a super-admin initial password; no password-reset email is sent.</p>
+      <form onSubmit={invite} className="ml-invite-form">
+       <label>Email address<input type="email" required value={inviteEmail} placeholder="member@example.com" onChange={e=>{setInviteEmail(e.target.value);setMemberSearch(null);}}/></label>
+       <button type="button" className="ml-secondary" disabled={memberSearchBusy||!inviteEmail.includes('@')} onClick={()=>void lookupMember()}><Search size={17}/>{memberSearchBusy?'Searching…':'Search existing School account'}</button>
+       {memberSearch?.found&&memberSearch.member&&<p className="ml-form-help"><strong>Account found:</strong> {memberSearch.member.displayName} ({memberSearch.member.schoolRole}) · {memberSearch.member.emailVerified?'Email verified':'Verification pending'} · {memberSearch.member.marathonRole||'No Marathon role'}. {memberSearch.message||''}</p>}
+       {memberSearch&&!memberSearch.found&&<p className="ml-form-help">No matching KASA account. Create a Marathon-only member by providing their name and initial password.</p>}
+       <label>Full name {memberSearch?.found?'(from School account)':'(required for new accounts)'}<input type="text" maxLength={120} placeholder="Full name" value={inviteName} onChange={e=>setInviteName(e.target.value)} readOnly={Boolean(memberSearch?.found)}/></label>
+       {!memberSearch?.found&&<label>Initial password for new member<input type="password" minLength={12} maxLength={128} autoComplete="new-password" placeholder="12+ chars: uppercase, lowercase, number, symbol" value={invitePassword} onChange={e=>setInvitePassword(e.target.value)}/></label>}
+       <label>Marathon role<select value={inviteRole} onChange={e=>setInviteRole(e.target.value as typeof inviteRole)}>{roles.map(role=><option key={role} value={role}>{role}</option>)}</select></label>
+       <button className="ml-primary" disabled={saving||memberSearch?.member?.eligible===false||(!memberSearch?.found&&(!inviteName.trim()||invitePassword.length<12))}>Assign Marathon role <ArrowRight size={17}/></button>
+      </form>
+      <p className="ml-form-help">Students cannot be assigned Marathon access. New accounts may sign in with the initial password and receive regular email-verification instructions. Super administrators cannot edit another super administrator&apos;s credentials.</p>
+     </section>
      <div className="ml-panel"><div className="ml-panel-head"><h3>Team directory</h3><span className="ml-count-badge">{state.members.length}</span></div><div className="ml-members">{state.members.map(m=><div className="ml-member" key={m.uid}><span className="ml-avatar">{m.displayName.slice(0,2).toUpperCase()}</span><div><b>{m.displayName}</b><small>{m.email}</small><small>{m.schoolRole==='marathon_only'?'Marathon only':m.schoolRole==='student'?'Student (Marathon denied)':'School + Marathon'} · {m.role}</small></div>{state.permissions.super?<select className="ml-member-role-select" value={m.role} aria-label={'Role for '+m.email} onChange={e=>void updateMember(m,{role:e.target.value as MarathonRole})}>{roles.map(role=><option key={role}>{role}</option>)}</select>:<span className="ml-role-tag">{m.role}</span>}{state.permissions.super?<button className={m.active?'ml-member-active':'ml-member-inactive'} onClick={()=>void updateMember(m,{active:!m.marathonActive})}>{m.marathonActive?'Disable Marathon':'Enable Marathon'}</button>:<span className={m.active?'ml-member-active':'ml-member-inactive'}>{m.active?'Active':m.schoolActive?'Marathon disabled':'School account disabled'}</span>}
- {state.permissions.super&&m.schoolRole!=='super_admin'&&<div className="ml-member-recovery">
-  {resetMemberUid===m.uid?<><span>Send private recovery email to {m.email}?</span>
-    <button type="button" disabled={resetMemberBusy} onClick={()=>void sendMemberPasswordReset(m)}>Confirm reset</button>
-    <button type="button" onClick={()=>setResetMemberUid('')}>Cancel</button></>:
-   <button type="button" className="ml-secondary" onClick={()=>setResetMemberUid(m.uid)}>Reset password</button>}
- </div>}</div>)}{!state.members.length&&<EmptyState text={state.permissions.super?'No Marathon team members have been added yet.':'Team membership can be managed by the super administrator.'}/>}</div></div>
+ {state.permissions.super&&m.schoolRole!=='super_admin'&&<Link className="ml-secondary" href={'/marathon/settings/members/'+encodeURIComponent(m.uid)}><Settings2 size={16}/> Edit account, roles and password</Link>}</div>)}{!state.members.length&&<EmptyState text={state.permissions.super?'No Marathon team members have been added yet.':'Team membership can be managed by the super administrator.'}/>}</div></div>
     </>}
     {view==='super'&&state.permissions.super&&<>
      <div className="ml-heading-row"><div><span className="ml-eyebrow">INSTITUTIONAL OVERSIGHT</span><h1>Super administrator</h1><p>Control initial data migration, access and the event governance overview.</p></div><span className="ml-role-tag"><ShieldCheck size={16}/> Super admin</span></div>

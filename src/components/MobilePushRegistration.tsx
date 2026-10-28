@@ -18,7 +18,9 @@ export function MobilePushRegistration(){
   let pending=false;
   const register=async()=>{
    const user=auth.currentUser;
-   if(!deviceToken||!user?.emailVerified)return;
+   // The server validates normal verified accounts and short-lived, super-admin-
+   // provisioned accounts. Never infer authorization solely from client emailVerified.
+   if(!deviceToken||!user)return;
    const key=user.uid+':'+deviceToken;
    if(key===lastKey&&Date.now()-lastRegisteredAt<24*60*60*1000)return;
    if(running){pending=true;return;}
