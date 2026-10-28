@@ -188,14 +188,17 @@ export function R2StoragePanel({onPhotoUploaded,administrator=false}:{onPhotoUpl
    if(file?.connectionId==='oauth'){
     const headers=await authHeaders();
     const response=await fetch('/api/r2/oauth/files/'+encodeURIComponent(id)+'/content',{headers,cache:'no-store'});
-    if(!response.ok)throw Error((await response.json().catch(()=>({})).error||'Unable to read your private document.');
+    if(!response.ok){
+     const problem=await response.json().catch(()=>({})) as {error?:string};
+     throw Error(problem.error||'Unable to read your private document.');
+    }
     const blob=await response.blob(),url=URL.createObjectURL(blob);
     const a=document.createElement('a');a.href=url;a.download=file.fileName;a.click();
     setTimeout(()=>URL.revokeObjectURL(url),60000);
    }else{
     const url=await r2ReadUrl(id);window.open(url,'_blank','noopener,noreferrer');
    }
-  catch(e){setError(e instanceof Error?e.message:'Unable to open file.');}
+  }catch(e){setError(e instanceof Error?e.message:'Unable to open file.');}
  }
  return <section className="profile-section-card" aria-label="Cloudflare R2 storage">
   <h2><Cloud size={20}/> My private storage · Cloudflare R2</h2>
