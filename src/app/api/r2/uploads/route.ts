@@ -3,7 +3,7 @@ import type {NextRequest} from 'next/server';
 import {z} from 'zod';
 import {db} from '@/lib/firebase-admin';
 import {fail,json,HttpError} from '@/lib/errors';
-import {sameOrigin,rateLimit} from '@/lib/security';
+import {sameOrigin,rateLimit,requireAppCheck} from '@/lib/security';
 import {storageIdentity,resolveR2} from '@/lib/r2-storage';
 import {signR2Url} from '@/lib/r2-signing';
 import {loadIntake} from '@/lib/intake-server';
@@ -25,6 +25,7 @@ export async function POST(req:NextRequest){
   if(v.purpose==='profile-photo'&&(!v.contentType.startsWith('image/')||v.byteSize>4*1024*1024))
    throw new HttpError(400,'Profile photos must be PNG or JPEG and no larger than 4 MB.');
   if(v.purpose==='cdf-document'){
+   if(identity.profile.role==='student')await requireAppCheck(req);
    if(!v.submissionId||!v.kind||!/^[a-zA-Z0-9_-]{8,64}$/.test(v.submissionId)||!/^[a-z][a-z0-9-]{1,60}$/.test(v.kind)||v.byteSize>4*1024*1024)
     throw new HttpError(400,'CDF evidence requires a valid application, document type and 4 MB maximum.');
    const policy=await loadIntake();
@@ -47,9 +48,9 @@ export async function POST(req:NextRequest){
   await db.collection('r2Files').doc(id).create({ownerUid:identity.uid,connectionId,key,
    purpose:v.purpose,fileName:v.fileName,contentType:v.contentType,byteSize:v.byteSize,
    ...(v.purpose==='cdf-document'?{submissionId:v.submissionId,kind:v.kind}:{}),
-   status:'pending',visibility:'private',sharedWith:[],createdAt:now,
+   status:'pending',writeOnce:true,visibility:'private',sharedWith:[],createdAt:now,
    uploadExpiresAt:new Date(Date.now()+5*60*1000).toISOString()});
-  return json({fileId:id,uploadUrl,uploadMethod:'PUT',headers:{'Content-Type':v.contentType},
+  return json({fileId:id,uploadUrl,uploadMethod:'PUT',headers:{'Content-Type':v.contentType,'If-None-Match':'*'},
    uploadExpiresInSeconds:180,completionEndpoint:'/api/r2/uploads/'+id+'/complete'},201);
  }catch(e){return fail(e);}
 }

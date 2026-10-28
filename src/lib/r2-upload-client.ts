@@ -1,10 +1,12 @@
 'use client';
-import {authHeaders} from './firebase-client';
+import {authHeaders,appCheckToken} from './firebase-client';
 type Purpose='profile-photo'|'personal-document'|'cdf-document';
 type Start={fileId:string;uploadUrl:string;headers:Record<string,string>;completionEndpoint:string};
-async function r2Json<T>(path:string,body:unknown):Promise<T>{
+async function r2Json<T>(path:string,body:unknown,requireAttestation=false):Promise<T>{
  const headers=await authHeaders();
- const res=await fetch(path,{method:'POST',headers:{...headers,'Content-Type':'application/json'},
+ const attestation=requireAttestation?await appCheckToken():'';
+ const res=await fetch(path,{method:'POST',headers:{...headers,'Content-Type':'application/json',
+  ...(attestation?{'X-Firebase-AppCheck':attestation}:{})},
   body:JSON.stringify(body),cache:'no-store'});
  const result=await res.json().catch(()=>({}));
  if(!res.ok)throw Error(result.error||'R2 request failed.');
@@ -13,10 +15,10 @@ async function r2Json<T>(path:string,body:unknown):Promise<T>{
 /** File bytes go directly to the presigned Cloudflare R2 endpoint. */
 export async function uploadToR2(file:File,purpose:Purpose,connectionId?:string,context?:{submissionId:string;kind:string}):Promise<string>{
  const started=await r2Json<Start>('/api/r2/uploads',{fileName:file.name,
-  contentType:file.type,byteSize:file.size,purpose,...(connectionId?{connectionId}:{}),...context});
+  contentType:file.type,byteSize:file.size,purpose,...(connectionId?{connectionId}:{}),...context},purpose==='cdf-document');
  const response=await fetch(started.uploadUrl,{method:'PUT',body:file,headers:started.headers});
  if(!response.ok)throw Error('Cloudflare R2 upload failed ('+response.status+'). Verify bucket CORS and permissions.');
- await r2Json(started.completionEndpoint,{});
+ await r2Json(started.completionEndpoint,{},purpose==='cdf-document');
  return started.fileId;
 }
 export async function r2ReadUrl(id:string):Promise<string>{
