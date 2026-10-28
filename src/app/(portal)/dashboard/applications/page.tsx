@@ -14,7 +14,7 @@ const nextStages:Record<string,SubmissionStatus[]>={
  under_review:['needs_information','accepted','rejected'],
  needs_information:['under_review','rejected'],
  accepted:['letter_issued','rejected'],
- letter_issued:['cdf_submitted','payment_verified','rejected'],
+ letter_issued:['under_review','cdf_submitted','payment_verified','rejected'],
  cdf_submitted:['cdf_approved','rejected'],
  cdf_approved:['cdf_funds_received'],
  cdf_funds_received:['commission_paid'],
