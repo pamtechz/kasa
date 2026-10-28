@@ -2,6 +2,7 @@ import {db} from '@/lib/firebase-admin';
 import {operator, newId, safeText, sameOrigin} from '@/lib/security';
 import {fail, json, HttpError} from '@/lib/errors';
 import type {ApplicantRecord, SubmissionStatus} from '@/lib/types';
+import {commissionDecision} from '@/lib/commission-eligibility';
 import {invalidateSubmissionsCache} from '@/lib/server-cache';
 
 export const runtime = 'nodejs';
@@ -38,11 +39,11 @@ export async function GET(req: Request) {
         submittedAt: x.submittedAt,
         status: x.status,
         note: (answers['agentNote'] as string) || '',
-        commission: x.commission
+        commission: commissionDecision(x as ApplicantRecord).eligible&&x.commission
           ? {
               amount: Number(x.commission.amount),
               currency: 'ZMW',
-              trigger: x.commission.trigger || 'cdf_approval',
+              trigger: x.commission.trigger || 'payment',
               paidAt: x.commission.paidAt || null
             }
           : null
@@ -113,11 +114,6 @@ export async function POST(req: Request) {
       submittedAt: now,
       updatedAt: now,
       fundingMethod,
-      commission: {
-        amount: 300,
-        currency: 'ZMW',
-        trigger: fundingMethod === 'cdf' ? 'cdf_approval' : 'payment'
-      },
       internalNotes: [
         {
           body: `Direct candidate enrollment registered by district agent ${agent.displayName || agent.email} (${agent.agentCode || 'Agent'}).${note ? ` Note: ${note}` : ''}`,
