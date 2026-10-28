@@ -20,8 +20,8 @@ export function InformationPage({mode}:{mode:Mode}){
  if(mode==='agents')return <><p className="lead-copy">{site.ctaDescription}</p><div className="site-cards"><article className="site-card"><h2>Apply and receive approval</h2><p>Prospective district agents apply and KASA reviews each application. Approved agents receive district assignments, authenticated accounts and unique referral codes.</p></article><article className="site-card"><h2>Refer students responsibly</h2><p>Share the official application link. Do not promise CDF approval or collect unofficial CDF application charges.</p></article><article className="site-card"><h2>Verified commissions</h2><p>Commission eligibility follows independently verified student payment or receipt of government CDF payment by KASA after official sponsorship approval and completed enrollment.</p></article></div><PublicApplicationLinks placement="catalog"/></>;
  function AdmissionsGuideAndChecklist({intake}:{intake:{open:boolean;reason?:string;opensAt?:string|null;closesAt?:string|null}|null}){
   const [checked,setChecked]=useState<Record<string,boolean>>({
-   nrc:true,
-   results:true,
+   nrc:false,
+   results:false,
    recommendation:false,
    cdf:false,
    photo:false
@@ -29,7 +29,7 @@ export function InformationPage({mode}:{mode:Mode}){
 
   const items=[
    {id:'nrc',label:'National Registration Card (NRC) or Guardian ID',desc:'Scanned copy or clear photo (PDF / PNG / JPG)'},
-   {id:'results',label:'Grade 12 Certificate or Grade 9 Result Slip',desc:'Certified copy of academic statements'},
+   {id:'results',label:'Academic result/certificate required for your selected programme',desc:'Check the specific programme's entry requirements; do not assume every course requires Grade 12.'},
    {id:'recommendation',label:'Recommendation / Reference Letter',desc:'Signed by head teacher, civic or church leader'},
    {id:'cdf',label:'Official CDF Application Form (If applying for CDF)',desc:'Completed constituency sponsorship form'},
    {id:'photo',label:'Passport Size Photo',desc:'Clear front-facing portrait photograph'}
