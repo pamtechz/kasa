@@ -118,13 +118,8 @@ export async function POST(req: NextRequest) {
     if (!phone) throw new HttpError(400, 'Candidate phone number is required.');
     if (!programme) throw new HttpError(400, 'Selected training programme is required.');
 
-    // Fetch referral settings for commission rates
-    const opsSnap = await db.collection('settings').doc('operations').get();
-    const ops = opsSnap.data() || {};
-    const cdfRate = Number(ops.commissionAmountCdf ?? ops.commissionAmount ?? 100);
-    const paidRate = Number(ops.commissionAmountPaid ?? ops.commissionAmount ?? 150);
-    // A submitted referral is not a commission; the rates are informational.
-
+    // Referral submission never sets or predicts a commission amount. KASA
+    // creates the approved amount only after fully funded enrollment.
     // Get student profile's agentCode
     const profileRef = db.collection('profiles').doc(user.uid);
     const profileSnap = await profileRef.get();
