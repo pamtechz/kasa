@@ -4,6 +4,7 @@ import {fail, HttpError, json} from '@/lib/errors';
 import {rateLimit, safeText, newId, sameOrigin} from '@/lib/security';
 import {invalidateSubmissionsCache} from '@/lib/server-cache';
 import type {ApplicantRecord} from '@/lib/types';
+import {commissionDecision} from '@/lib/commission-eligibility';
 
 export const runtime = 'nodejs';
 
@@ -67,9 +68,7 @@ export async function GET(req: NextRequest) {
         status: d.status,
         fundingMethod: d.fundingMethod,
         submittedAt: d.submittedAt,
-        commissionEarned: ['accepted', 'letter_issued', 'cdf_approved', 'payment_verified', 'commission_paid'].includes(d.status)
-          ? (d.fundingMethod === 'cdf' ? cdfRate : paidRate)
-          : 0
+        commissionEarned: commissionDecision(d).eligible ? Number(d.commission.amount) : 0
       });
     }
 
@@ -124,7 +123,7 @@ export async function POST(req: NextRequest) {
     const ops = opsSnap.data() || {};
     const cdfRate = Number(ops.commissionAmountCdf ?? ops.commissionAmount ?? 100);
     const paidRate = Number(ops.commissionAmountPaid ?? ops.commissionAmount ?? 150);
-    const commissionAmount = fundingMethod === 'cdf' ? cdfRate : paidRate;
+    // A submitted referral is not a commission; the rates are informational.
 
     // Get student profile's agentCode
     const profileRef = db.collection('profiles').doc(user.uid);
@@ -174,11 +173,6 @@ export async function POST(req: NextRequest) {
       submittedAt: now,
       updatedAt: now,
       fundingMethod,
-      commission: {
-        amount: commissionAmount,
-        currency: 'ZMW',
-        trigger: fundingMethod === 'cdf' ? 'cdf_approval' : 'payment'
-      },
       internalNotes: [
         {
           body: `Direct candidate referral registered by enrolled student ${user.name || user.email} (${agentCode}).${note ? ` Note: ${note}` : ''}`,
