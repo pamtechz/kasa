@@ -30,7 +30,15 @@ export async function GET(req:Request){
     fundingEvidence:decision.trigger==='payment'?x.paymentVerification?.reference:x.cdfDisbursement?.bankReference
    }];
   });
-  return json({commissions,truncated,totals:{
+  const reconciliation=docs.flatMap(doc=>{
+   const x=doc.data();
+   if(!x.commission||!x.agentId||commissionDecision(x).eligible)return [];
+   const decision=commissionDecision(x);
+   return [{submissionId:doc.id,reference:String(x.reference||''),agentId:String(x.agentId),
+     recordedAmount:Number(x.commission.amount)||0,previouslyPaid:Boolean(x.commission.paidAt),
+     legacyTrigger:String(x.commission.trigger||''),reason:decision.reason}];
+  });
+  return json({commissions,reconciliation,truncated,totals:{
    eligible:commissions.reduce((n,c)=>n+c.amount,0),
    paid:commissions.filter(c=>Boolean(c.paidAt)).reduce((n,c)=>n+c.amount,0),
    pending:commissions.filter(c=>!c.paidAt).reduce((n,c)=>n+c.amount,0)
