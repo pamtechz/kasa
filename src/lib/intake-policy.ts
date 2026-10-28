@@ -12,7 +12,7 @@ export const policySchema=z.object({
  notice:z.string().trim().max(500),
  maxApplicants:z.number().int().min(1).max(50000).nullable().optional(),
  autoApproveSelfFunded:z.boolean().default(false).optional(),
- autoApproveCdf:z.boolean().default(true).optional()
+ autoApproveCdf:z.boolean().default(false).optional()
 }).strict().superRefine((v,ctx)=>{
  if(v.opensAt&&v.closesAt&&Date.parse(v.opensAt)>=Date.parse(v.closesAt))
   ctx.addIssue({code:'custom',message:'Opening date must precede closing date'});
@@ -34,7 +34,7 @@ export const initialIntake:IntakePolicy={
   {id:'cdf-approval-notice',label:'Official CDF sponsorship approval notice'}
  ],
  notice:'Applications will open when KASA approves the intake.',
- maxApplicants:null,autoApproveSelfFunded:false,autoApproveCdf:true
+ maxApplicants:null,autoApproveSelfFunded:false,autoApproveCdf:false
 };
 export function normalizedIntake(input:unknown):IntakePolicy{
  const p=policySchema.safeParse(input);return p.success?p.data:initialIntake;
