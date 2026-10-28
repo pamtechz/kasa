@@ -11,7 +11,7 @@ export type FormSchema = {id:string;slug:string;title:string;subtitle:string;kin
 export type SubmissionStatus = 'submitted'|'under_review'|'needs_information'|'accepted'|'rejected'|'letter_issued'|'cdf_submitted'|'cdf_approved'|'cdf_funds_received'|'payment_verified'|'commission_paid';
 export type ApplicantRecord = {id:string;reference:string;formId:string;formTitle:string;formKind:FormKind;
   formVersion:number;status:SubmissionStatus;answers:Record<string,unknown>;agentId:string|null;applicantUid?:string|null;
-  submittedAt:string;updatedAt:string;cdfVerification?:{reference:string;verifiedAt:string;verifiedBy:string;fundingMethod?:'cdf';documentChecklist?:string[]};
+  submittedAt:string;updatedAt:string;cdfVerification?:{reference:string;verifiedAt:string;verifiedBy:string;fundingMethod?:'cdf';approvingAuthority?:string;documentChecklist?:string[]};
   formSnapshot?:Pick<FormSchema,'title'|'slug'|'sections'|'version'>;
   cdfDisbursement?:{governmentReference:string;bankReference:string;amount:number;verifiedAt:string;verifiedBy:string;enrollmentConfirmed:true};
   referralVerified?:{at:string;by:string};
