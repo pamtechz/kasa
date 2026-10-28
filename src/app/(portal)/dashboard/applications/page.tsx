@@ -54,7 +54,6 @@ export default function Applications(){
  const [newProgramme, setNewProgramme] = useState('');
  const [newFundingMethod, setNewFundingMethod] = useState<'cdf' | 'self_funded'>('cdf');
  const [newDistrict, setNewDistrict] = useState('');
- const [newStatus, setNewStatus] = useState<SubmissionStatus>('submitted');
  const [newNote, setNewNote] = useState('');
 
  async function createApplication(e: React.FormEvent) {
@@ -72,7 +71,6 @@ export default function Applications(){
      programme: newProgramme,
      fundingMethod: newFundingMethod,
      district: newDistrict,
-     status: newStatus,
      note: newNote
     })
    });
