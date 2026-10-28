@@ -173,7 +173,7 @@ export default function StudentPortalApplicationsPage() {
           </div>
         ) : (
           items.map(app => {
-            const isAccepted = ['accepted', 'letter_issued', 'cdf_submitted', 'cdf_approved', 'payment_verified', 'commission_paid'].includes(app.status);
+            const isAccepted = ['accepted', 'letter_issued', 'cdf_submitted', 'cdf_approved','cdf_funds_received', 'payment_verified', 'commission_paid'].includes(app.status);
 
             return (
               <div key={app.id} className="panel pad-panel" style={{borderLeft: '4px solid var(--green, #103f2c)'}}>
