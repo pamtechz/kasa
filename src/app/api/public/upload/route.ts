@@ -1,5 +1,7 @@
 import type {NextRequest} from 'next/server';
 import {storage} from '@/lib/firebase-admin';
+import {platformR2} from '@/lib/r2-storage';
+import {uploadInstitutionalObject} from '@/lib/institutional-storage';
 import {fail,HttpError,json} from '@/lib/errors';
 import {newId,rateLimit,requireAppCheck,sameOrigin} from '@/lib/security';
 export const runtime='nodejs';
@@ -19,8 +21,11 @@ export async function POST(req:NextRequest){
   const isPng=bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]));
   const isJpg=bytes[0]===255&&bytes[1]===216&&bytes[2]===255;
   if(!((file.type==='application/pdf'&&isPdf)||(file.type==='image/png'&&isPng)||(file.type==='image/jpeg'&&isJpg)))throw new HttpError(400,'The selected file does not match its type.');
-  const path=`staging/${newId()}.${allowed[file.type]}`;
-  await storage.bucket().file(path).save(bytes,{resumable:false,contentType:file.type,metadata:{cacheControl:'private, no-store'}});
+  // Guest forms remain App Check guarded. Use only opaque, unguessable references.
+  const useR2=Boolean(platformR2());
+  const path=`${useR2?'r2-staging':'staging'}/${newId()}.${allowed[file.type]}`;
+  if(useR2)await uploadInstitutionalObject(path,bytes,file.type);
+  else await storage.bucket().file(path).save(bytes,{resumable:false,contentType:file.type,metadata:{cacheControl:'private, no-store'}});
   return json({path,fileName:file.name.slice(0,160),contentType:file.type},201);
  }catch(e){return fail(e);}
 }

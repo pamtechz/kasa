@@ -8,6 +8,7 @@ import {populateDynamicOptions} from '@/lib/form-options';
 import type {FormSchema, SubmissionStatus} from '@/lib/types';
 import type {Attachment} from '@/lib/schema';
 import {loadIntake} from '@/lib/intake-server';
+import {R2_STAGING,institutionalObjectHead} from '@/lib/institutional-storage';
 import {intakeWindow,normalizedIntake} from '@/lib/intake-policy';
 import {automationSchema,defaultAutomations,formatNotification} from '@/lib/automations';
 export const runtime='nodejs';
@@ -67,11 +68,19 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{slug:string
   if(new Set(attachments.map(a=>a.path)).size!==attachments.length)
    throw new HttpError(400,'Each document must be uploaded separately. Please select a unique file for each question.');
   for(const a of attachments){
-   const [exists]=await storage.bucket().file(a.path).exists();
-   if(!exists)throw new HttpError(400,'An attachment could not be verified. Please upload it again.');
-   const [meta]=await storage.bucket().file(a.path).getMetadata();
-   if(Number(meta.size)>4*1024*1024||meta.contentType!==a.contentType)throw new HttpError(400,'Attachment validation failed.');
-   const uploadedAt=Date.parse(String(meta.timeCreated||''));
+   let size:number,contentType:string,createdAt:string;
+   if(R2_STAGING.test(a.path)){
+    const meta=await institutionalObjectHead(a.path);
+    size=meta.size;contentType=meta.contentType;createdAt=meta.lastModified;
+   }else{
+    const file=storage.bucket().file(a.path);
+    const [exists]=await file.exists();
+    if(!exists)throw new HttpError(400,'An attachment could not be verified. Please upload it again.');
+    const [meta]=await file.getMetadata();
+    size=Number(meta.size);contentType=String(meta.contentType||'');createdAt=String(meta.timeCreated||'');
+   }
+   if(!Number.isFinite(size)||size<1||size>4*1024*1024||contentType!==a.contentType)throw new HttpError(400,'Attachment validation failed.');
+   const uploadedAt=Date.parse(createdAt);
    const uploadAge=Date.now()-uploadedAt;
    if(!Number.isFinite(uploadedAt)||uploadAge< -5*60*1000||uploadAge>7*24*60*60*1000)
     throw new HttpError(400,'One of the uploaded documents has expired. Please upload a fresh copy.');

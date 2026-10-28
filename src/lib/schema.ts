@@ -132,11 +132,13 @@ export function cleanAnswers(schema:FormSchema,answers:unknown){
   const v=values[f.id];
   const empty=v===undefined||v===null||v===''||(Array.isArray(v)&&v.length===0);
   if(empty){if(f.required)throw new HttpError(400,`Please complete ${f.label}.`);continue;}
-  if(f.type==='file'){
+  if(f.type==='file'||(f.type==='image'&&typeof v==='object')){
    if(!v||typeof v!=='object'||Array.isArray(v))throw new HttpError(400,`Invalid attachment: ${f.label}.`);
    const a=v as Record<string,unknown>;
-   if(typeof a.path!=='string'||!/^staging\/[0-9a-f-]{36}\.(pdf|png|jpg)$/i.test(a.path)||typeof a.fileName!=='string'||typeof a.contentType!=='string')
+   if(typeof a.path!=='string'||!/^(?:staging|r2-staging)\/[0-9a-f-]{36}\.(pdf|png|jpg)$/i.test(a.path)||typeof a.fileName!=='string'||typeof a.contentType!=='string')
     throw new HttpError(400,`Invalid attachment: ${f.label}.`);
+   if(f.type==='image'&&!['image/png','image/jpeg'].includes(a.contentType))
+    throw new HttpError(400,`Only JPG or PNG images are accepted: ${f.label}.`);
    clean[f.id]={path:a.path,fileName:a.fileName.slice(0,160),contentType:a.contentType};continue;
   }
   if(f.type==='image'){
