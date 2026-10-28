@@ -15,6 +15,7 @@ type Summary = {
   totalPaymentsReceived: number;
   outstandingBalance: number;
   totalCdfApproved: number;
+  totalCdfFundsReceived: number;
   missingFeeQuotes: number;
   financialTotalsPartial: boolean;
   paymentReconciliationRequired: number;
@@ -31,6 +32,7 @@ type LedgerItem = {
   totalPackage: number | null;
   feeStatus: 'approved' | 'requires_reconciliation';
   paidAmount: number;
+  cdfFundsReceived?:number;
   outstandingBalance: number | null;
   paymentReference?: string;
   verifiedAt?: string;
@@ -107,13 +109,19 @@ export default function FinanceDashboardPage() {
           <div className="metric-icon green"><Wallet /></div>
           <span>Recorded Payments</span>
           <strong>{loading ? '—' : `ZMW ${(summary?.totalPaymentsReceived || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`}</strong>
-          <small>Bank & Mobile Money received</small>
+          <small>Self-funded receipts only; excludes government CDF transfers</small>
         </div>
         <div className="metric-card">
           <div className="metric-icon amber"><Building2 /></div>
-          <span>CDF Council Approved</span>
+          <span>Government CDF Approved (not necessarily paid)</span>
           <strong>{loading ? '—' : summary?.financialTotalsPartial ? 'Incomplete' : `ZMW ${(summary?.totalCdfApproved || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`}</strong>
-          <small>Government bursary funding</small>
+          <small>Officially approved but not necessarily received by KASA</small>
+        </div>
+        <div className="metric-card">
+          <div className="metric-icon green"><Building2 /></div>
+          <span>Verified Government CDF Money Received</span>
+          <strong>{loading ? '—' : `ZMW ${(summary?.totalCdfFundsReceived || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`}</strong>
+          <small>Documented KASA bank remittance and enrolled students</small>
         </div>
         <div className="metric-card">
           <div className="metric-icon purple"><CreditCard /></div>
