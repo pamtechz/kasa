@@ -49,7 +49,7 @@ test('CDF evidence is KASA-controlled and legacy Firebase attachments remain rea
  const finish=read('src/app/api/r2/uploads/[id]/complete/route.ts');
  const staff=read('src/app/api/admin/submissions/[id]/documents/route.ts');
  const student=read('src/app/api/student/applications/[id]/documents/route.ts');
- assert.match(start,/v\.purpose==='cdf-document'\?'platform'/);
+ assert.match(start, /\['cdf-document','acceptance-pdf'\]\.includes\(v\.purpose\)/);
  assert.match(start,/record\.applicantUid===identity\.uid/);
  assert.match(finish,/submissionRef/);
  assert.match(finish,/r2FileId:id/);

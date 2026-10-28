@@ -72,6 +72,25 @@ test('KASA preserves old file reads, guest forms, and image picker path validati
  assert.match(dynamic,/f\.type==='image'&&<div className="upload-box">/);
  assert.doesNotMatch(dynamic,/Open Cloudinary Console/);
 });
+test('large official PDF uses admin-only direct uploads with a reviewed ready asset',()=>{
+ const start=read('src/app/api/r2/uploads/route.ts');
+ const finish=read('src/app/api/r2/uploads/[id]/complete/route.ts');
+ const client=read('src/app/(portal)/dashboard/settings/acceptance-letter/page.tsx');
+ const attach=read('src/app/api/admin/settings/acceptance-letter/attach/route.ts');
+ const pdf=read('src/lib/custom-acceptance-pdf.ts');
+ assert.match(start,/acceptance-pdf/);
+ assert.match(start,/identity.profile.role/);
+ assert.match(start,/v.contentType!=='application\/pdf'/);
+ assert.match(start,/connectionId/);
+ assert.match(finish,/data.status==='ready'/);
+ assert.match(client,/uploadToR2\(file,'acceptance-pdf','platform'\)/);
+ assert.match(client,/\/api\/admin\/settings\/acceptance-letter\/attach/);
+ assert.match(attach,/operator\(req,\['super_admin','admin'\]\)/);
+ assert.match(attach,/asset.ownerUid!==actor.uid/);
+ assert.match(attach,/status!=='ready'/);
+ assert.match(pdf,/r2asset:/);
+});
+
 test('official PDF storage remains private with legacy reading and public media has an explicit gate',()=>{
  const admin=read('src/app/api/admin/settings/acceptance-letter/upload/route.ts');
  const pdf=read('src/lib/custom-acceptance-pdf.ts');

@@ -107,3 +107,5 @@ staff attachment read, an approved acceptance-pack upload/read, a public
 advertisement image, a profile/BYOB upload, both CDF uploader roles, denial
 for cross-account file reads, legacy Firebase references, expired presigned
 URLs, R2 outage behavior and rollback of the platform credentials.
+
+**Large official acceptance PDFs:** When platform R2 is enabled, the administrator's PDF editor uses a direct presigned PUT for uploads up to 25 MB, verifies file content during completion, and attaches the completed asset ID through an admin-only endpoint. This avoids the Vercel server multipart request-size ceiling. The older server multipart route remains only for pre-upgrade compatibility while institutional R2 is absent.
