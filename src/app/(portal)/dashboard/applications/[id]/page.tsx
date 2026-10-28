@@ -15,7 +15,7 @@ const nextStages:Record<string,SubmissionStatus[]>={
  under_review:['needs_information','accepted','rejected'],
  needs_information:['under_review','rejected'],
  accepted:['letter_issued','rejected'],
- letter_issued:['cdf_submitted','payment_verified','rejected'],
+ letter_issued:['under_review','cdf_submitted','payment_verified','rejected'],
  cdf_submitted:['cdf_approved','rejected'],
  cdf_approved:['cdf_funds_received'],
  cdf_funds_received:['commission_paid'],
@@ -291,7 +291,7 @@ export default function ApplicationDetailPage({params}:{params:Promise<{id:strin
        <select value={next} onChange={e=>setNext(e.target.value)}>
         <option value="">Select Action</option>
         {(selected.formKind==='student'?nextStages[selected.status]||[]:(nextStages[selected.status]||[]).filter(s=>!['letter_issued','cdf_submitted','cdf_approved','cdf_funds_received','payment_verified','commission_paid'].includes(s)))
-         .filter(s=>(s!=='commission_paid'||Boolean(selected.commission))&&(role!=='reviewer'||!['cdf_approved','cdf_funds_received','payment_verified','commission_paid'].includes(s)))
+         .filter(s=>(s!=='under_review'||selected.status!=='letter_issued'||selected.autoApproved===true)&&(s!=='commission_paid'||Boolean(selected.commission))&&(role!=='reviewer'||!['cdf_approved','cdf_funds_received','payment_verified','commission_paid'].includes(s)))
          .map(x=><option key={x} value={x}>{x.replaceAll('_',' ')}</option>)}
        </select>
       </div>
