@@ -17,7 +17,8 @@ const nextStages:Record<string,SubmissionStatus[]>={
  accepted:['letter_issued','rejected'],
  letter_issued:['cdf_submitted','payment_verified','rejected'],
  cdf_submitted:['cdf_approved','rejected'],
- cdf_approved:['commission_paid'],
+ cdf_approved:['cdf_funds_received'],
+ cdf_funds_received:['commission_paid'],
  payment_verified:['commission_paid']
 };
 
@@ -26,6 +27,11 @@ export default function ApplicationDetailPage({params}:{params:Promise<{id:strin
  const [selected,setSelected]=useState<ApplicantRecord|null>(null);
  const [next,setNext]=useState('');
  const [cdfRef,setCdfRef]=useState('');
+ const [cdfAuthority,setCdfAuthority]=useState('');
+ const [governmentRef,setGovernmentRef]=useState('');
+ const [bankRef,setBankRef]=useState('');
+ const [cdfAmount,setCdfAmount]=useState('');
+ const [cdfEnrollmentConfirmed,setCdfEnrollmentConfirmed]=useState(false);
  const [payRef,setPayRef]=useState('');
  const [paidRef,setPaidRef]=useState('');
  const [paidAmount,setPaidAmount]=useState('');
@@ -79,6 +85,9 @@ export default function ApplicationDetailPage({params}:{params:Promise<{id:strin
     body:JSON.stringify({
      status:next,
      cdfReference:cdfRef,
+     cdfApprovingAuthority:cdfAuthority,
+     cdfGovernmentPaymentReference:governmentRef,cdfBankReceiptReference:bankRef,
+     cdfAmountReceived:Number(cdfAmount),cdfEnrollmentConfirmed,
      paymentReference:payRef,
      enrollmentPaymentReference:paidRef,
      enrollmentPaymentAmount:Number(paidAmount),
@@ -88,7 +97,7 @@ export default function ApplicationDetailPage({params}:{params:Promise<{id:strin
     })
    });
    setMessage('Application status updated successfully.');
-   setNext(''); setCdfRef(''); setPayRef(''); setPaidRef(''); setPaidAmount('');
+   setNext(''); setCdfRef('');setCdfAuthority('');setGovernmentRef('');setBankRef('');setCdfAmount('');setCdfEnrollmentConfirmed(false); setPayRef(''); setPaidRef(''); setPaidAmount('');
    setEnrollmentConfirmed(false); setNote(''); setReferralVerified(false);
    await loadApplication();
   }catch(e){
@@ -185,7 +194,7 @@ export default function ApplicationDetailPage({params}:{params:Promise<{id:strin
   return <div className="panel pad-panel" style={{textAlign:'center',padding:60}}><p className="muted">Loading application details…</p></div>;
  }
 
- if(error||!selected){
+ if(!selected){
   return <div className="panel pad-panel">
    <Link href="/dashboard/applications" className="text-link" style={{marginBottom:16}}><ArrowLeft size={16}/> Back to Applications</Link>
    <div className="alert-error" style={{marginTop:16}}>{error||'Application not found.'}</div>
@@ -210,6 +219,9 @@ export default function ApplicationDetailPage({params}:{params:Promise<{id:strin
    <main style={{display:'grid',gap:20}}>
     <div className="panel pad-panel">
      <h2>Application Overview</h2>
+     <p className="muted">Admission is confirmed through staff review and a separately issued, quoted offer. Government CDF sponsorship approval is not cash received; only full, reconciled self-funded or government payments can complete funding and support commission.</p>
+     {selected.status==='cdf_approved'&&<p className="notice">Government sponsorship approved — funds not yet confirmed received by KASA. Do not issue a student ID or award commission.</p>}
+     {selected.status==='letter_issued'&&<p className="notice">Offer issued — tuition payment or government CDF support remains pending verification.</p>}
      <div className="detail-meta" style={{margin:'16px 0'}}>
       <div><small>Reference</small><strong>{selected.reference}</strong></div>
       <div><small>Form Title</small><strong>{selected.formTitle}</strong></div>
@@ -272,32 +284,41 @@ export default function ApplicationDetailPage({params}:{params:Promise<{id:strin
     {role!=='agent'&&(
      <div className="panel pad-panel">
       <h2>Update Application Status</h2>
-      <p className="muted">Change the status or record reviewer notes for this application.</p>
+      <p className="muted">Admission review, offer issue, official CDF approval, actual government payment and commission disbursement are separate audited decisions. An approval notice alone does not prove the fees were received.</p>
 
       <div className="field" style={{marginTop:16}}>
        <label>Next Status Action</label>
        <select value={next} onChange={e=>setNext(e.target.value)}>
         <option value="">Select Action</option>
-        {(selected.formKind==='student'?nextStages[selected.status]||[]:(nextStages[selected.status]||[]).filter(s=>!['letter_issued','cdf_submitted','cdf_approved','payment_verified','commission_paid'].includes(s)))
-         .filter(s=>(s!=='commission_paid'||Boolean(selected.commission))&&(role!=='reviewer'||!['cdf_approved','payment_verified','commission_paid'].includes(s)))
+        {(selected.formKind==='student'?nextStages[selected.status]||[]:(nextStages[selected.status]||[]).filter(s=>!['letter_issued','cdf_submitted','cdf_approved','cdf_funds_received','payment_verified','commission_paid'].includes(s)))
+         .filter(s=>(s!=='commission_paid'||Boolean(selected.commission))&&(role!=='reviewer'||!['cdf_approved','cdf_funds_received','payment_verified','commission_paid'].includes(s)))
          .map(x=><option key={x} value={x}>{x.replaceAll('_',' ')}</option>)}
        </select>
       </div>
 
       {next==='cdf_approved'&&(
-       <div className="field"><label>Official CDF Approval Reference</label><input value={cdfRef} onChange={e=>setCdfRef(e.target.value)} placeholder="Verification reference or record ID"/></div>
+       <><div className="field"><label>Official CDF Government Approval Reference</label><input value={cdfRef} onChange={e=>setCdfRef(e.target.value)} placeholder="Official approval document reference"/></div>
+   <div className="field"><label>Issuing government / CDF authority</label><input value={cdfAuthority} onChange={e=>setCdfAuthority(e.target.value)} placeholder="Government authority verifying award"/></div>
+   <p className="muted">This establishes government sponsorship authorization only. No fees or commission are earned at this stage.</p></>
       )}
 
+      {next==='cdf_funds_received'&&(<>
+       <p className="muted"><strong>Government money received by KASA:</strong> independently inspect the government transfer advice, the institution bank statement, full approved fee quote and the student enrollment. An approval letter is not sufficient.</p>
+       <div className="field"><label>Government disbursement / ministry payment reference</label><input value={governmentRef} onChange={e=>setGovernmentRef(e.target.value)} placeholder="Official government transaction reference"/></div>
+       <div className="field"><label>KASA bank remittance / deposit reference</label><input value={bankRef} onChange={e=>setBankRef(e.target.value)} placeholder="Confirmed bank receipt reference"/></div>
+       <div className="field"><label>Actual amount received by KASA (ZMW)</label><input type="number" min="0.01" step="0.01" value={cdfAmount} onChange={e=>setCdfAmount(e.target.value)}/></div>
+       <label className="required-toggle"><input type="checkbox" checked={cdfEnrollmentConfirmed} onChange={e=>setCdfEnrollmentConfirmed(e.target.checked)}/> I verified government remittance has cleared in KASA accounts and the student is actually enrolled.</label>
+      </>)}
       {next==='payment_verified'&&(
        <>
-        <label className="required-toggle"><input type="checkbox" checked={enrollmentConfirmed} onChange={e=>setEnrollmentConfirmed(e.target.checked)}/> I independently verified successful enrollment and required payment.</label>
+        <label className="required-toggle"><input type="checkbox" checked={enrollmentConfirmed} onChange={e=>setEnrollmentConfirmed(e.target.checked)}/> I verified student enrollment and FULL payment recorded in the Finance ledger against the approved fee quote.</label>
         <div className="field"><label>Verified Payment Receipt Number</label><input value={paidRef} onChange={e=>setPaidRef(e.target.value)} placeholder="Receipt number"/></div>
         <div className="field"><label>Verified Amount Paid (ZMW)</label><input type="number" min="0.01" step="0.01" value={paidAmount} onChange={e=>setPaidAmount(e.target.value)}/></div>
        </>
       )}
 
-      {['cdf_approved','payment_verified'].includes(next)&&selected.agentId&&selected.formKind==='student'&&(
-       <label className="required-toggle"><input type="checkbox" checked={referralVerified} onChange={e=>setReferralVerified(e.target.checked)}/> Verify agent referral commission</label>
+      {['cdf_funds_received','payment_verified'].includes(next)&&selected.agentId&&selected.formKind==='student'&&(
+       <label className="required-toggle"><input type="checkbox" checked={referralVerified} onChange={e=>setReferralVerified(e.target.checked)}/> Independently verify original agent attribution before awarding commission</label>
       )}
 
       {next==='commission_paid'&&(
