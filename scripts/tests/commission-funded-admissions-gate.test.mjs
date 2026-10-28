@@ -35,7 +35,7 @@ test('single fail-closed commission rule gates ledger and both referral summarie
  for(const src of [ledger,student,agent,board])assert.match(src,/commissionDecision/);
  assert.match(funding,/readApprovedFeeQuote/);
  assert.match(eligibility,/fundedEnrollment/);
- assert.match(eligibility,/status\)\)/);
+ assert.match(funding,/String\(record\.status\)/);
  assert.match(funding,/cdfDisbursement/);
  assert.match(eligibility,/record\.referralVerified\?\.at/);
  assert.doesNotMatch(board,/fundingMethod === 'cdf' \? 300 : 400/);
@@ -58,7 +58,7 @@ test('student ID, payouts and approvals have distinct proof and state',()=>{
  const route=read('src/app/api/admin/submissions/[id]/route.ts');
  const admission=read('src/app/(portal)/dashboard/applications/[id]/page.tsx');
  assert.doesNotMatch(card,/\['cdf_approved','payment_verified','commission_paid'\]/);
- assert.match(card,/fundedEnrollment\\(data\\)\\.funded/);
+ assert.match(card,/fundedEnrollment\(data\)\.funded/);
  assert.match(admission,/Government disbursement/);
  assert.match(admission,/KASA bank remittance/);
  assert.match(route,/commissionDecision/);
