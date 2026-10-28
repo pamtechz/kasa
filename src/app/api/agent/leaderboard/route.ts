@@ -1,6 +1,7 @@
 import {db} from '@/lib/firebase-admin';
 import {fail, json} from '@/lib/errors';
 import {operator} from '@/lib/security';
+import {commissionDecision} from '@/lib/commission-eligibility';
 
 export const runtime = 'nodejs';
 
@@ -15,7 +16,7 @@ function calculateAgentTier(enrollmentsCount: number): {
     return {
       tier: 'Diamond',
       eligibleForBonus: true,
-      bonusAmount: 1000 // ZMW 1,000 flat bonus
+      bonusAmount: 0 // No bonus may be invented from enrollment counts
     };
   }
   if (enrollmentsCount >= 13) {
@@ -86,11 +87,11 @@ export async function GET(req: Request) {
       if (agentUid && agentStats[agentUid]) {
         agentStats[agentUid].totalReferrals += 1;
 
-        const isConfirmed = ['accepted', 'letter_issued', 'cdf_submitted', 'cdf_approved', 'payment_verified', 'commission_paid'].includes(x.status);
+        const eligibility=commissionDecision(x);
+        const isConfirmed=eligibility.eligible;
         if (isConfirmed) {
           agentStats[agentUid].confirmedEnrollments += 1;
-          const comm = Number(x.commissionAmount) || (x.fundingMethod === 'cdf' ? 300 : 400);
-          agentStats[agentUid].monthlyEarned += comm;
+          agentStats[agentUid].monthlyEarned += eligibility.amount;
         }
       }
     }
