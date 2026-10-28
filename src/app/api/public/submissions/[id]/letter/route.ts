@@ -20,7 +20,7 @@ export async function GET(req: Request, {params}: {params: Promise<{id: string}>
     const data = snap.data()!;
     await authorizeSubmissionDocument(req,data);
 
-    if (!['accepted','letter_issued','cdf_submitted','cdf_approved','payment_verified','commission_paid'].includes(String(data.status))) {
+    if (!['accepted','letter_issued','cdf_submitted','cdf_approved','cdf_funds_received','payment_verified','commission_paid'].includes(String(data.status))) {
       throw new HttpError(403,'This application does not yet have an approved or conditional acceptance letter.');
     }
 
