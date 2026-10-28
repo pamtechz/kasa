@@ -9,6 +9,7 @@ import {
 import {api, PageHeader} from '@/components/Portal';
 import {VisualPdfCoordinateMapper} from '@/components/VisualPdfCoordinateMapper';
 import {authHeaders} from '@/lib/firebase-client';
+import {uploadToR2} from '@/lib/r2-upload-client';
 import {
   type AcceptanceLetterConfig,
   defaultAcceptanceLetterConfig
@@ -62,13 +63,22 @@ export default function AcceptanceLetterDesigner() {
     setMessage('');
     try {
       const headers = await authHeaders();
-      const fd = new FormData();
-      fd.append('file', file);
-      const res = await fetch('/api/admin/settings/acceptance-letter/upload', {
-        method: 'POST',
-        headers,
-        body: fd
-      });
+      const probe=await fetch('/api/r2/connections',{headers,cache:'no-store'});
+      if(!probe.ok)throw Error('Unable to check KASA institutional storage.');
+      const platforms=await probe.json();
+      let res:Response;
+      if(platforms.platformAvailable){
+        const fileId=await uploadToR2(file,'acceptance-pdf','platform');
+        res=await fetch('/api/admin/settings/acceptance-letter/attach',{
+         method:'POST',headers:{...headers,'Content-Type':'application/json'},
+         body:JSON.stringify({fileId})
+        });
+      }else{
+        const fd=new FormData();fd.append('file',file);
+        res=await fetch('/api/admin/settings/acceptance-letter/upload',{
+         method:'POST',headers,body:fd
+        });
+      }
       const data = await res.json();
       if (!res.ok) throw Error(data.error || 'Failed to upload Acceptance Pack PDF.');
       setConfig(prev => ({

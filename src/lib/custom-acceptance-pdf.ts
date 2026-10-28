@@ -1,6 +1,7 @@
 import 'server-only';
 import {isIP} from 'node:net';
-import {storage} from '@/lib/firebase-admin';
+import {storage,db} from '@/lib/firebase-admin';
+import {signedR2Read} from '@/lib/r2-storage';
 import {HttpError} from '@/lib/errors';
 import {R2_ACCEPTANCE,readInstitutionalObject} from '@/lib/institutional-storage';
 
@@ -35,6 +36,26 @@ function checkPdf(buffer:Buffer):Buffer {
 /** Only allow uploaded KASA acceptance PDFs or PDFs from expressly approved HTTPS hosts. */
 export async function loadCustomAcceptancePdf(source:CustomPdfSource):Promise<Buffer> {
   if(source.type==='upload') {
+    if(/^r2asset:[a-f0-9-]{36}$/i.test(source.url)){
+      const fileId=source.url.slice(8);
+      const asset=(await db.collection('r2Files').doc(fileId).get()).data();
+      if(!asset||asset.status!=='ready'||asset.purpose!=='acceptance-pdf'||
+         asset.connectionId!=='platform'||asset.contentType!=='application/pdf'||
+         typeof asset.ownerUid!=='string'||asset.ownerUid.length<3||
+         asset.key!=='private/'+asset.ownerUid+'/acceptance-pdf/'+fileId+'.pdf')
+       throw new HttpError(403,'Unrecognized institutional acceptance PDF.');
+      const meta=Number(asset.byteSize);
+      if(!Number.isFinite(meta)||meta<1||meta>MAX_PDF_BYTES)
+       throw new HttpError(413,'Acceptance PDF exceeds the permitted size.');
+      const url=await signedR2Read(asset.ownerUid,'platform',asset.key);
+      const result=await fetch(url,{redirect:'error',signal:AbortSignal.timeout(20000),cache:'no-store'});
+      if(!result.ok)throw new HttpError(502,'Unable to read institutional acceptance PDF.');
+      const reported=Number(result.headers.get('content-length')||'0');
+      if(reported>MAX_PDF_BYTES)throw new HttpError(413,'Acceptance PDF exceeds the permitted size.');
+      const bytes=Buffer.from(await result.arrayBuffer());
+      if(bytes.length!==meta)throw new HttpError(422,'Acceptance PDF storage verification failed.');
+      return checkPdf(bytes);
+    }
     if(R2_ACCEPTANCE.test(source.url))return checkPdf(await readInstitutionalObject(source.url,MAX_PDF_BYTES));
     // Reject arbitrary object reads, remote URLs, traversal and other bucket paths.
     if(!/^acceptance-pack\/[a-f0-9-]{36}-[a-zA-Z0-9._-]{1,140}$/.test(source.url) ||

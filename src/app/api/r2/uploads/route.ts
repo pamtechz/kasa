@@ -11,7 +11,7 @@ export const runtime='nodejs';
 const schema=z.object({fileName:z.string().trim().min(1).max(160),
  contentType:z.enum(['image/jpeg','image/png','application/pdf']),
  byteSize:z.number().int().min(1).max(25*1024*1024),
- purpose:z.enum(['profile-photo','personal-document','cdf-document']),
+ purpose:z.enum(['profile-photo','personal-document','cdf-document','acceptance-pdf']),
  submissionId:z.string().max(64).optional(),kind:z.string().max(60).optional(),
  connectionId:z.string().min(1).max(100).optional()
 }).strict();
@@ -24,6 +24,9 @@ export async function POST(req:NextRequest){
   const v=parsed.data;
   if(v.purpose==='profile-photo'&&(!v.contentType.startsWith('image/')||v.byteSize>4*1024*1024))
    throw new HttpError(400,'Profile photos must be PNG or JPEG and no larger than 4 MB.');
+  if(v.purpose==='acceptance-pdf'&&
+   (!['super_admin','admin'].includes(identity.profile.role)||v.contentType!=='application/pdf'))
+   throw new HttpError(403,'Only KASA administrators can upload an institutional acceptance PDF.');
   if(v.purpose==='cdf-document'){
    if(identity.profile.role==='student')await requireAppCheck(req);
    if(!v.submissionId||!v.kind||!/^[a-zA-Z0-9_-]{8,64}$/.test(v.submissionId)||!/^[a-z][a-z0-9-]{1,60}$/.test(v.kind)||v.byteSize>4*1024*1024)
@@ -39,7 +42,7 @@ export async function POST(req:NextRequest){
   }
   // Regulated institutional CDF documents always use the KASA-controlled bucket.
   // A user's revocable personal BYOB connection cannot hold institutional evidence.
-  const connectionId=v.purpose==='cdf-document'?'platform':(v.connectionId||'platform');
+  const connectionId=['cdf-document','acceptance-pdf'].includes(v.purpose)?'platform':(v.connectionId||'platform');
   const bucket=await resolveR2(identity.uid,connectionId);
   const id=randomUUID(),suffix=v.contentType==='image/png'?'png':v.contentType==='image/jpeg'?'jpg':'pdf';
   const key='private/'+identity.uid+'/'+v.purpose+'/'+id+'.'+suffix;

@@ -1,6 +1,6 @@
 'use client';
 import {authHeaders,appCheckToken} from './firebase-client';
-type Purpose='profile-photo'|'personal-document'|'cdf-document';
+type Purpose='profile-photo'|'personal-document'|'cdf-document'|'acceptance-pdf';
 type Start={fileId:string;uploadUrl:string;headers:Record<string,string>;completionEndpoint:string};
 async function r2Json<T>(path:string,body:unknown,requireAttestation=false):Promise<T>{
  const headers=await authHeaders();

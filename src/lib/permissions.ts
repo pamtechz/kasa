@@ -83,7 +83,7 @@ export function routeCapability(pathname:string,method:string):Capability|null{
  if(path('/api/admin/site'))return verb==='GET'?'site.read':'site.manage';
  if(path('/api/admin/settings/acceptance-letter/preview-enrollment-form'))return 'settings.manage';
  if(path('/api/admin/settings/acceptance-letter/preview'))return 'settings.read';
- if(path('/api/admin/settings(?:/acceptance-letter(?:/upload)?)?'))
+ if(path('/api/admin/settings(?:/acceptance-letter(?:/(?:upload|attach))?)?'))
   return verb==='GET'?'settings.read':'settings.manage';
  if(path('/api/admin/file'))return 'documents.read';
  if(path('/api/admin/submissions/batch-email'))return 'applications.review';
