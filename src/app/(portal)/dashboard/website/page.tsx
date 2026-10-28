@@ -3,6 +3,7 @@ import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import {Save,Plus,Trash2,ExternalLink,Megaphone,Eye,MousePointerClick} from 'lucide-react';
 import {api,PageHeader} from '@/components/Portal';
+import {authHeaders} from '@/lib/firebase-client';
 import {defaultSite,type SiteSettings} from '@/lib/site';
 import type {AdCampaign} from '@/app/api/admin/ads/route.ts';
 type Key=keyof SiteSettings;
@@ -62,6 +63,19 @@ export default function Website(){
   } finally { setBusy(false); }
  }
 
+ async function uploadAdMedia(file?:File){
+  if(!file)return;
+  setBusy(true);setError('');setMessage('');
+  try{
+   const headers=await authHeaders(),body=new FormData();body.append('file',file);
+   const response=await fetch('/api/admin/ads/media',{method:'POST',headers,body});
+   const result=await response.json().catch(()=>({}));
+   if(!response.ok)throw Error(result.error||'Image upload failed.');
+   setNewAdImage(result.url);
+   setMessage('Banner stored securely in KASA Cloudflare R2. Save the campaign to publish it.');
+  }catch(e){setError(e instanceof Error?e.message:'Image upload failed.');}
+  finally{setBusy(false);}
+ }
  async function toggleAd(ad: AdCampaign) {
   try {
    await api('/api/admin/ads', {
@@ -120,7 +134,7 @@ export default function Website(){
      <div className="form-grid">
       <div className="field full"><label>Ad Headline *</label><input required placeholder="E.g. 2027 January Intake Admissions Now Open!" value={newAdHeadline} onChange={e=>setNewAdHeadline(e.target.value)}/></div>
       <div className="field full"><label>Description / Subtitle</label><input placeholder="E.g. Apply for TEVETA-certified General Agriculture or Short Courses." value={newAdDesc} onChange={e=>setNewAdDesc(e.target.value)}/></div>
-      <div className="field"><label>Image Banner URL (Cloudinary / Image)</label><input placeholder="https://res.cloudinary.com/..." value={newAdImage} onChange={e=>setNewAdImage(e.target.value)}/></div>
+      <div className="field"><label>Upload banner (PNG or JPG, maximum 4 MB)</label><input type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg" disabled={busy} onChange={e=>void uploadAdMedia(e.target.files?.[0])}/>{newAdImage&&<small className="field-hint">Image uploaded to KASA storage, ready to publish.</small>}</div>
       <div className="field"><label>Target Destination URL</label><input placeholder="https://... or /apply/kasa-enrollment-form" value={newAdUrl} onChange={e=>setNewAdUrl(e.target.value)}/></div>
       <div className="field"><label>Placement Location</label><select value={newAdPlacement} onChange={e=>setNewAdPlacement(e.target.value as any)}><option value="all">All Public Pages & Portal</option><option value="homepage_hero">Homepage Hero Banner</option><option value="programmes">Programmes Catalog</option><option value="student_portal">Student Portal Only</option></select></div>
      </div>

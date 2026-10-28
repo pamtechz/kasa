@@ -5,9 +5,10 @@ import {signR2Url} from './r2-signing';
 
 // Private namespaces prevent supplied paths from reaching unrelated objects.
 export const R2_STAGING=/^r2-staging\/[a-f0-9-]{36}\.(?:pdf|jpg|png)$/i;
+export const R2_PUBLIC_MEDIA=/^r2-public-media\/[a-f0-9-]{36}\.(?:jpg|png)$/i;
 export const R2_ACCEPTANCE=/^r2-acceptance-pack\/[a-f0-9-]{36}-[a-zA-Z0-9._-]{1,140}$/i;
 function configured(path:string){
- if(!R2_STAGING.test(path)&&!R2_ACCEPTANCE.test(path))
+ if(!R2_STAGING.test(path)&&!R2_ACCEPTANCE.test(path)&&!R2_PUBLIC_MEDIA.test(path))
   throw new HttpError(403,'Unrecognized institutional object path.');
  const bucket=platformR2();
  if(!bucket)throw new HttpError(503,'KASA institutional R2 storage is not configured.');

@@ -74,7 +74,7 @@ export function routeCapability(pathname:string,method:string):Capability|null{
  if(path('/api/admin/users(?:/[^/]+)?')||path('/api/admin/users/provision'))
   return verb==='GET'?'users.read':'users.manage';
  if(path('/api/admin/agents(?:/[^/]+)?'))return verb==='GET'?'agents.read':'agents.manage';
- if(path('/api/admin/ads'))return verb==='GET'?'ads.read':'ads.manage';
+ if(path('/api/admin/ads(?:/media)?'))return verb==='GET'?'ads.read':'ads.manage';
  if(path('/api/admin/automations'))return verb==='GET'?'automation.read':'automation.manage';
  if(path('/api/admin/content'))return verb==='GET'?'content.read':'content.manage';
  if(path('/api/admin/forms/import'))return 'forms.manage';
