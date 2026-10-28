@@ -8,6 +8,7 @@ import {api,PageHeader,StatusBadge} from '@/components/Portal';
 import type {ApplicantRecord,SubmissionStatus} from '@/lib/types';
 import {ConfirmModal} from '@/components/ConfirmModal';
 import {authHeaders} from '@/lib/firebase-client';
+import {uploadCdfDocumentDirect} from '@/lib/r2-upload-client';
 import type {IntakePolicy} from '@/lib/intake-policy';
 
 const nextStages:Record<string,SubmissionStatus[]>={
@@ -124,10 +125,13 @@ export default function ApplicationDetailPage({params}:{params:Promise<{id:strin
   if(!selected||!file)return;
   setBusy(true);setError('');
   try{
+   const r2Uploaded=await uploadCdfDocumentDirect(file,selected.id,kind);
+   if(!r2Uploaded){
    const headers=await authHeaders();
    const body=new FormData();body.append('kind',kind);body.append('file',file);
    const response=await fetch('/api/admin/submissions/'+selected.id+'/documents',{method:'POST',headers,body});
    const result=await response.json();if(!response.ok)throw Error(result.error||'Document upload failed.');
+   }
    setMessage('Document uploaded successfully.');
    await loadApplication();
   }catch(e){setError(e instanceof Error?e.message:'Upload failed.');}finally{setBusy(false);}
