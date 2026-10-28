@@ -41,7 +41,7 @@ export async function POST(req:Request){
   const programme=safeText(body.programme,150);
   const fundingMethod:( 'cdf' | 'self_funded' )=(body.fundingMethod==='self_funded'?'self_funded':'cdf');
   const district=safeText(body.district,80);
-  const initialStatus:SubmissionStatus=(['submitted','under_review','accepted'].includes(body.status)?body.status:'submitted');
+  const initialStatus:SubmissionStatus='submitted'; // Registration is never an acceptance decision.
   const noteText=safeText(body.note,500);
 
   if(!studentName) throw new HttpError(400,'Student full name is required.');
