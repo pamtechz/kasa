@@ -13,10 +13,13 @@ type Commission={
  fundingEvidence:string|null
 };
 type Totals={eligible:number;paid:number;pending:number};
+type Reconciliation={submissionId:string;reference:string;agentId:string;recordedAmount:number;previouslyPaid:boolean;legacyTrigger:string;reason:string};
 
 export default function Commissions(){
  const [role,setRole]=useState<Role|null>(null);
  const [items,setItems]=useState<Commission[]>([]);
+ const [reconciliation,setReconciliation]=useState<Reconciliation[]>([]);
+ const [truncated,setTruncated]=useState(false);
  const [totals,setTotals]=useState<Totals>({eligible:0,paid:0,pending:0});
  const [filter,setFilter]=useState('all');
  const [error,setError]=useState('');
@@ -24,8 +27,9 @@ export default function Commissions(){
 
  async function load(){
   try{
-   const data=await api<{commissions:Commission[];totals:Totals}>('/api/admin/commissions');
+   const data=await api<{commissions:Commission[];reconciliation:Reconciliation[];truncated:boolean;totals:Totals}>('/api/admin/commissions');
    setItems(data.commissions);
+   setReconciliation(data.reconciliation||[]);setTruncated(Boolean(data.truncated));
    setTotals(data.totals);
   }catch(err){setError(err instanceof Error?err.message:'Unable to load commissions.');}
  }
@@ -35,10 +39,11 @@ export default function Commissions(){
 
  return <>
   <PageHeader title="Commissions and referrals"
-   subtitle="Commissions are created only after independently verified tuition payment or CDF approval."
+   subtitle="Commissions require completed admissions, full student tuition receipts or government CDF funds actually received by KASA, plus independently verified referral evidence."
    action={can(role,'settings.manage')?<Link href="/dashboard/settings" className="btn btn-outline">Configure rates <ExternalLink size={16}/></Link>:undefined}/>
   {error&&<div className="alert-error" role="alert">{error}</div>}
   {notice&&<div className="notice" role="status">{notice}</div>}
+  {truncated&&<div className="alert-error" role="alert">This ledger exceeds the current reporting limit; displayed totals are partial and must not be used as audited financial totals.</div>}
   <div className="metric-grid">
    <div className="metric-card"><div className="metric-icon blue"><Banknote/></div><span>Eligible</span><strong>K{totals.eligible.toFixed(2)}</strong></div>
    <div className="metric-card"><div className="metric-icon green"><CheckCircle2/></div><span>Paid</span><strong>K{totals.paid.toFixed(2)}</strong></div>
@@ -55,7 +60,7 @@ export default function Commissions(){
     <thead><tr><th>Application</th><th>Agent ID</th><th>Eligibility</th><th>Amount</th><th>Status</th><th>Evidence</th><th>Action</th></tr></thead>
     <tbody>{visible.map(item=><tr key={item.submissionId}>
      <td><strong>{item.reference}</strong></td><td><small>{item.agentId}</small></td>
-     <td>{item.trigger==='payment'?'Tuition payment':'CDF approval'}</td>
+     <td>{item.trigger==='payment'?'Full tuition verified':'Government CDF remittance received'}</td>
      <td>K{item.amount.toFixed(2)}</td>
      <td><span className={'tag '+(item.paidAt?'tag-green':'tag-amber')}>{item.paidAt?'Paid':'Pending'}</span></td>
      <td>{item.paymentReference||item.fundingEvidence||'—'}</td>
@@ -64,5 +69,14 @@ export default function Commissions(){
    </table></div>
   </div>
 
+  <section className="panel" style={{marginTop:20}}>
+   <div className="panel-title"><h2>Historical and incomplete commission records needing reconciliation</h2>
+    <p>These records have a previous commission amount but fail today&apos;s fully-funded eligibility controls. No further payouts can be recorded until authorized evidence is reconciled. Previously recorded transfers are not erased.</p></div>
+   <div className="table-scroll"><table className="data-table"><thead><tr><th>Application</th><th>Agent</th><th>Legacy amount</th><th>Recorded payout</th><th>Reason held</th></tr></thead>
+    <tbody>{reconciliation.map(row=><tr key={row.submissionId}><td><Link href={'/dashboard/applications/'+encodeURIComponent(row.submissionId)}>{row.reference}</Link></td>
+     <td>{row.agentId}</td><td>K{row.recordedAmount.toFixed(2)}</td><td>{row.previouslyPaid?'Historical transfer recorded':'No payout'}</td><td>{row.reason}</td></tr>)}
+    {!reconciliation.length&&<tr><td colSpan={5}>No legacy commission discrepancies were found in the scanned ledger.</td></tr>}</tbody>
+   </table></div>
+  </section>
  </>;
 }

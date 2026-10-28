@@ -226,7 +226,7 @@ export default function MyReferrals({editorId}:{editorId?:string}={}) {
 
   const filtered = useMemo(() => {
     return referralsList.filter(r => {
-      if (statusFilter === 'pending' && ['cdf_approved', 'commission_paid'].includes(r.status)) return false;
+      if (statusFilter === 'pending' && ['cdf_approved','cdf_funds_received', 'commission_paid'].includes(r.status)) return false;
       if (statusFilter === 'approved' && r.status !== 'cdf_approved') return false;
       if (statusFilter === 'paid' && r.status !== 'commission_paid') return false;
       if (q.trim()) {

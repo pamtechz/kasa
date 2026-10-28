@@ -111,24 +111,14 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{slug:string
    if(!currentWindow.open)throw new HttpError(403,currentWindow.reason);
    if(!currentForm.exists||!currentForm.data()?.published||currentForm.data()?.version!==form.version)throw new HttpError(409,'Form has changed or closed. Refresh before applying.');
 
-   const autoApproveCdf=policyObj.autoApproveCdf!==false;
-   const autoApproveSelf=Boolean(policyObj.autoApproveSelfFunded);
-   if(isCdf){
-    fundingMethod='cdf';
-    // For CDF sponsorship applicants, immediately issue conditional acceptance letter
-    // so they can present it to local government/council CDF committees for sponsorship approval.
-    finalStatus='letter_issued';
-    autoApproved=true;
-    autoApprovalReason='Conditional Acceptance Letter issued for CDF Council Sponsorship Application';
-   }else{
-    fundingMethod='self_funded';
-    if(autoApproveSelf){
-     finalStatus='accepted';
-     autoApproved=true;
-     autoApprovalReason='Admin policy auto-approval for personal sponsorship';
-    }
-   }
-
+   // Funding method is a request, not an admission decision.
+   // Every CDF and self-funded application starts in submitted status.
+   // A verified human reviewer must accept it; an approved quote must be
+   // attached before any acceptance pack is issued.
+   fundingMethod=isCdf?'cdf':'self_funded';
+   finalStatus='submitted';
+   autoApproved=false;
+   autoApprovalReason='';
    // Firestore transactions require all reads before any writes.
    const duplicateRef=fingerprintId?db.collection('applicationDedupe').doc(fingerprintId):null;
    const legacyRef=legacyFingerprintId&&legacyFingerprintId!==fingerprintId
@@ -166,13 +156,13 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{slug:string
     submittedAt:now,updatedAt:now,
     history:[
      {at:now,status:'submitted',by:'applicant'},
-     ...(autoApproved?[{at:now,status:'accepted' as SubmissionStatus,by:'system_auto_approval'}]:[])
+
     ]
    });
-   for(const rule of automationConfig.rules.filter(r=>r.enabled&&r.event===(autoApproved?'accepted':'submitted'))){
+   for(const rule of automationConfig.rules.filter(r=>r.enabled&&r.event==='submitted')){
     if(rule.recipient==='agent'&&!agentId)continue;
     tx.create(db.collection('notificationOutbox').doc(),{
-     kind:'application_status',submissionId:id,reference,event:autoApproved?'accepted':'submitted',
+     kind:'application_status',submissionId:id,reference,event:'submitted',
      recipient:rule.recipient,recipientUid:rule.recipient==='agent'?agentId:null,
      title:rule.name,message:formatNotification(rule.template,reference),
      state:'pending',createdAt:now

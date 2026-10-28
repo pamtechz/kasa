@@ -37,7 +37,7 @@ export async function POST(req: Request) {
     }
 
     const acceptedList = submissions.filter(s =>
-      s.formKind === 'student' && ['accepted', 'letter_issued', 'cdf_submitted', 'cdf_approved', 'payment_verified', 'commission_paid'].includes(s.status)
+      s.formKind === 'student' && ['letter_issued', 'cdf_submitted', 'cdf_approved', 'cdf_funds_received', 'payment_verified', 'commission_paid'].includes(s.status)
     );
 
     if (acceptedList.length === 0) {

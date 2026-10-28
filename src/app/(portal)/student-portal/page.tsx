@@ -70,7 +70,7 @@ export default function StudentPortalDashboard() {
         <div className="metric-card">
           <div className="metric-icon green"><CheckCircle2 /></div>
           <span>Admission Status</span>
-          <strong>{loading ? '—' : items.some(a => ['accepted','letter_issued','cdf_submitted','cdf_approved','payment_verified'].includes(a.status)) ? 'OFFER ISSUED' : 'UNDER REVIEW'}</strong>
+          <strong>{loading ? '—' : items.some(a => ['accepted','letter_issued','cdf_submitted','cdf_approved','cdf_funds_received','payment_verified'].includes(a.status)) ? 'OFFER ISSUED' : 'UNDER REVIEW'}</strong>
           <small>CDF Sponsorship & Enrolment</small>
         </div>
         <div className="metric-card">

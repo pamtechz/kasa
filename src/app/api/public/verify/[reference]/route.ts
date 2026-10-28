@@ -7,7 +7,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const OFFER_STATES = [
-  'accepted','letter_issued','cdf_submitted','cdf_approved',
+  'letter_issued','cdf_submitted','cdf_approved','cdf_funds_received',
   'payment_verified','commission_paid'
 ];
 

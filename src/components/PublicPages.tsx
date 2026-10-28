@@ -17,11 +17,11 @@ export function InformationPage({mode}:{mode:Mode}){
  if(mode==='about')return <><p className="lead-copy">{site.aboutDescription}</p><div className="site-cards">{site.aboutValues.map((x,i)=><article className="site-card" key={i}><h2>{x.title}</h2><p>{x.description}</p></article>)}</div><p>Interested in the programmes? <Link className="text-link" href="/programmes">Explore available courses <ArrowRight size={15}/></Link></p></>;
  if(mode==='how')return <><p className="lead-copy">{site.howDescription}</p><div className="site-cards">{site.steps.map((x,i)=><article className="site-card" key={i}><span className="overline">STEP {i+1}</span><h2>{x.title}</h2><p>{x.description}</p></article>)}</div><p>Acceptance to a programme is separate from government sponsorship approval.</p></>;
  if(mode==='contact')return <div className="site-cards"><article className="site-card"><h2>{site.contactTitle}</h2><p>{site.contactDescription}</p><p>{site.contactEmail?<a href={'mailto:'+site.contactEmail}>{site.contactEmail}</a>:'Email not published yet'}</p><p>{site.contactPhone?<a href={'tel:'+site.contactPhone}>{site.contactPhone}</a>:'Phone contact not published yet'}</p></article></div>;
- if(mode==='agents')return <><p className="lead-copy">{site.ctaDescription}</p><div className="site-cards"><article className="site-card"><h2>Apply and receive approval</h2><p>Prospective district agents apply and KASA reviews each application. Approved agents receive district assignments, authenticated accounts and unique referral codes.</p></article><article className="site-card"><h2>Refer students responsibly</h2><p>Share the official application link. Do not promise CDF approval or collect unofficial CDF application charges.</p></article><article className="site-card"><h2>Verified commissions</h2><p>Commission eligibility follows independently verified student payment or official CDF sponsorship approval supported by required documents.</p></article></div><PublicApplicationLinks placement="catalog"/></>;
+ if(mode==='agents')return <><p className="lead-copy">{site.ctaDescription}</p><div className="site-cards"><article className="site-card"><h2>Apply and receive approval</h2><p>Prospective district agents apply and KASA reviews each application. Approved agents receive district assignments, authenticated accounts and unique referral codes.</p></article><article className="site-card"><h2>Refer students responsibly</h2><p>Share the official application link. Do not promise CDF approval or collect unofficial CDF application charges.</p></article><article className="site-card"><h2>Verified commissions</h2><p>Commission eligibility follows independently verified student payment or receipt of government CDF payment by KASA after official sponsorship approval and completed enrollment.</p></article></div><PublicApplicationLinks placement="catalog"/></>;
  function AdmissionsGuideAndChecklist({intake}:{intake:{open:boolean;reason?:string;opensAt?:string|null;closesAt?:string|null}|null}){
   const [checked,setChecked]=useState<Record<string,boolean>>({
-   nrc:true,
-   results:true,
+   nrc:false,
+   results:false,
    recommendation:false,
    cdf:false,
    photo:false
@@ -29,7 +29,7 @@ export function InformationPage({mode}:{mode:Mode}){
 
   const items=[
    {id:'nrc',label:'National Registration Card (NRC) or Guardian ID',desc:'Scanned copy or clear photo (PDF / PNG / JPG)'},
-   {id:'results',label:'Grade 12 Certificate or Grade 9 Result Slip',desc:'Certified copy of academic statements'},
+   {id:'results',label:'Academic result/certificate required for your selected programme',desc:'Check the specific programme entry requirements; do not assume every course requires Grade 12.'},
    {id:'recommendation',label:'Recommendation / Reference Letter',desc:'Signed by head teacher, civic or church leader'},
    {id:'cdf',label:'Official CDF Application Form (If applying for CDF)',desc:'Completed constituency sponsorship form'},
    {id:'photo',label:'Passport Size Photo',desc:'Clear front-facing portrait photograph'}
@@ -53,24 +53,15 @@ export function InformationPage({mode}:{mode:Mode}){
    </div>
 
    <div className="section-block">
-    <span className="overline">3-STEP APPLICATION FLOW</span>
+    <span className="overline">SIX CLEAR ADMISSION AND FUNDING STAGES</span>
     <h2>How to apply for KASA admission</h2>
     <div className="site-cards steps-grid">
-     <article className="site-card step-card">
-      <span className="step-num">01</span>
-      <h3>Select Course & Intake</h3>
-      <p>Choose your preferred training programme and intake period from the published catalogue.</p>
-     </article>
-     <article className="site-card step-card">
-      <span className="step-num">02</span>
-      <h3>Prepare & Upload Files</h3>
-      <p>Attach certified copies of your NRC, academic statement, and recommendation letter.</p>
-     </article>
-     <article className="site-card step-card">
-      <span className="step-num">03</span>
-      <h3>Track & Confirm Funding</h3>
-      <p>KASA evaluates your application. Confirm enrollment via verified self-funded payment or official CDF sponsorship approval.</p>
-     </article>
+     <article className="site-card step-card"><span className="step-num">01</span><h3>Apply for a programme</h3><p>Select a currently offered course and intake; submit your details and required documents. This is an application, not an admission offer.</p></article>
+     <article className="site-card step-card"><span className="step-num">02</span><h3>KASA reviews eligibility</h3><p>Admissions staff check your qualifications and documents. They may request more information before deciding.</p></article>
+     <article className="site-card step-card"><span className="step-num">03</span><h3>Admission decision and fees</h3><p>After review, KASA can accept or reject the application. An accepted applicant receives an approved, documented fee quotation.</p></article>
+     <article className="site-card step-card"><span className="step-num">04</span><h3>Offer or acceptance pack</h3><p>KASA issues a formal offer separately. CDF applicants may use their official offer to support an application to the appropriate government bodies; it does not guarantee sponsorship.</p></article>
+     <article className="site-card step-card"><span className="step-num">05</span><h3>Complete actual payment</h3><p>Self-funded: KASA receives and verifies all required fees. CDF: an approval notice is checked, then KASA must actually receive and reconcile the government remittance.</p></article>
+     <article className="site-card step-card"><span className="step-num">06</span><h3>Confirm enrollment</h3><p>Admissions confirm that the student has enrolled and funding is fully reconciled. Only then can a linked referral qualify for commission.</p></article>
     </div>
    </div>
 
@@ -115,7 +106,7 @@ export function InformationPage({mode}:{mode:Mode}){
      </div>
      <div>
       <strong>Verification & Acceptance</strong>
-      <p>Applicants receiving CDF sponsorship must provide official approval letters issued by their local CDF committee before enrollment is confirmed.</p>
+      <p>CDF approval is not payment. KASA verifies the responsible government office, then confirms enrollment only after the government remittance is received and reconciled against the approved fee quotation.</p>
      </div>
     </div>
     <div style={{marginTop:20,paddingTop:16,borderTop:'1px solid #cbe2d3',display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:12}}>

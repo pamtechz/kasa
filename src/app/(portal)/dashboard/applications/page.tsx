@@ -14,9 +14,10 @@ const nextStages:Record<string,SubmissionStatus[]>={
  under_review:['needs_information','accepted','rejected'],
  needs_information:['under_review','rejected'],
  accepted:['letter_issued','rejected'],
- letter_issued:['cdf_submitted','payment_verified','rejected'],
+ letter_issued:['under_review','cdf_submitted','payment_verified','rejected'],
  cdf_submitted:['cdf_approved','rejected'],
- cdf_approved:['commission_paid'],
+ cdf_approved:['cdf_funds_received'],
+ cdf_funds_received:['commission_paid'],
  payment_verified:['commission_paid']
 };
 
@@ -53,7 +54,6 @@ export default function Applications(){
  const [newProgramme, setNewProgramme] = useState('');
  const [newFundingMethod, setNewFundingMethod] = useState<'cdf' | 'self_funded'>('cdf');
  const [newDistrict, setNewDistrict] = useState('');
- const [newStatus, setNewStatus] = useState<SubmissionStatus>('submitted');
  const [newNote, setNewNote] = useState('');
 
  async function createApplication(e: React.FormEvent) {
@@ -71,7 +71,6 @@ export default function Applications(){
      programme: newProgramme,
      fundingMethod: newFundingMethod,
      district: newDistrict,
-     status: newStatus,
      note: newNote
     })
    });
@@ -236,7 +235,7 @@ export default function Applications(){
  async function downloadLetter(){if(!selected)return;setError('');try{const headers=await authHeaders();const res=await fetch(`/api/admin/submissions/${selected.id}/letter`,{headers});if(!res.ok){const body=await res.json();throw Error(body.error||'Unable to generate letter.');}const blob=await res.blob();const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`KASA-Acceptance-${selected.reference}.pdf`;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);}catch(e){setError(e instanceof Error?e.message:'Unable to download letter.');}}
  async function viewFile(field:string){if(!selected)return;try{const result=await api<{url:string}>(`/api/admin/file?submissionId=${selected.id}&fieldId=${encodeURIComponent(field)}`);window.open(result.url,'_blank','noopener,noreferrer');}catch(e){setError(e instanceof Error?e.message:'Unable to open attachment.');}}
 
- return <><PageHeader title="Applications" subtitle="Review recruitment and student applications, verify CDF outcomes and manage commission records." action={role!=='agent'?<Link href="/dashboard/applications/new" className="btn btn-primary" style={{display:'inline-flex',alignItems:'center',gap:6}}><Plus size={16}/> New application</Link>:undefined}/>
+ return <><PageHeader title="Applications" subtitle="Review admission separately from offers, verified tuition receipts, government CDF approval and confirmed government remittances. The commission ledger is funded-enrollment-only." action={role!=='agent'?<Link href="/dashboard/applications/new" className="btn btn-primary" style={{display:'inline-flex',alignItems:'center',gap:6}}><Plus size={16}/> New application</Link>:undefined}/>
  <div className="panel">
   <div className="table-controls" style={{flexWrap:'wrap',gap:12}}>
    <label className="search-box"><Search size={18}/><input placeholder="Search applications or reference…" value={q} onChange={e=>setQ(e.target.value)}/></label>

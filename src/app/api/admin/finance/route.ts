@@ -29,6 +29,7 @@ export async function GET(req: Request) {
     let totalRevenueExpected = 0;
     let totalPaymentsReceived = 0;
     let totalCdfApproved = 0;
+    let totalCdfFundsReceived = 0;
     let missingFeeQuotes = 0;
     let paymentReconciliationRequired = 0;
     let outstandingBalance = 0;
@@ -50,10 +51,15 @@ export async function GET(req: Request) {
       if (!paymentValid) paymentReconciliationRequired++;
       const paidAmount = paymentValid ? recorded : 0;
       totalPaymentsReceived += paidAmount;
-      const cdfApproved = x.fundingMethod === 'cdf' && ['cdf_approved','commission_paid'].includes(x.status);
-      if (cdfApproved && totalPackage !== null) totalCdfApproved += totalPackage;
-      const due = totalPackage === null ? null : Math.max(0,totalPackage - paidAmount);
-      if (due !== null && !cdfApproved) outstandingBalance += due;
+      const cdfApproved = x.fundingMethod === 'cdf' && ['cdf_approved','cdf_funds_received','commission_paid'].includes(x.status);
+      if (cdfApproved && totalPackage !== null) totalCdfApproved += totalPackage; // sanctioned value, NOT received cash
+      const remittance = x.cdfDisbursement;
+      const cdfVerified = x.fundingMethod === 'cdf' && ['cdf_funds_received','commission_paid'].includes(x.status) &&
+        Boolean(remittance?.verifiedAt && remittance?.bankReference && remittance?.governmentReference && remittance?.enrollmentConfirmed);
+      const cdfReceived = cdfVerified ? Number(remittance.amount||0) : 0;
+      if(cdfVerified&&Number.isFinite(cdfReceived)&&cdfReceived>0)totalCdfFundsReceived+=cdfReceived;
+      const due = totalPackage === null ? null : Math.max(0,totalPackage - paidAmount - (Number.isFinite(cdfReceived)?cdfReceived:0));
+      if (due !== null) outstandingBalance += due;
 
       return {
         id: x.id,
@@ -65,6 +71,7 @@ export async function GET(req: Request) {
         totalPackage,
         feeStatus: quote ? 'approved' : 'requires_reconciliation',
         paidAmount,
+        cdfFundsReceived: Number.isFinite(cdfReceived)?cdfReceived:0,
         outstandingBalance: due,
         paymentReference: x.paymentVerification?.reference || null,
         verifiedAt: x.paymentVerification?.verifiedAt || null,
@@ -78,6 +85,7 @@ export async function GET(req: Request) {
         totalPaymentsReceived,
         outstandingBalance,
         totalCdfApproved,
+        totalCdfFundsReceived,
         missingFeeQuotes,
         paymentReconciliationRequired,
         truncated,

@@ -38,10 +38,9 @@ export default function Intake(){
    <input type="number" min="1" placeholder="E.g. 200 (leave blank for unlimited)" value={policy.maxApplicants ?? ''} onChange={e=>update('maxApplicants',e.target.value?Number(e.target.value):null)}/>
    <p className="muted">When the total applicants count reaches this cap, the system automatically stops accepting new applications.</p>
   </div>
-  <h2>Automatic approval rules</h2>
-  <label className="required-toggle"><input type="checkbox" checked={policy.autoApproveCdf!==false} onChange={e=>update('autoApproveCdf',e.target.checked)}/>Automatically approve applicants selecting CDF sponsorship & generate acceptance pack</label>
-  <label className="required-toggle"><input type="checkbox" checked={Boolean(policy.autoApproveSelfFunded)} onChange={e=>update('autoApproveSelfFunded',e.target.checked)}/>Automatically approve Self-funded / Personal applicants (otherwise subject to manual review)</label>
-<div className="field"><label>Message shown when closed</label><textarea rows={3} value={policy.notice} onChange={e=>update('notice',e.target.value)}/></div>
+  <h2>Admissions decisions and funding</h2>
+  <p className="muted">Applications require independent admissions review, an approved programme fee quote and a separately issued offer. Selecting CDF never approves admission, guarantees a bursary or records government payment. Automatic-approval flags in historical policies are ignored for new applications.</p>
+  <div className="field"><label>Message shown when closed</label><textarea rows={3} value={policy.notice} onChange={e=>update('notice',e.target.value)}/></div>
  <h2>Individual forms</h2><p className="muted">Draft/unpublished forms are always closed. The global application switch must be enabled before any published form can open.</p>
  {forms.map(f=><label key={f.slug} className="required-toggle"><input type="checkbox" checked={policy.formOverrides[f.slug]!==false} onChange={e=>update('formOverrides',{...policy.formOverrides,[f.slug]:e.target.checked})}/>{f.title} <small>({f.published?'published':'draft'})</small></label>)}
  <h2>Training intakes</h2><p className="muted">These intake choices are database records, not fixed in the application code. Activate only current offers.</p>

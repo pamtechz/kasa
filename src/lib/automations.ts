@@ -1,5 +1,5 @@
 import {z} from 'zod';
-export const automationEvents=['submitted','under_review','needs_information','accepted','rejected','letter_issued','cdf_submitted','cdf_approved','payment_verified','commission_paid'] as const;
+export const automationEvents=['submitted','under_review','needs_information','accepted','rejected','letter_issued','cdf_submitted','cdf_approved','cdf_funds_received','payment_verified','commission_paid'] as const;
 export const automationRuleSchema=z.object({
  id:z.string().min(2).max(70).regex(/^[a-zA-Z0-9_-]+$/),
  name:z.string().trim().min(2).max(100),
