@@ -29,7 +29,7 @@ export function InformationPage({mode}:{mode:Mode}){
 
   const items=[
    {id:'nrc',label:'National Registration Card (NRC) or Guardian ID',desc:'Scanned copy or clear photo (PDF / PNG / JPG)'},
-   {id:'results',label:'Academic result/certificate required for your selected programme',desc:'Check the specific programme's entry requirements; do not assume every course requires Grade 12.'},
+   {id:'results',label:'Academic result/certificate required for your selected programme',desc:'Check the specific programme entry requirements; do not assume every course requires Grade 12.'},
    {id:'recommendation',label:'Recommendation / Reference Letter',desc:'Signed by head teacher, civic or church leader'},
    {id:'cdf',label:'Official CDF Application Form (If applying for CDF)',desc:'Completed constituency sponsorship form'},
    {id:'photo',label:'Passport Size Photo',desc:'Clear front-facing portrait photograph'}
