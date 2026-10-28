@@ -13,7 +13,7 @@ const stages:Record<SubmissionStatus,SubmissionStatus[]>={
  under_review:['needs_information','accepted','rejected'],
  needs_information:['under_review','rejected'],
  accepted:['letter_issued','rejected'],
- letter_issued:['cdf_submitted','payment_verified','rejected'],
+ letter_issued:['under_review','cdf_submitted','payment_verified','rejected'],
  cdf_submitted:['cdf_approved','rejected'],
  cdf_approved:['cdf_funds_received'],cdf_funds_received:['commission_paid'],payment_verified:['commission_paid'],
  commission_paid:[],rejected:[]
@@ -44,6 +44,8 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
    const previous=snap.data()!;
    if(!stages[previous.status as SubmissionStatus]?.includes(status))
     throw new HttpError(400,'Invalid status transition. Refresh this application.');
+   if(status==='under_review'&&previous.status==='letter_issued'&&previous.autoApproved!==true)
+    throw new HttpError(409,'Only legacy automatically issued offers may be returned to independent admissions review.');
    if(status==='letter_issued'&&!readApprovedFeeQuote(previous.feeQuote))
     throw new HttpError(409,'Document an approved application-specific fee quote before issuing a student acceptance letter.');
    if(previous.formKind!=='student'&&['letter_issued','cdf_submitted','cdf_approved','cdf_funds_received','payment_verified','commission_paid'].includes(status))
@@ -54,7 +56,7 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
 
    // Applications and offer letters are admission decisions, never payment evidence.
    const quote=readApprovedFeeQuote(previous.feeQuote);
-   if(['cdf_submitted','cdf_approved','cdf_funds_received','payment_verified'].includes(status)&&!quote)
+   if(['cdf_submitted','cdf_approved','cdf_funds_received','payment_verified'].includes(status)&&(!quote||quote.total<=0))
     throw new HttpError(409,'Reconcile and approve the exact student fee quotation before any funding milestone.');
    if(['cdf_submitted','cdf_approved','cdf_funds_received'].includes(status)&&previous.fundingMethod!=='cdf')
     throw new HttpError(409,'CDF milestones require an application registered for CDF sponsorship.');
