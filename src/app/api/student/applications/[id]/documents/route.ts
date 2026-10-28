@@ -1,5 +1,6 @@
 import type {NextRequest} from 'next/server';
 import {db,storage} from '@/lib/firebase-admin';
+import {signedR2Read} from '@/lib/r2-storage';
 import {sameOrigin,requireAppCheck,rateLimit,audit,newId} from '@/lib/security';
 import {verifiedStudent} from '@/lib/student-access';
 import {loadIntake} from '@/lib/intake-server';
@@ -101,6 +102,12 @@ export async function GET(req:Request,{params}:{params:Promise<{id:string}>}){
    throw new HttpError(404,'Application not found.');
   }
   const document=record.data()?.documents?.[kind];
+  if(typeof document?.r2FileId==='string'&&document.path==='r2:'+document.r2FileId){
+   const asset= (await db.collection('r2Files').doc(document.r2FileId).get()).data();
+   if(!asset||asset.status!=='ready'||asset.purpose!=='cdf-document'||asset.submissionId!==id||asset.kind!==kind||asset.connectionId!=='platform')
+    throw new HttpError(404,'R2 document unavailable.');
+   return json({url:await signedR2Read(asset.ownerUid,asset.connectionId,asset.key),expiresInSeconds:90});
+  }
   if(!document?.path || !String(document.path).startsWith('cdf-documents/'+id+'/')){
    throw new HttpError(404,'Document not found.');
   }

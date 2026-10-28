@@ -40,6 +40,11 @@ service cloud.firestore {
   match /fundingVerifications/{id} { allow read, write: if false; }
   match /commissionPayments/{id} { allow read, write: if false; }
   match /payoutRequests/{id} { allow read, write: if false; }
+  // R2 object metadata, connections and encrypted BYOB secrets are server-only.
+  // Never permit Firestore client reads of secrets or unsigned private object keys.
+  match /r2Connections/{id} { allow read, write: if false; }
+  match /r2ConnectionSecrets/{id} { allow read, write: if false; }
+  match /r2Files/{id} { allow read, write: if false; }
   match /rateLimits/{id} { allow read, write: if false; }
   match /auditLogs/{id} { allow read, write: if false; }
   match /siteContent/{id} { allow read, write: if false; }

@@ -8,6 +8,7 @@ import {
   FileCheck, Clock, ShieldCheck, RefreshCw, AlertCircle
 } from 'lucide-react';
 import {authHeaders} from '@/lib/firebase-client';
+import {uploadCdfDocumentDirect} from '@/lib/r2-upload-client';
 import {StatusBadge} from '@/components/Portal';
 
 type ApplicantItem = {
@@ -54,17 +55,20 @@ export default function StudentApplicationsPage() {
     setError('');
     setMessage('');
     try {
+      const r2Uploaded=await uploadCdfDocumentDirect(file,submissionId,kind);
+      if(!r2Uploaded){
       const headers = await authHeaders();
       const body = new FormData();
       body.append('kind', kind);
       body.append('file', file);
-      const res = await fetch(`/api/admin/submissions/${submissionId}/documents`, {
+      const res = await fetch(`/api/student/applications/${submissionId}/documents`, {
         method: 'POST',
         headers,
         body
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Document upload failed.');
+      }
       setMessage('Document uploaded successfully and queued for admissions review.');
       await loadApplications();
     } catch (err) {
