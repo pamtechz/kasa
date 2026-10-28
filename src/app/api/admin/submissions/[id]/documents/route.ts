@@ -1,5 +1,6 @@
 import type {NextRequest} from 'next/server';
 import {db,storage} from '@/lib/firebase-admin';
+import {signedR2Read} from '@/lib/r2-storage';
 import {operator,sameOrigin,audit,newId} from '@/lib/security';
 import {loadIntake} from '@/lib/intake-server';
 import {fail,json,HttpError} from '@/lib/errors';
@@ -65,6 +66,12 @@ export async function GET(req:Request,{params}:{params:Promise<{id:string}>}){
   const {id}=await params,kind=new URL(req.url).searchParams.get('kind')||'';
   const doc=await db.collection('submissions').doc(id).get();
   const file=doc.data()?.documents?.[kind];
+  if(typeof file?.r2FileId==='string'&&file.path==='r2:'+file.r2FileId){
+   const snap=await db.collection('r2Files').doc(file.r2FileId).get(),asset=snap.data();
+   if(!asset||asset.status!=='ready'||asset.purpose!=='cdf-document'||asset.submissionId!==id||asset.kind!==kind||asset.connectionId!=='platform')
+    throw new HttpError(404,'R2 document unavailable.');
+   return json({url:await signedR2Read(asset.ownerUid,asset.connectionId,asset.key),expiresInSeconds:90});
+  }
   if(!file?.path||!file.path.startsWith('cdf-documents/'+id+'/'))throw new HttpError(404,'Document not found.');
   const [url]=await storage.bucket().file(file.path).getSignedUrl({action:'read',expires:Date.now()+2*60*1000});
   return json({url,expiresInSeconds:120});
