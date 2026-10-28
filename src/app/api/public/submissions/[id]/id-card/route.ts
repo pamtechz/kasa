@@ -1,4 +1,5 @@
 import {authorizeSubmissionDocument} from '@/lib/submission-access';
+import {fundedEnrollment} from '@/lib/funded-enrollment';
 import {db} from '@/lib/firebase-admin';
 import {fail, HttpError} from '@/lib/errors';
 import {generateStudentIdCardPdf, type StudentIdCardData} from '@/lib/pdf-student-id';
@@ -13,7 +14,7 @@ export async function GET(req: Request, {params}: {params: Promise<{id: string}>
     const data = snap.data()!;
     await authorizeSubmissionDocument(req,data);
 
-    if (!['cdf_funds_received','payment_verified','commission_paid'].includes(String(data.status))) {
+    if (!fundedEnrollment(data).funded) {
       throw new HttpError(403,'A student ID is available only after verified enrollment.');
     }
 
