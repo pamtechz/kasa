@@ -15,7 +15,7 @@ function calculateAgentTier(enrollmentsCount: number): {
   if (enrollmentsCount >= 20) {
     return {
       tier: 'Diamond',
-      eligibleForBonus: true,
+      eligibleForBonus: false,
       bonusAmount: 0 // No bonus may be invented from enrollment counts
     };
   }
@@ -91,7 +91,8 @@ export async function GET(req: Request) {
         const isConfirmed=eligibility.eligible;
         if (isConfirmed) {
           agentStats[agentUid].confirmedEnrollments += 1;
-          agentStats[agentUid].monthlyEarned += eligibility.amount;
+          if(String(x.commission?.approvedAt||'').startsWith(monthKey))
+            agentStats[agentUid].monthlyEarned += eligibility.amount;
         }
       }
     }
