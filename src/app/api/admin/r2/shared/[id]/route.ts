@@ -17,6 +17,10 @@ export async function GET(req:Request,{params}:{params:Promise<{id:string}>}){
   if(!grant||!file||grant.ownerUid!==file.ownerUid||file.status!=='ready'||
      file.sharedWithKasa!==true||file.purpose!=='personal-document')
    throw new HttpError(404,'This document has not been shared with KASA.');
+  if(file.connectionId==='oauth')return json({
+   proxyUrl:'/api/r2/oauth/files/'+id+'/content',fileName:file.fileName,
+   contentType:file.contentType,provider:'cloudflare-r2-rest'
+  });
   // The owner can disconnect the bucket; reads then fail closed.
   const url=await signedR2Read(file.ownerUid,file.connectionId,file.key);
   return json({url,expiresInSeconds:90,fileName:file.fileName,contentType:file.contentType});

@@ -10,6 +10,10 @@ export async function GET(req:Request,{params}:{params:Promise<{id:string}>}){
   if(!file||file.status!=='ready')throw new HttpError(404,'File unavailable.');
   if(file.ownerUid!==uid&&!(Array.isArray(file.sharedWith)&&file.sharedWith.includes(uid)))
    throw new HttpError(403,'File access denied.');
+  if(file.connectionId==='oauth')return json({
+   proxyUrl:'/api/r2/oauth/files/'+id+'/content',fileName:file.fileName,
+   contentType:file.contentType,provider:'cloudflare-r2-rest',expiresInSeconds:0
+  });
   const url=await signedR2Read(file.ownerUid,file.connectionId,file.key);
   return json({url,expiresInSeconds:90,fileName:file.fileName,contentType:file.contentType,
    visibility:file.visibility,provider:'cloudflare-r2'});

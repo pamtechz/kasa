@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import ts from 'typescript';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url);
 const read=p=>readFileSync(new URL('../../'+p,import.meta.url),'utf8');
 function transpile(path,stubs){
  const exports={};
