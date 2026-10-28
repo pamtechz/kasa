@@ -53,24 +53,15 @@ export function InformationPage({mode}:{mode:Mode}){
    </div>
 
    <div className="section-block">
-    <span className="overline">3-STEP APPLICATION FLOW</span>
+    <span className="overline">SIX CLEAR ADMISSION AND FUNDING STAGES</span>
     <h2>How to apply for KASA admission</h2>
     <div className="site-cards steps-grid">
-     <article className="site-card step-card">
-      <span className="step-num">01</span>
-      <h3>Select Course & Intake</h3>
-      <p>Choose your preferred training programme and intake period from the published catalogue.</p>
-     </article>
-     <article className="site-card step-card">
-      <span className="step-num">02</span>
-      <h3>Prepare & Upload Files</h3>
-      <p>Attach certified copies of your NRC, academic statement, and recommendation letter.</p>
-     </article>
-     <article className="site-card step-card">
-      <span className="step-num">03</span>
-      <h3>Track & Confirm Funding</h3>
-      <p>KASA evaluates your application. KASA reviews your application first. Enrollment requires confirmed full fees paid directly or government CDF funds actually received by KASA.</p>
-     </article>
+     <article className="site-card step-card"><span className="step-num">01</span><h3>Apply for a programme</h3><p>Select a currently offered course and intake; submit your details and required documents. This is an application, not an admission offer.</p></article>
+     <article className="site-card step-card"><span className="step-num">02</span><h3>KASA reviews eligibility</h3><p>Admissions staff check your qualifications and documents. They may request more information before deciding.</p></article>
+     <article className="site-card step-card"><span className="step-num">03</span><h3>Admission decision and fees</h3><p>After review, KASA can accept or reject the application. An accepted applicant receives an approved, documented fee quotation.</p></article>
+     <article className="site-card step-card"><span className="step-num">04</span><h3>Offer or acceptance pack</h3><p>KASA issues a formal offer separately. CDF applicants may use their official offer to support an application to the appropriate government bodies; it does not guarantee sponsorship.</p></article>
+     <article className="site-card step-card"><span className="step-num">05</span><h3>Complete actual payment</h3><p>Self-funded: KASA receives and verifies all required fees. CDF: an approval notice is checked, then KASA must actually receive and reconcile the government remittance.</p></article>
+     <article className="site-card step-card"><span className="step-num">06</span><h3>Confirm enrollment</h3><p>Admissions confirm that the student has enrolled and funding is fully reconciled. Only then can a linked referral qualify for commission.</p></article>
     </div>
    </div>
 
