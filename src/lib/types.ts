@@ -34,7 +34,7 @@ export type Profile = {
   marathonAccess?:MarathonAccess;
   agentCode?:string; district?:string; province?:string; constituency?:string; ward?:string;
   commissionOverride?:number; referralsCount?:number; totalCommission?:number; isStudent?:boolean;
-  phone?:string; address?:string; photoUrl?:string; bio?:string;
+  phone?:string; address?:string; photoUrl?:string; photoAssetId?:string; bio?:string;
   mustChangePassword?:boolean;
   /** Server-issued marker: only global super admin initial-password provisioning. */
   adminPasswordProvisionedAt?:string;
