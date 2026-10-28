@@ -1,5 +1,7 @@
 import type {NextRequest} from 'next/server';
 import {storage, db} from '@/lib/firebase-admin';
+import {platformR2} from '@/lib/r2-storage';
+import {uploadInstitutionalObject} from '@/lib/institutional-storage';
 import {fail, HttpError, json} from '@/lib/errors';
 import {operator, sameOrigin, audit, newId} from '@/lib/security';
 
@@ -30,16 +32,12 @@ export async function POST(req: NextRequest) {
     }
 
     const safeName = file.name.slice(0, 140).replace(/[^a-zA-Z0-9._-]/g, '_');
-    const path = `acceptance-pack/${newId()}-${safeName}`;
-    const fileRef = storage.bucket().file(path);
-
-    await fileRef.save(bytes, {
-      resumable: false,
-      contentType: 'application/pdf',
-      metadata: {
-        cacheControl: 'public, max-age=3600',
-        uploadedBy: user.uid,
-        originalName: file.name
+    const useR2=Boolean(platformR2());
+    const path = `${useR2?'r2-acceptance-pack':'acceptance-pack'}/${newId()}-${safeName}`;
+    if(useR2)await uploadInstitutionalObject(path,bytes,'application/pdf');
+    else await storage.bucket().file(path).save(bytes,{
+      resumable:false,contentType:'application/pdf',metadata:{
+       cacheControl:'private,no-store',uploadedBy:user.uid,originalName:file.name
       }
     });
 

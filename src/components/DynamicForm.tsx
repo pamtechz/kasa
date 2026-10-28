@@ -1,11 +1,10 @@
 'use client';
 import {useEffect,useMemo,useRef,useState} from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import {signInWithEmailAndPassword,updatePassword} from 'firebase/auth';
 import {
  ArrowLeft,ArrowRight,CheckCircle2,LoaderCircle,Paperclip,
- ShieldCheck,Image as ImageIcon,FileDown,LockKeyhole,Copy,KeyRound,Check,Users,ExternalLink
+ ShieldCheck,Image as ImageIcon,FileDown,LockKeyhole,Copy,KeyRound,Check,Users
 } from 'lucide-react';
 import type {Field,FormSchema} from '@/lib/types';
 import {appCheckToken,auth,requireClientAuth} from '@/lib/firebase-client';
@@ -61,7 +60,9 @@ export function DynamicForm({form,agentCode}:{form:FormSchema;agentCode?:string}
    const v=answers[f.id];
    if(f.required && (v===undefined||v===null||v===''||(Array.isArray(v)&&!v.length)))return `Please complete: ${f.label}.`;
    if(v && f.type==='email'&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v)))return `Enter a valid email: ${f.label}.`;
-   if(v && f.type==='image'&&!/^https:\/\/res\.cloudinary\.com\/[a-zA-Z0-9_-]+\/image\/upload\/.+/i.test(String(v)))return `Uploading images must be from https://console.cloudinary.com/app strictly (URL must start with https://res.cloudinary.com/): ${f.label}.`;
+   if(v && f.type==='image'&&!(typeof v==='object'&&v!==null&&'path' in v)&&
+     !(typeof v==='string'&&/^https:\/\/res\.cloudinary\.com\//i.test(v)))
+    return `Choose a JPG or PNG image for: ${f.label}.`;
   }
   return '';
  }
@@ -71,7 +72,9 @@ export function DynamicForm({form,agentCode}:{form:FormSchema;agentCode?:string}
   setError('');setUploading(f.id);
   try{
    if(file.size>4*1024*1024)throw Error('File must not exceed 4 MB.');
-   if(!['application/pdf','image/jpeg','image/png'].includes(file.type))throw Error('Choose a PDF, JPG or PNG document.');
+   if(!['application/pdf','image/jpeg','image/png'].includes(file.type)||
+       (f.type==='image'&&!['image/jpeg','image/png'].includes(file.type)))
+     throw Error(f.type==='image'?'Choose a JPG or PNG image.':'Choose a PDF, JPG or PNG document.');
    const data=new FormData();data.append('file',file);
    const token=await appCheckToken();
    const res=await fetch('/api/public/upload',{method:'POST',headers:token?{'X-Firebase-AppCheck':token}:{},body:data});
@@ -326,23 +329,10 @@ export function DynamicForm({form,agentCode}:{form:FormSchema;agentCode?:string}
    {f.type==='select'&&<select id={f.id} value={valString(answers[f.id])} onChange={e=>update(f.id,e.target.value)}><option value="">Choose an option</option>{f.options?.map((o,i)=><option key={i} value={o}>{o}</option>)}</select>}
    {f.type==='radio'&&<div className="choice-stack">{f.options?.map((o,i)=><label className="choice" key={i}><input type="radio" name={f.id} checked={answers[f.id]===o} onChange={()=>update(f.id,o)}/>{o}</label>)}</div>}
    {f.type==='checkbox'&&<div className="choice-stack">{f.options?.map((o,i)=><label className="choice" key={i}><input type="checkbox" checked={Array.isArray(answers[f.id])&&(answers[f.id] as string[]).includes(o)} onChange={e=>update(f.id,e.target.checked?[...(Array.isArray(answers[f.id])?answers[f.id] as string[]:[]),o]:(answers[f.id] as string[]||[]).filter(x=>x!==o))}/>{o}</label>)}</div>}
-   {f.type==='image'&&<div className="cloudinary-box">
-     <div className="cloudinary-box-header">
-      <label htmlFor={f.id}><ImageIcon size={16}/> Cloudinary Image URL (strictly from https://console.cloudinary.com/app)</label>
-      <a href="https://console.cloudinary.com/app" target="_blank" rel="noopener noreferrer" className="cloudinary-link-btn">Open Cloudinary Console <ExternalLink size={14} aria-hidden="true"/></a>
-     </div>
-     <p className="field-hint">Uploading images must be from <a href="https://console.cloudinary.com/app" target="_blank" rel="noopener noreferrer" style={{textDecoration:'underline',fontWeight:700}}>https://console.cloudinary.com/app</a> strictly. Paste your asset URL below (must start with <code>https://res.cloudinary.com/</code>).</p>
-     <input id={f.id} type="url" placeholder="https://res.cloudinary.com/your-cloud/image/upload/v.../photo.jpg" value={valString(answers[f.id])} onChange={e=>update(f.id,e.target.value)}/>
-     {valString(answers[f.id])&&/^https:\/\/res\.cloudinary\.com\/[a-zA-Z0-9_-]+\/image\/upload\/.+/i.test(valString(answers[f.id]))?(
-      <div className="cloudinary-preview">
-       <Image src={valString(answers[f.id])} alt={f.label} width={60} height={60} unoptimized/>
-       <div><strong style={{color:'var(--green)',fontSize:12,display:'block'}}>✓ Verified Cloudinary image link</strong><small className="muted">Source: console.cloudinary.com/app</small></div>
-      </div>
-     ):valString(answers[f.id])?(
-      <small style={{color:'#cf633d',display:'block',marginTop:6,fontWeight:600}}>
-       Uploading images must be from https://console.cloudinary.com/app strictly (URL must start with https://res.cloudinary.com/)
-      </small>
-     ):null}
+   {f.type==='image'&&<div className="upload-box">
+     <label htmlFor={f.id+'-upload'}><ImageIcon size={17}/> {uploading===f.id?'Uploading…':answers[f.id]?'Replace image':'Choose JPG or PNG'} <span>Max 4 MB</span></label>
+     <input id={f.id+'-upload'} type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" disabled={busy||uploading!==null} onChange={e=>void uploadFile(f,e.target.files?.[0])}/>
+     {Boolean(answers[f.id])&&<small>Image selected: {typeof answers[f.id]==='object'?(answers[f.id] as {fileName:string}).fileName:'Legacy image retained'}</small>}
     </div>}
     {f.type==='file'&&<div className="upload-box"><label htmlFor={f.id+'-upload'}><Paperclip size={17}/> {uploading===f.id?'Uploading…':answers[f.id]?'Replace attachment':'Choose PDF, JPG or PNG'} <span>Max 4 MB</span></label><input id={f.id+'-upload'} type="file" accept=".pdf,.jpg,.jpeg,.png" disabled={busy||uploading!==null} onChange={e=>void uploadFile(f,e.target.files?.[0])}/>{Boolean(answers[f.id])&&<small>Uploaded: {(answers[f.id] as {fileName:string}).fileName}</small>}</div>}
   </div>)}

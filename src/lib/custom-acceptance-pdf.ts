@@ -2,6 +2,7 @@ import 'server-only';
 import {isIP} from 'node:net';
 import {storage} from '@/lib/firebase-admin';
 import {HttpError} from '@/lib/errors';
+import {R2_ACCEPTANCE,readInstitutionalObject} from '@/lib/institutional-storage';
 
 // Matches the maximum accepted in the existing acceptance pack upload endpoint.
 const MAX_PDF_BYTES = 25 * 1024 * 1024;
@@ -34,6 +35,7 @@ function checkPdf(buffer:Buffer):Buffer {
 /** Only allow uploaded KASA acceptance PDFs or PDFs from expressly approved HTTPS hosts. */
 export async function loadCustomAcceptancePdf(source:CustomPdfSource):Promise<Buffer> {
   if(source.type==='upload') {
+    if(R2_ACCEPTANCE.test(source.url))return checkPdf(await readInstitutionalObject(source.url,MAX_PDF_BYTES));
     // Reject arbitrary object reads, remote URLs, traversal and other bucket paths.
     if(!/^acceptance-pack\/[a-f0-9-]{36}-[a-zA-Z0-9._-]{1,140}$/.test(source.url) ||
        source.url.includes('..')) {
