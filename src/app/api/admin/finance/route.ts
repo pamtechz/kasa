@@ -50,10 +50,11 @@ export async function GET(req: Request) {
       if (!paymentValid) paymentReconciliationRequired++;
       const paidAmount = paymentValid ? recorded : 0;
       totalPaymentsReceived += paidAmount;
-      const cdfApproved = x.fundingMethod === 'cdf' && ['cdf_approved','commission_paid'].includes(x.status);
-      if (cdfApproved && totalPackage !== null) totalCdfApproved += totalPackage;
-      const due = totalPackage === null ? null : Math.max(0,totalPackage - paidAmount);
-      if (due !== null && !cdfApproved) outstandingBalance += due;
+      const cdfApproved = x.fundingMethod === 'cdf' && ['cdf_approved','cdf_funds_received','commission_paid'].includes(x.status);
+      if (cdfApproved && totalPackage !== null) totalCdfApproved += totalPackage; // sanctioned value, NOT received cash
+      const cdfReceived = x.fundingMethod === 'cdf' && x.cdfDisbursement?.verifiedAt ? Number(x.cdfDisbursement.amount||0) : 0;
+      const due = totalPackage === null ? null : Math.max(0,totalPackage - paidAmount - (Number.isFinite(cdfReceived)?cdfReceived:0));
+      if (due !== null) outstandingBalance += due;
 
       return {
         id: x.id,
@@ -65,6 +66,7 @@ export async function GET(req: Request) {
         totalPackage,
         feeStatus: quote ? 'approved' : 'requires_reconciliation',
         paidAmount,
+        cdfFundsReceived: Number.isFinite(cdfReceived)?cdfReceived:0,
         outstandingBalance: due,
         paymentReference: x.paymentVerification?.reference || null,
         verifiedAt: x.paymentVerification?.verifiedAt || null,
