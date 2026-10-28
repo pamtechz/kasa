@@ -7,7 +7,7 @@ import {loadIntake} from '@/lib/intake-server';
 export const runtime='nodejs';
 export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
  try{
-  sameOrigin(req);const {uid}=await storageIdentity(req);const {id}=await params;
+  sameOrigin(req);const identity=await storageIdentity(req);const {uid}=identity;const {id}=await params;
   if(!/^[a-f0-9-]{36}$/i.test(id))throw new HttpError(400,'Invalid upload.');
   const ref=db.collection('r2Files').doc(id);
   const snap=await ref.get(),file=snap.data();
