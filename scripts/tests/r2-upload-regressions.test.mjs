@@ -145,6 +145,27 @@ test('upload initiation returns the signed condition and records protected compl
  assert.equal(signatureFor(data.uploadUrl,'PUT',data.headers),new URL(data.uploadUrl).searchParams.get('X-Amz-Signature'));
 });
 
+test('file listing filters pending uploads and sorts newest before limiting large accounts',async()=>{
+ const records=Array.from({length:150},(_,i)=>({id:String(i).padStart(3,'0'),ownerUid:'owner',status:i<110?'pending':'ready',
+  fileName:'file-'+i,createdAt:new Date(2026,0,1,0,i).toISOString()}));
+ records.push({id:'other',ownerUid:'other',status:'ready',createdAt:'2099-01-01'});
+ let selected=records;
+ const query={where:(field,_op,value)=>{selected=selected.filter(r=>r[field]===value);return query;},
+  orderBy:(field,direction)=>{selected.sort((a,b)=>direction==='desc'?b[field].localeCompare(a[field]):a[field].localeCompare(b[field]));return query;},
+  limit:n=>{selected=selected.slice(0,n);return query;},get:async()=>({docs:selected.map(r=>({id:r.id,data:()=>r}))})};
+ const route=load('src/app/api/r2/files/route.ts',{'@/lib/firebase-admin':{db:{collection:()=>query}},
+  '@/lib/errors':errors,'@/lib/r2-storage':storage});
+ const response=await route.GET(new Request('https://kasa.test/api/r2/files'));
+ assert.equal(response.status,200);
+ const {files}=await response.json();
+ assert.equal(files.length,40);
+ assert.equal(files[0].fileName,'file-149');
+ assert.equal(files.at(-1).fileName,'file-110');
+ const index=JSON.parse(read('firestore.indexes.json')).indexes.find(i=>i.collectionGroup==='r2Files');
+ assert.deepEqual(index.fields.map(f=>f.fieldPath),['ownerUid','status','createdAt']);
+ assert.equal(index.fields.at(-1).order,'DESCENDING');
+});
+
 test('refresh retains platform or personal selection and falls back only when unavailable',()=>{
  const {selectR2Destination}=load('src/lib/r2-storage-selection.ts');
  const both={platformAvailable:true,connections:[{id:'own',status:'active'},{id:'old',status:'disconnected'}]};
