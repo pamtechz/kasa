@@ -48,8 +48,8 @@ export async function GET(req: NextRequest) {
     // 2. Fetch referral settings for commission rates
     const opsSnap = await db.collection('settings').doc('operations').get();
     const ops = opsSnap.data() || {};
-    const cdfRate = Number(ops.commissionAmountCdf ?? ops.commissionAmount ?? 100);
-    const paidRate = Number(ops.commissionAmountPaid ?? ops.commissionAmount ?? 150);
+    const cdfRate = Number(ops.commissionAmountCdf || 0);
+    const paidRate = Number(ops.commissionAmountPaid || 0);
 
     // 3. Query all submissions referred by this student
     const [subByAgentId, subByCode] = await Promise.all([
