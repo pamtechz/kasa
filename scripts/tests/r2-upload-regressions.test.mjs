@@ -170,6 +170,8 @@ test('refresh retains platform or personal selection and falls back only when un
  const {selectR2Destination}=load('src/lib/r2-storage-selection.ts');
  const both={platformAvailable:true,connections:[{id:'own',status:'active'},{id:'old',status:'disconnected'}]};
  assert.equal(selectR2Destination('platform',both),'platform');
+ assert.equal(selectR2Destination('',both),'own');
+ assert.equal(selectR2Destination('',{platformAvailable:true,connections:[]}),'platform');
  assert.equal(selectR2Destination('own',both),'own');
  assert.equal(selectR2Destination('old',both),'platform');
  assert.equal(selectR2Destination('platform',{...both,platformAvailable:false}),'own');

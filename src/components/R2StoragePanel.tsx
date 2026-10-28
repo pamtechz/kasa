@@ -17,7 +17,7 @@ async function request<T>(path:string,init:RequestInit={}):Promise<T>{
 export function R2StoragePanel({onPhotoUploaded,administrator=false}:{onPhotoUploaded?:(fileId:string)=>void;administrator?:boolean}){
  const [config,setConfig]=useState<Configuration>({platformAvailable:false,byobAvailable:false,connections:[]});
  const [files,setFiles]=useState<PrivateFile[]>([]);
- const [selected,setSelected]=useState('platform');
+ const [selected,setSelected]=useState('');
  const [label,setLabel]=useState('My private R2 bucket');
  const [accountId,setAccountId]=useState(''),[bucket,setBucket]=useState(''),[jurisdiction,setJurisdiction]=useState('default');
  const [accessKeyId,setAccessKeyId]=useState(''),[secretAccessKey,setSecretAccessKey]=useState('');
