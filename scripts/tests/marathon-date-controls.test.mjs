@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {createElement} from 'react';
+import {createElement,Fragment} from 'react';
 import {jsx,jsxs} from 'react/jsx-runtime';
 import {renderToStaticMarkup} from 'react-dom/server';
 import ts from 'typescript';
@@ -9,8 +9,8 @@ import {checklistDateError} from '../../src/lib/marathon-date-filters.ts';
 
 const source=readFileSync(new URL('../../src/components/marathon/MarathonDateControls.tsx',import.meta.url),'utf8');
 const compiled=ts.transpileModule(source,{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText.replace(/^import .*?;\s*$/gm,'');
-globalThis.__marathonDateControls={_jsx:jsx,_jsxs:jsxs,checklistDateError};
-const prefix='const {_jsx,_jsxs,checklistDateError}=globalThis.__marathonDateControls;\n';
+globalThis.__marathonDateControls={_jsx:jsx,_jsxs:jsxs,_Fragment:Fragment,checklistDateError};
+const prefix='const {_jsx,_jsxs,_Fragment,checklistDateError}=globalThis.__marathonDateControls;\n';
 const {MarathonDateControls}=await import('data:text/javascript;base64,'+Buffer.from(prefix+compiled).toString('base64'));
 const defaultFilters={mode:'all',year:'2026',month:'2026-10',from:'',to:''};
 function render(filters=defaultFilters,sort='priority'){
