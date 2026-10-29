@@ -17,7 +17,8 @@
     "doctor:firebase": "node --env-file=.env.local scripts/firebase-env-doctor.mjs",
     "clean:next": "node scripts/clean-next-cache.mjs",
     "dev:3001": "node scripts/dev.mjs 3001",
-    "clean:next:confirm": "node scripts/clean-next-cache.mjs --yes"
+    "clean:next:confirm": "node scripts/clean-next-cache.mjs --yes",
+    "test:marathon:local": "node scripts/test-marathon-local.mjs"
   },
   "engines": {
     "node": ">=22 <23"

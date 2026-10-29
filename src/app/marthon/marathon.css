@@ -156,3 +156,13 @@ a.ml-sync-status{text-decoration:none}
 .ml-editor-body .ml-drawer header{padding:24px clamp(16px,3vw,36px)}
 .ml-editor-body .ml-drawer footer{padding:20px clamp(16px,3vw,36px)}
 @media(max-width:700px){.ml-task-editor-page{padding:0 0 16px}.ml-editor-body>.ml-drawer{border-radius:10px}}
+
+
+/* Date tools: native calendar inputs are usable on both desktop and mobile. */
+.ml-date-tools{display:flex;align-items:end;flex-wrap:wrap;gap:11px;padding:14px 16px;margin:0 0 15px;background:#fff;border:1px solid #e1eae3;border-radius:13px}
+.ml-date-tools label{display:grid;gap:6px;min-width:165px;flex:1 1 175px;font-size:11px;font-weight:800;color:#3d624c}
+.ml-date-tools select,.ml-date-tools input{display:block;width:100%;min-width:0;min-height:40px;border:1px solid #dce7de;border-radius:8px;background:#f9fbf9;padding:8px 11px;font:inherit;font-size:13px;color:#204635}
+.ml-date-tools select:focus-visible,.ml-date-tools input:focus-visible{outline:2px solid #18704d;outline-offset:2px}
+.ml-date-error{flex:1 1 100%;color:#9f342a;background:#fff4f0;border-radius:8px;padding:9px 11px;margin:0;font-size:12px}
+.ml-date-sorted-results{background:#fff;border:1px solid #e1eae3;border-radius:13px;overflow:hidden}
+@media(max-width:650px){.ml-date-tools{padding:12px;gap:9px}.ml-date-tools label{flex:1 1 100%;min-width:0}}
