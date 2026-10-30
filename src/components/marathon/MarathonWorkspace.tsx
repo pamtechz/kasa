@@ -26,6 +26,9 @@ import {MarathonAlertCenter} from './MarathonAlertCenter';
 import {MarathonAssignmentPanel} from './MarathonAssignmentPanel';
 import {MarathonConfirmationPrompt} from './MarathonConfirmationPrompt';
 import {MarathonQuickViews} from './MarathonQuickViews';
+import {MarathonDateControls} from './MarathonDateControls';
+import {matchesChecklistDueDate,sortChecklistTasks} from '@/lib/marathon-date-filters';
+import type {ChecklistDateFilters,ChecklistSort} from '@/lib/marathon-date-filters';
 import {marathonCategories,categoryForSection,categoryForId,isMarathonCategoryId,isMarathonCategorySection,groupMarathonCategories,matchesMarathonFilters,marathonToday,marathonFocusCounts} from '@/lib/marathon-categories';
 import type {MarathonFocus} from '@/lib/marathon-categories';
 import type {MarathonSeedInfo} from '@/lib/marathon-seed-import';
@@ -63,6 +66,7 @@ function errorMessage(e:unknown){return e instanceof Error?e.message:'An unexpec
 function progressClass(status:MarathonStatus){return 'ml-status ml-status-'+status;}
 function priorityRank(p:string){return p.startsWith('P1')?0:p.startsWith('P2')?1:2;}
 function sortTasks(tasks:MarathonTask[]){return [...tasks].sort((a,b)=>priorityRank(a.priority)-priorityRank(b.priority)||(a.dueDate||'9999').localeCompare(b.dueDate||'9999')||a.id.localeCompare(b.id));}
+function defaultDateFilters():ChecklistDateFilters{const today=marathonToday();return {mode:'all',year:today.slice(0,4),month:today.slice(0,7),from:'',to:''};}
 
 export function MarathonWorkspace({section='overview'}:{section?:string}){
  const router=useRouter();
@@ -82,6 +86,8 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
  const [alertsOpen,setAlertsOpen]=useState(false);
  const [saving,setSaving]=useState(false),[query,setQuery]=useState(''),[filterStatus,setFilterStatus]=useState('all');
  const [filterPriority,setFilterPriority]=useState('all'),[filterLead,setFilterLead]=useState('all');
+ const [dateFilters,setDateFilters]=useState<ChecklistDateFilters>(defaultDateFilters);
+ const [sortOrder,setSortOrder]=useState<ChecklistSort>('priority');
  const [focus,setFocus]=useState<MarathonFocus>('all'),[filtersOpen,setFiltersOpen]=useState(false),[onlyMine,setOnlyMine]=useState(false);
  const categoryParam=searchParams.get('category');
  const filterCategory=isMarathonCategoryId(categoryParam)?categoryParam:'all';
@@ -274,16 +280,17 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
   window.history.replaceState(null,'',url.pathname+url.search+url.hash);
  }
  const uncategorizedCount=active.filter(t=>categoryForSection(t.section).id==='uncategorized').length;
- const filtered=useMemo(()=>sortTasks(tasks.filter(t=>(!onlyMine||Boolean(t.assigneeUids?.includes(uid)))&&matchesMarathonFilters(t,{
+ const filtered=useMemo(()=>sortChecklistTasks(tasks.filter(t=>(!onlyMine||Boolean(t.assigneeUids?.includes(uid)))&&matchesChecklistDueDate(t,dateFilters)&&matchesMarathonFilters(t,{
   category:filterCategory,status:filterStatus,priority:filterPriority,lead:filterLead,query,focus,today
- }))),[tasks,filterCategory,filterStatus,filterPriority,filterLead,query,focus,today,onlyMine,uid]);
- const focusBase=useMemo(()=>tasks.filter(t=>matchesMarathonFilters(t,{category:filterCategory,priority:filterPriority,lead:filterLead,query})),[tasks,filterCategory,filterPriority,filterLead,query]);
+ })),sortOrder),[tasks,filterCategory,filterStatus,filterPriority,filterLead,query,focus,today,onlyMine,uid,dateFilters,sortOrder]);
+ const focusBase=useMemo(()=>tasks.filter(t=>(!onlyMine||Boolean(t.assigneeUids?.includes(uid)))&&matchesChecklistDueDate(t,dateFilters)&&matchesMarathonFilters(t,{category:filterCategory,priority:filterPriority,lead:filterLead,query})),[tasks,filterCategory,filterPriority,filterLead,query,onlyMine,uid,dateFilters]);
  const focusCounts=useMemo(()=>marathonFocusCounts(focusBase,today),[focusBase,today]);
  const allFocusCounts=useMemo(()=>marathonFocusCounts(tasks,today),[tasks,today]);
  const extraFilterCount=Number(filterStatus!=='all')+Number(filterPriority!=='all')+Number(filterLead!=='all');
- const hasFilters=filterCategory!=='all'||focus!=='all'||!!query||extraFilterCount>0;
+ const hasFilters=filterCategory!=='all'||focus!=='all'||!!query||onlyMine||extraFilterCount>0||dateFilters.mode!=='all'||sortOrder!=='priority';
  function clearTaskFilters(nextFocus:MarathonFocus='all'){
   setFocus(nextFocus);setFilterStatus('all');setFilterPriority('all');setFilterLead('all');setQuery('');
+  setDateFilters(defaultDateFilters());setSortOrder('priority');
  }
  function resetTaskView(){clearTaskFilters();selectCategory('all');setOnlyMine(false);}
  function showActions(nextFocus:MarathonFocus){
@@ -445,9 +452,13 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
      {focus==='attention'&&<p className="ml-view-help">Open actions marked P1, blocked actions, and actions past their due date.</p>}
      {focus==='week'&&<p className="ml-view-help">Open actions due today or in the following six days, using Lusaka time.</p>}
      <div className="ml-filterbar"><div className="ml-search"><Search size={18}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search actions, IDs, owners…" aria-label="Search actions"/></div><select className="ml-category-select" value={filterCategory} onChange={e=>selectCategory(e.target.value)} aria-label="Filter by category"><option value="all">All categories</option>{marathonCategories.map(c=><option key={c.id} value={c.id}>{String(c.order).padStart(2,'0')} · {c.label}</option>)}{uncategorizedCount>0&&<option value="uncategorized">Needs a category</option>}</select><button className={'ml-secondary'+(onlyMine?' ml-selected':'')} aria-pressed={onlyMine} onClick={()=>setOnlyMine(v=>!v)}><Users size={16}/> My assignments ({active.filter(t=>t.assigneeUids?.includes(uid)).length})</button><button className="ml-secondary ml-filter-toggle" aria-expanded={filtersOpen} aria-controls="ml-extra-filters" onClick={()=>setFiltersOpen(open=>!open)}><SlidersHorizontal size={16}/> More filters {extraFilterCount>0&&<b>{extraFilterCount}</b>}</button>{hasFilters&&<button className="ml-clear-filters" onClick={resetTaskView}>Reset filters</button>}</div>
+     <MarathonDateControls sort={sortOrder} filters={dateFilters} onSortChange={setSortOrder} onFiltersChange={setDateFilters}/>
      <div className="ml-extra-filters" id="ml-extra-filters" hidden={!filtersOpen}><label>Status<select value={filterStatus} onChange={e=>{setFilterStatus(e.target.value);setFocus('all');}} aria-label="Filter by status"><option value="all">All statuses</option>{Object.entries(statusLabels).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label><label>Priority<select value={filterPriority} onChange={e=>setFilterPriority(e.target.value)} aria-label="Filter by priority"><option value="all">All priorities</option><option value="P1">P1 · Act now</option><option value="P2">P2 · Next 30 days</option><option value="P3">P3 · Scheduled</option></select></label><label>Responsible team<select value={filterLead} onChange={e=>setFilterLead(e.target.value)} aria-label="Filter by team"><option value="all">All teams</option>{leads.map(l=><option key={l}>{l}</option>)}</select></label></div>
-     <div className="ml-task-results"><b aria-live="polite">{filtered.length} actions in {categoryGroups.length} {categoryGroups.length===1?'category':'categories'}</b><span>Urgency and due date within each category</span></div>
-     <div className="ml-category-groups">{categoryGroups.map(group=><section className="ml-category-group" key={group.category.id} aria-labelledby={'ml-category-'+group.category.id}><header className="ml-category-group-header"><span className="ml-category-number">{group.category.id==='uncategorized'?<Layers3 size={17}/>:String(group.category.order).padStart(2,'0')}</span><h2 id={'ml-category-'+group.category.id}>{group.category.label}</h2><span>{group.tasks.length} {group.tasks.length===1?'action':'actions'}</span></header><div className="ml-task-list">{group.tasks.map(t=><TaskRow key={t.id} task={t} queued={pending.includes(t.id)} onOpen={()=>openTaskPage(t)} onQuickDone={state.permissions.edit?()=>void changeTask(t,{status:t.status==='done'?'todo':'done'}):undefined}/>)}</div></section>)}{!filtered.length&&<div className="ml-panel"><EmptyState text="No actions match your filters."/><button className="ml-secondary" onClick={resetTaskView}>Reset filters</button></div>}</div>
+     <div className="ml-task-results"><b aria-live="polite">{filtered.length} actions in {categoryGroups.length} {categoryGroups.length===1?'category':'categories'}</b><span>{sortOrder==='priority'?'Urgency and due date within each category':'Due dates across all categories · undated last'}</span></div>
+     {sortOrder!=='priority'
+      ?<div className="ml-task-list ml-date-sorted-results">{filtered.map(t=><TaskRow key={t.id} task={t} queued={pending.includes(t.id)} onOpen={()=>openTaskPage(t)} onQuickDone={state.permissions.edit?()=>void changeTask(t,{status:t.status==='done'?'todo':'done'}):undefined}/>)}</div>
+      :<div className="ml-category-groups">{categoryGroups.map(group=><section className="ml-category-group" key={group.category.id} aria-labelledby={'ml-category-'+group.category.id}><header className="ml-category-group-header"><span className="ml-category-number">{group.category.id==='uncategorized'?<Layers3 size={17}/>:String(group.category.order).padStart(2,'0')}</span><h2 id={'ml-category-'+group.category.id}>{group.category.label}</h2><span>{group.tasks.length} {group.tasks.length===1?'action':'actions'}</span></header><div className="ml-task-list">{group.tasks.map(t=><TaskRow key={t.id} task={t} queued={pending.includes(t.id)} onOpen={()=>openTaskPage(t)} onQuickDone={state.permissions.edit?()=>void changeTask(t,{status:t.status==='done'?'todo':'done'}):undefined}/>)}</div></section>)}</div>}
+     {!filtered.length&&<div className="ml-panel"><EmptyState text="No actions match your filters."/><button className="ml-secondary" onClick={resetTaskView}>Reset filters</button></div>}
     </>}
     {view==='timeline'&&<>
      <div className="ml-heading-row"><div><span className="ml-eyebrow">DATES & DEPENDENCIES</span><h1>Event timeline</h1><p>Track the major stages from decision-making to race day and close-out.</p></div><span className="ml-countdown-pill"><CalendarDays size={18}/>{daysLeft} days to race day</span></div>

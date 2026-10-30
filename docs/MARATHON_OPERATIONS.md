@@ -124,3 +124,34 @@ Needs attention includes open P1 actions, blocked actions and overdue actions. N
 Search and category remain visible. Status, priority and responsible team sit under More filters, with an active-filter count. The main navigation contains everyday pages; More tools retains activity, archive, offline edits and permitted administration pages. The sync indicator links directly to saved offline edits.
 
 Task details show the fields needed to identify the action and record progress. Priority, importance, notes, source references and recoverable archive controls remain under More details; archived records expand this section automatically. New actions keep optional fields under Optional details. Hidden fields retain their values when submitted, and server authorization and validation remain unchanged.
+
+
+## Checklist due-date sorting and date windows (29 October 2026)
+
+The **Checklist** page has a visible date toolbar. Select **Priority, then due date** (default, category-grouped), **Due date: earliest first**, or **Due date: latest first**. Choosing chronological sort displays a single list across all categories so the order is genuinely chronological. Missing or invalid due dates are listed last in either direction, with priority and ID breaking ties.
+
+**Due date period** offers all, a specific calendar month, a four-digit year, or an inclusive custom start/end window. Either custom endpoint may be left empty for an open-ended range. Invalid or backwards windows display an error and no results until corrected. Date filters use each action's scheduled **due date**, not the completion audit timestamp. Undated records remain visible when all dates is selected. These client-side controls operate on the same authorized cached data while offline; they do not change Firestore data or access permissions. Filtering combines with search, category, team, status, assignment and quick views. The count and sorted rows update together. **Reset filters** restores all dates, default priority sort and other checklist filters.
+
+### Windows / local verification
+
+In PowerShell, on a cloned **pamtechz/kasa** branch:
+
+```powershell
+node --version  # must be Node 22.x
+npm ci
+npm run test:marathon:local
+# For a fast rerun of date checks only:
+node scripts/test-marathon-local.mjs --quick
+npm run dev:3001
+```
+
+Open **http://localhost:3001/marathon/operations**. A user must sign in using the shared Firebase identity and have a valid Marathon role. Use an isolated Firebase emulator or a test account with safe test records; the local page can otherwise write to the configured live database.
+
+Manual acceptance matrix:
+1. Default list remains grouped by workstream and priority; select earliest then latest and verify rows sort **across categories** in reverse order, with undated tasks last.
+2. Select October 2026 month and then November 2026; verify only due dates in that calendar month are shown. Select 2027 year and verify all months in 2027.
+3. Enter from 2026-10-29 to 2026-11-03; both dates must match. Try only From, only To, same-day, 2028-02-29, and a backwards date range; check the inline error for the backwards range.
+4. Combine a date filter with P1, category, team, status, My assignments and Needs attention. Confirm the result total and quick-view counts agree. Completed/archived behavior must remain unchanged.
+5. Change task due dates, toggle Done/Not done (with edit permission), reload and verify the view updates. Repeat while offline with an existing cached session, then reconnect and review saved edits; sorting must never create queued changes by itself.
+6. Verify at 390 px mobile and desktop widths: all controls and date fields remain visible with no horizontal scrolling. Check empty-result Reset filters. Verify kasaClient can filter and sort without acquiring edit controls.
+7. Confirm source tests, lint, typecheck and production build all pass; check GitHub Actions on the pull request before merging. These tests cannot substitute for real browser authorization and Firestore integration.
