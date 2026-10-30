@@ -87,7 +87,7 @@ export function SiteChrome({children}:{children:React.ReactNode}){
     <Link className="site-login" href={dashboardHref} onClick={()=>setMobile(false)} style={{fontWeight:700,background:'var(--gold)',color:'#19382c'}}>Dashboard <ArrowRight size={15}/></Link>
    </>:<>
     <Link href="/login" onClick={()=>setMobile(false)}>Sign in</Link>
-    <Link className="site-login" href="/login" onClick={()=>setMobile(false)} style={{fontWeight:700,background:'var(--gold)',color:'#19382c'}}>Apply Now <ArrowRight size={15}/></Link>
+    <Link className="site-login" href="/admissions#apply" onClick={()=>setMobile(false)} style={{fontWeight:700,background:'var(--gold)',color:'#19382c'}}>Apply Now <ArrowRight size={15}/></Link>
    </>}</div>
   </nav>
  </header>

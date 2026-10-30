@@ -23,10 +23,7 @@ function sanitizeText(value: unknown, maxLength = 300): string {
   return value.trim().slice(0, maxLength);
 }
 
-function isCloudinaryUrl(url: string): boolean {
-  if (!url) return false;
-  return url.startsWith('https://res.cloudinary.com/') || url.startsWith('https://console.cloudinary.com/');
-}
+
 
 export async function GET(req: Request) {
   try {
@@ -126,8 +123,8 @@ export async function PATCH(req: NextRequest) {
 
     if ('photoUrl' in body) {
       const photo = sanitizeText(body.photoUrl, 500);
-      if (photo && !isCloudinaryUrl(photo)) {
-        throw new HttpError(400, 'Profile photos must strictly be uploaded to Cloudinary (https://console.cloudinary.com/app).');
+      if (photo) {
+        throw new HttpError(400, 'Choose a profile photo through your authorized external storage.');
       }
       updates.photoUrl = photo;
     }

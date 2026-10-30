@@ -5,6 +5,7 @@ import {EmailAuthProvider,reauthenticateWithCredential,sendPasswordResetEmail,up
 import {User,Phone,MapPin,Lock,Save,KeyRound,Copy,Check,ShieldCheck,CheckCircle2,Sparkles,ExternalLink} from 'lucide-react';
 import {api,PageHeader} from '@/components/Portal';
 import {R2StoragePanel} from '@/components/R2StoragePanel';
+import {R2KasaSharedFilesPanel} from '@/components/R2KasaSharedFilesPanel';
 import {authHeaders} from '@/lib/firebase-client';
 import {PasswordInput} from '@/components/PasswordInput';
 import {requireClientAuth} from '@/lib/firebase-client';
@@ -100,7 +101,7 @@ export default function ProfilePage(){
           constituency:constituency.trim(),
           ward:ward.trim(),
           bio:bio.trim(),
-          photoUrl:photoUrl.trim(),
+
           notifications:{
             emailAlerts,
             newsUpdates,
@@ -499,7 +500,8 @@ export default function ProfilePage(){
               </button>
             </div>
           </section>
-          <R2StoragePanel onPhotoUploaded={()=>{setPhotoUrl('');void (async()=>{try{
+          {['super_admin','admin','reviewer'].includes(profile?.role||'')&&<R2KasaSharedFilesPanel/>}
+          <R2StoragePanel administrator={profile?.role==='super_admin'||profile?.role==='admin'} onPhotoUploaded={()=>{setPhotoUrl('');void (async()=>{try{
            const headers=await authHeaders();const response=await fetch('/api/profile/photo',{headers,cache:'no-store'});
            if(response.ok){const data=await response.json();setR2PhotoUrl(data.url||'');}
           }catch{}})();}}/>
