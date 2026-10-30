@@ -91,7 +91,7 @@ test('Cloudflare OAuth configuration rejects placeholder scopes and mismatched c
  assert.equal(mod.oauthScopeFormatValid('account.read workers.r2.write account_api_tokens.create offline_access'),true);
  assert.equal(mod.oauthScopeFormatValid('account_api_tokens:create workers.r2.write'),false);
  const saved={};
- for(const key of ['CLOUDFLARE_OAUTH_CLIENT_ID','CLOUDFLARE_OAUTH_CLIENT_SECRET','CLOUDFLARE_OAUTH_SCOPES','CLOUDFLARE_OAUTH_REDIRECT_URI','APP_URL','VERCEL_URL'])
+ for(const key of ['CLOUDFLARE_OAUTH_CLIENT_ID','CLOUDFLARE_OAUTH_CLIENT_SECRET','CLOUDFLARE_OAUTH_SCOPES','CLOUDFLARE_OAUTH_REDIRECT_URI','APP_URL','VERCEL_URL','VERCEL_BRANCH_URL'])
   saved[key]=process.env[key];
  try{
   process.env.CLOUDFLARE_OAUTH_CLIENT_ID='fixture-id';
@@ -105,6 +105,9 @@ test('Cloudflare OAuth configuration rejects placeholder scopes and mismatched c
   process.env.CLOUDFLARE_OAUTH_SCOPES='account.read workers.r2.write account_api_tokens.create offline_access';
   assert.equal(mod.oauthReadiness('https://kasa-preview.vercel.app/api/r2/oauth/readiness').code,'callback-host-mismatch');
   assert.equal(mod.oauthReadiness('https://kasaschool.vercel.app/api/r2/oauth/readiness').available,true);
+  process.env.VERCEL_BRANCH_URL='kasa-preview.vercel.app';
+  process.env.CLOUDFLARE_OAUTH_REDIRECT_URI='https://kasa-preview.vercel.app/api/r2/oauth/callback';
+  assert.equal(mod.oauthReadiness('https://kasa-preview.vercel.app/api/r2/oauth/readiness').available,true);
  }finally{
   for(const [k,v] of Object.entries(saved)){if(v===undefined)delete process.env[k];else process.env[k]=v;}
  }
