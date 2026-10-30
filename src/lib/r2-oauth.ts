@@ -12,12 +12,21 @@ export const CLOUD_API='https://api.cloudflare.com/client/v4';
 const EXPIRY=8*60*1000;
 type CloudTokens={access_token:string;refresh_token?:string;expires_in?:number;token_type?:string;scope?:string};
 type OAuthConfig={clientId:string;clientSecret:string;scopes:string;redirectUri:string};
+// Cloudflare OAuth client scopes use catalog-validated dot-delimited identifiers.
+// Reject descriptive labels or colon-format changelog names at configuration time.
+export function oauthScopeFormatValid(scopes:string):boolean{
+ const names=scopes.trim().split(/\s+/).filter(Boolean);
+ const standard=/^[a-z][a-z0-9_-]*(?:\.[a-z0-9_-]+)+$/;
+ const protocol=new Set(['openid','offline_access','profile','email']);
+ return names.length>0&&names.some(name=>standard.test(name))&&
+  names.every(name=>standard.test(name)||protocol.has(name))&&new Set(names).size===names.length;
+}
 export function oauthConfig():OAuthConfig|null{
  const clientId=process.env.CLOUDFLARE_OAUTH_CLIENT_ID?.trim()||'';
  const clientSecret=process.env.CLOUDFLARE_OAUTH_CLIENT_SECRET?.trim()||'';
  const scopes=process.env.CLOUDFLARE_OAUTH_SCOPES?.trim().split(/\s+/).join(' ')||'';
  const redirectUri=process.env.CLOUDFLARE_OAUTH_REDIRECT_URI?.trim()||'';
- if(!clientId||!clientSecret||!scopes||!redirectUri||!r2EncryptionReady())return null;
+ if(!clientId||!clientSecret||!scopes||!redirectUri||!r2EncryptionReady()||!oauthScopeFormatValid(scopes))return null;
  let url:URL;
  try{url=new URL(redirectUri);}catch{return null;}
  if(url.protocol!=='https:'||url.pathname!==OAUTH_CALLBACK||url.search||url.hash||url.username||url.password)return null;
@@ -29,6 +38,20 @@ export function oauthConfig():OAuthConfig|null{
  });
  if(!allowed)return null;
  return {clientId,clientSecret,scopes,redirectUri};
+}
+// Only public diagnostic status; never serialize OAuth secrets or account identifiers.
+export function oauthReadiness(requestUrl:string):{available:boolean;code:string;message:string}{
+ const scopes=process.env.CLOUDFLARE_OAUTH_SCOPES||'';
+ if(scopes&&!oauthScopeFormatValid(scopes))return {available:false,code:'invalid-scopes',
+  message:'KASA needs valid Cloudflare OAuth scope identifiers, not descriptive labels. An administrator must update the Cloudflare client and Vercel configuration.'};
+ const config=oauthConfig();
+ if(!config)return {available:false,code:'not-configured',
+  message:'KASA Cloudflare authorization is not configured for this environment. Contact the KASA administrator.'};
+ let origin:string;
+ try{origin=new URL(requestUrl).origin;}catch{return {available:false,code:'invalid-origin',message:'Invalid connection origin.'};}
+ if(new URL(config.redirectUri).origin!==origin)return {available:false,code:'callback-host-mismatch',
+  message:'Cloudflare authorization must return to this same website. Register and configure the matching HTTPS callback before connecting.'};
+ return {available:true,code:'ready',message:'Cloudflare authorization is available.'};
 }
 export const oauthStateHash=(state:string)=>createHash('sha256').update(state).digest('hex');
 export const oauthRandom=()=>randomBytes(32).toString('base64url');

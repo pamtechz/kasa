@@ -16,6 +16,8 @@ export async function storageJson<T>(path:string,body?:unknown,attest=false):Pro
  return result as T;
 }
 export async function authorizeExternalStorage(){
+ const readiness=await storageJson<{available:boolean;message:string}>('/api/r2/oauth/readiness');
+ if(!readiness.available)throw Error(readiness.message);
  if(!getClientAuth()?.currentUser)await storageJson('/api/r2/guest',{},true);
  const result=await storageJson<{url:string}>('/api/r2/oauth/start',{returnTo:location.pathname+location.search});
  location.assign(result.url);

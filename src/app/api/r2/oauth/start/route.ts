@@ -4,14 +4,15 @@ import {fail,HttpError} from '@/lib/errors';
 import {sameOrigin,rateLimit} from '@/lib/security';
 import {storageIdentity} from '@/lib/r2-storage';
 import {OAUTH_COOKIE,oauthConfig,oauthRandom,oauthStateHash,oauthChallenge,
- authorizationUrl,oauthStateExpires} from '@/lib/r2-oauth';
+ authorizationUrl,oauthStateExpires,oauthReadiness} from '@/lib/r2-oauth';
 export const runtime='nodejs';
 export async function POST(req:NextRequest){
  try{
   sameOrigin(req);const {uid}=await storageIdentity(req);
   await rateLimit(req,'r2-oauth-start:'+uid,6,15);
   const config=oauthConfig();
-  if(!config)throw new HttpError(503,'Cloudflare OAuth is not yet configured by KASA.');
+  const readiness=oauthReadiness(req.url);
+  if(!config||!readiness.available)throw new HttpError(503,readiness.message);
   const body=await req.json().catch(()=>({}));
   const requested=typeof body.returnTo==='string'?body.returnTo:'';
   const returnTo=/^\/(?:apply\/[a-z0-9-]+|account|marathon\/profile|dashboard(?:\/[a-zA-Z0-9_/-]+)?|student(?:-portal)?(?:\/[a-zA-Z0-9_/-]+)?)(?:\?[^#\\]*)?$/.test(requested)&&!requested.includes('//')?requested:'/account';

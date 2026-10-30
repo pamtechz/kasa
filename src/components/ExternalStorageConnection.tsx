@@ -6,10 +6,14 @@ type Status={connected:boolean;connectionId:string|null;selectedBucket:{bucket:s
 export function ExternalStorageConnection({onReady}:{onReady?:(id:string)=>void}){
  const [status,setStatus]=useState<Status|null>(null),[busy,setBusy]=useState(true),[error,setError]=useState('');
  const [accounts,setAccounts]=useState<{id:string;name:string}[]>([]);
+ const [available,setAvailable]=useState(true);
  const callback=useRef(onReady);callback.current=onReady;
  const load=useCallback(async()=>{
   setBusy(true);setError('');
   try{
+   const readiness=await storageJson<{available:boolean;message:string}>('/api/r2/oauth/readiness');
+   setAvailable(readiness.available);
+   if(!readiness.available){setError(readiness.message);setStatus(null);return;}
    const state=await storageJson<Status>('/api/r2/oauth');setStatus(state);
    const url=new URL(location.href),result=url.searchParams.get('cloudflare');
    if(result){url.searchParams.delete('cloudflare');history.replaceState(null,'',url.pathname+url.search+url.hash);}
@@ -40,7 +44,7 @@ export function ExternalStorageConnection({onReady}:{onReady?:(id:string)=>void}
  return <div className="external-storage-connect">
   <div><Cloud size={20} aria-hidden="true"/><strong>Your external storage</strong></div>
   <p>Authorize Cloudflare once. Files upload directly to a private bucket in your Cloudflare account. KASA keeps file references and permissions. Your provider’s storage limits and billing apply.</p>
-  {busy?<p role="status"><LoaderCircle className="spin" size={16}/> Preparing your connection…</p>:status?.connectionId?<div className="actions"><span role="status"><CheckCircle2 size={16}/> Connected: {status.selectedBucket?.bucket||'your private bucket'}</span><button type="button" className="text-link" onClick={()=>void disconnect()}>Disconnect</button></div>:accounts.length?<div><label htmlFor="cloudflare-account">Choose your Cloudflare account</label><select id="cloudflare-account" defaultValue="" onChange={e=>void choose(e.target.value)}><option value="" disabled>Select account</option>{accounts.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></div>:<button type="button" className="btn btn-primary" onClick={()=>void connect()}><Cloud size={17}/> Connect with Cloudflare</button>}
+  {busy?<p role="status"><LoaderCircle className="spin" size={16}/> Preparing your connection…</p>:status?.connectionId?<div className="actions"><span role="status"><CheckCircle2 size={16}/> Connected: {status.selectedBucket?.bucket||'your private bucket'}</span><button type="button" className="text-link" onClick={()=>void disconnect()}>Disconnect</button></div>:accounts.length?<div><label htmlFor="cloudflare-account">Choose your Cloudflare account</label><select id="cloudflare-account" defaultValue="" onChange={e=>void choose(e.target.value)}><option value="" disabled>Select account</option>{accounts.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></div>:<button type="button" className="btn btn-primary" disabled={!available} onClick={()=>void connect()}><Cloud size={17}/> Connect with Cloudflare</button>}
   {error&&<div role="alert" className="alert-error">{error} <button type="button" className="text-link" disabled={busy} onClick={()=>void load()}>Try again</button></div>}
  </div>;
 }
