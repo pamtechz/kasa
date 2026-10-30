@@ -33,7 +33,8 @@ export function oauthConfig():OAuthConfig|null{
  // The OAuth callback must be on a trusted KASA origin, never from user input.
  const appUrl=process.env.APP_URL||'';
  const vercelUrl=process.env.VERCEL_URL||'';
- const allowed=[appUrl,vercelUrl?'https://'+vercelUrl:''].filter(Boolean).some(u=>{
+ const branchUrl=process.env.VERCEL_BRANCH_URL||'';
+ const allowed=[appUrl,vercelUrl?'https://'+vercelUrl:'',branchUrl?'https://'+branchUrl:''].filter(Boolean).some(u=>{
   try{return new URL(u).origin===url.origin;}catch{return false;}
  });
  if(!allowed)return null;
