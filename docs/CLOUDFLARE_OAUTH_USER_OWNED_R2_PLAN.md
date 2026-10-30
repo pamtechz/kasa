@@ -114,3 +114,13 @@ Storage ownership does not make a provider free: each owner is responsible for
 its storage and operation usage. Firestore metadata and Vercel control requests
 also retain their normal quotas. This design avoids pooled file storage and
 upload relay costs; it does not promise universally zero service charges.
+
+## 30 October 2026 — Configuration audit and fail-closed behavior
+
+Vercel's current CLOUDFLARE_OAUTH_SCOPES contains **descriptive words, not OAuth identifiers**. The current Production callback exists; Preview has no callback setting. Cloudflare OAuth public-client verification and permissions remain unverified. The software now blocks malformed scope values and mismatched host callbacks before initiating an authorization and exposes a non-secret readiness endpoint for guest applicants.
+
+Cloudflare's newer OAuth client API documents dot-delimited, catalog-validated scopes and rejects colon-delimited client configuration; the October 1 changelog names an account_api_tokens:create capability. Always use the **actual identifiers** selected in the authenticated OAuth scope catalog, not guessed synonyms or text copied from the changelog.
+
+To activate: register the production and exact preview callback URLs under Cloudflare Manage Account > OAuth clients; set the correct scopes, client visibility and publisher-domain verification in Cloudflare; update Vercel CLOUDFLARE_OAUTH_SCOPES and add Preview CLOUDFLARE_OAUTH_REDIRECT_URI. Real consent and bucket/token issuance require a Cloudflare account with R2 enabled and the needed permissions. Do not send secrets to ChatGPT.
+
+Docs: https://developers.cloudflare.com/api/resources/iam/subresources/oauth_clients/methods/create/ and https://developers.cloudflare.com/changelog/post/2026-10-01-account-api-token-provisioning/

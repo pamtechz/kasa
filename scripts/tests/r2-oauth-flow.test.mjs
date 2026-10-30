@@ -79,3 +79,46 @@ test('OAuth object upload proxy is disabled and direct scoped token provisioning
  assert.match(direct,/com.cloudflare.edge.r2.bucket/);assert.match(direct,/encryptR2Secrets/);
  assert.doesNotMatch(direct,/new FormData/);
 });
+
+
+test('Cloudflare OAuth configuration rejects placeholder scopes and mismatched callback hosts',()=>{
+ const mod=transpile('src/lib/r2-oauth.ts',{
+  'server-only':{},'node:crypto':require('node:crypto'),
+  './firebase-admin':{db:{}},'./errors':{HttpError:class extends Error{}},
+  './r2-crypto':{encryptR2Secrets(){},decryptR2Secrets(){},r2EncryptionReady:()=>true}
+ });
+ assert.equal(mod.oauthScopeFormatValid('account discovery R2 token-provisioning permissions'),false);
+ assert.equal(mod.oauthScopeFormatValid('account.read workers.r2.write account_api_tokens.create offline_access'),true);
+ assert.equal(mod.oauthScopeFormatValid('account_api_tokens:create workers.r2.write'),false);
+ const saved={};
+ for(const key of ['CLOUDFLARE_OAUTH_CLIENT_ID','CLOUDFLARE_OAUTH_CLIENT_SECRET','CLOUDFLARE_OAUTH_SCOPES','CLOUDFLARE_OAUTH_REDIRECT_URI','APP_URL','VERCEL_URL'])
+  saved[key]=process.env[key];
+ try{
+  process.env.CLOUDFLARE_OAUTH_CLIENT_ID='fixture-id';
+  process.env.CLOUDFLARE_OAUTH_CLIENT_SECRET='fixture-secret';
+  process.env.CLOUDFLARE_OAUTH_SCOPES='account discovery R2 token-provisioning permissions';
+  process.env.CLOUDFLARE_OAUTH_REDIRECT_URI='https://kasaschool.vercel.app/api/r2/oauth/callback';
+  process.env.APP_URL='https://kasaschool.vercel.app';
+  delete process.env.VERCEL_URL;
+  assert.equal(mod.oauthConfig(),null);
+  assert.equal(mod.oauthReadiness('https://kasaschool.vercel.app/api/r2/oauth/readiness').code,'invalid-scopes');
+  process.env.CLOUDFLARE_OAUTH_SCOPES='account.read workers.r2.write account_api_tokens.create offline_access';
+  assert.equal(mod.oauthReadiness('https://kasa-preview.vercel.app/api/r2/oauth/readiness').code,'callback-host-mismatch');
+  assert.equal(mod.oauthReadiness('https://kasaschool.vercel.app/api/r2/oauth/readiness').available,true);
+ }finally{
+  for(const [k,v] of Object.entries(saved)){if(v===undefined)delete process.env[k];else process.env[k]=v;}
+ }
+});
+
+test('readiness is public and non-secret and protects guests from broken OAuth setup',()=>{
+ const route=read('src/app/api/r2/oauth/readiness/route.ts');
+ const start=read('src/app/api/r2/oauth/start/route.ts');
+ const client=read('src/lib/r2-upload-client.ts');
+ const panel=read('src/components/ExternalStorageConnection.tsx');
+ assert.match(route,/oauthReadiness\(req.url\)/);
+ assert.doesNotMatch(route,/storageIdentity|clientSecret|accessKeyId/);
+ assert.match(start,/oauthReadiness\(req.url\)/);
+ assert.match(client,/\/api\/r2\/oauth\/readiness/);
+ assert.match(panel,/setAvailable\(readiness.available\)/);
+ assert.match(panel,/disabled=\{!available\}/);
+});
