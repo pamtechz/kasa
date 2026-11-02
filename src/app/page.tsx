@@ -156,6 +156,22 @@ export default function Home(){
    </div>
   </section>
 
+  <section className="container section-pad-sm" aria-label="KASA quick links">
+   <div className="section-heading"><span className="overline">QUICK ACCESS</span><h2>Find what you need</h2>
+    <p>Applications, official programme fees and your secure student payment records in one place.</p></div>
+   <div className="site-cards programmes-grid">
+    <article className="feature"><ClipboardList size={25}/><h3>Apply for a programme</h3>
+     <p>Check programme details, intake information and application requirements before submitting.</p>
+     <Link href="/admissions" className="btn btn-primary-sm">Admissions and applications <ArrowRight size={15}/></Link></article>
+    <article className="feature"><FileText size={25}/><h3>Check approved programme fees</h3>
+     <p>Review published fees; individual approved offers determine each student's official balance.</p>
+     <Link href="/fees" className="btn btn-outline-sm">View fees <ArrowRight size={15}/></Link></article>
+    <article className="feature"><ShieldCheck size={25}/><h3>My application and fee statement</h3>
+     <p>Students can sign in to see verified installments, balances and private downloadable receipts.</p>
+     <Link href="/student-portal/fees" className="btn btn-outline-sm">Open secure fee statement <ArrowRight size={15}/></Link></article>
+   </div>
+  </section>
+
   {programmes.length>0&&<section className="container section-pad">
    <div className="section-heading">
     <span className="overline">FEATURED VOCATIONAL COURSES</span>
