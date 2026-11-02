@@ -69,14 +69,14 @@ export default function CommissionSettings(){
      <div className="field"><label htmlFor="self-funded-rate">1. Self-funded student — commission per verified enrollment (K)</label>
       <input id="self-funded-rate" type="number" inputMode="decimal" min="0" max="50000" step="0.01"
        required disabled={loading||busy} value={selfFunded} onChange={e=>setSelfFunded(e.target.value)}/>
-      <small>Earned only after the full approved tuition is received and enrollment is independently verified.</small>
+      <small>For fixed-rate self-funded commissions; payout timing above controls when verified tuition can support advances.</small>
      </div>
-     <div className="field"><label htmlFor="cdf-funded-rate">2. CDF-funded student — commission per verified enrollment (K)</label>
+     </>}
+     <div className="field"><label htmlFor="cdf-funded-rate">CDF-funded student — fixed commission after received government remittance (K)</label>
       <input id="cdf-funded-rate" type="number" inputMode="decimal" min="0" max="50000" step="0.01"
        required disabled={loading||busy} value={cdf} onChange={e=>setCdf(e.target.value)}/>
       <small>Earned only after government funds actually reach KASA, required documents are verified, and enrollment is confirmed. A CDF approval letter alone does not qualify.</small>
      </div>
-     </>}
      <label className="required-toggle"><input type="checkbox" checked={enabled} disabled={loading||busy}
       onChange={e=>setEnabled(e.target.checked)}/> Accept new referrals</label>
      <p className="muted">Turning this off stops new referral links from being accepted. Previously verified earnings remain payable.</p>
