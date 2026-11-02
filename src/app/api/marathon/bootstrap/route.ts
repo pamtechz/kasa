@@ -37,7 +37,7 @@ export async function GET(req:Request){
   try{requireEventTaskEdit(identity,selectedEvent);eventCanEdit=!['archived','completed','cancelled'].includes(selectedEvent.status);}catch{}
   return json({
    identity,
-   tasks:tasks.docs.map(x=>({id:x.id,...x.data()})).filter(task=>taskEventId(task)===eventId),
+   tasks:tasks.docs.map(x=>({id:x.id,...x.data()})).filter(task=>taskEventId(task as {eventId?:string})===eventId),
    selectedEvent,
    availableEvents:[...(existingEvents.docs.some(d=>d.id===LEGACY_MARATHON_EVENT_ID)?[]:[legacyMarathonEvent]),...existingEvents.docs.map(d=>({id:d.id,...d.data()}))],
    meta:meta.data()||null,
