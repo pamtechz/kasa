@@ -46,6 +46,10 @@ export async function POST(req:Request){
     status:'pending',requestedAt:now,updatedAt:now,
     trigger:decision.trigger
    });
+   tx.create(db.collection('auditLogs').doc(),{
+    actor:actor.uid,action:'commission.requested',target:submissionId,
+    details:{requestId:id,amountMinor,method},at:now
+   });
    tx.create(db.collection('notificationOutbox').doc(),{
     kind:'commission_payout_request',event:'payout_requested',
     title:'Commission payout request requires review',
@@ -92,8 +96,17 @@ export async function PATCH(req:Request){
     throw new HttpError(409,'The payout request cannot be changed in its current state.');
    const reserve=db.collection('payoutReservations').doc(String(request.submissionId));
    const [locked,submission]=await Promise.all([tx.get(reserve),tx.get(db.collection('submissions').doc(String(request.submissionId)))]);
-   if(!locked.exists||locked.data()?.requestId!==id)
+   if(!locked.exists||locked.data()?.requestId!==id){
+    // Pre-hardening pending requests carried free-form amounts and cannot be approved.
+    // Allow an administrator to reject them with evidence, preserving the record.
+    if(!locked.exists&&action==='reject'&&actor.role!=='agent'){
+     tx.update(ref,{status:'rejected',legacyReconciliation:true,closedAt:now,closedBy:actor.uid,reason,updatedAt:now});
+     tx.create(db.collection('auditLogs').doc(),{actor:actor.uid,action:'commission.legacy_request_rejected',
+      target:id,details:{submissionId:String(request.submissionId||''),reason},at:now});
+     return;
+    }
     throw new HttpError(409,'Payout reservation needs reconciliation.');
+   }
    if(submission.data()?.commission?.paidAt)throw new HttpError(409,'The commission is already paid.');
    if(action==='approve'){
     if(!commissionDecision(submission.data()||{}).eligible)throw new HttpError(409,'Commission is no longer eligible.');
@@ -103,6 +116,10 @@ export async function PATCH(req:Request){
     tx.update(ref,{status:action==='withdraw'?'withdrawn':'rejected',closedAt:now,closedBy:actor.uid,reason:reason||null,updatedAt:now});
     tx.delete(reserve);
    }
+   tx.create(db.collection('auditLogs').doc(),{
+    actor:actor.uid,action:'commission.request_'+action,target:id,
+    details:{submissionId:String(request.submissionId),reason:reason||null},at:now
+   });
   });
   return json({ok:true,status:action==='approve'?'approved':action==='withdraw'?'withdrawn':'rejected'});
  }catch(e){return fail(e);}
