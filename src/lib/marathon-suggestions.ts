@@ -4,9 +4,10 @@ import {db} from '@/lib/firebase-admin';
 import {HttpError} from '@/lib/errors';
 import type {MarathonIdentity} from '@/lib/marathon';
 import {canReview} from '@/lib/marathon';
+import {taskEventId} from '@/lib/marathon-event-model';
 
 const PAGE_SIZE=50;
-export async function marathonSuggestionsPage(identity:MarathonIdentity,status='pending',cursor:string|null=null){
+export async function marathonSuggestionsPage(identity:MarathonIdentity,status='pending',cursor:string|null=null,eventId?:string){
  if(!['pending','accepted','rejected','all'].includes(status))throw new HttpError(400,'Invalid recommendation status.');
  if(cursor&&(!/^[A-Za-z0-9_-]{1,150}$/.test(cursor)))throw new HttpError(400,'Invalid recommendation cursor.');
  // Document-ID ordering provides stable cursor pagination without a new
@@ -19,7 +20,7 @@ export async function marathonSuggestionsPage(identity:MarathonIdentity,status='
  const snap=await query.limit(PAGE_SIZE+1).get();
  const docs=snap.docs.slice(0,PAGE_SIZE);
  return {
-  suggestions:docs.map(d=>({...d.data(),id:d.id})),
+  suggestions:docs.map(d=>({...d.data(),id:d.id})).filter(record=>!eventId||taskEventId(record)===eventId),
   nextSuggestionCursor:snap.size>PAGE_SIZE?docs[docs.length-1].id:null
  };
 }
