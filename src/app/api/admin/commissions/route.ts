@@ -19,6 +19,11 @@ export async function GET(req:Request){
    cursor=pageDocs.docs[pageDocs.docs.length-1];
    if(page===39)truncated=true;
   }
+  const advanceSnapshot=await db.collection('commissionAdvances').limit(501).get();
+  const advancePartial=advanceSnapshot.size>500;
+  const advances=new Map(advanceSnapshot.docs.slice(0,500).map(d=>
+   [d.id,{amountMinor:Number(d.data().amountMinor||0),recipientUid:String(d.data().recipientUid||''),
+     policyMode:String(d.data().policyMode||'historical'),fullRateMinor:Number(d.data().fullRateMinor||0)}]));
   const commissions=docs.flatMap(doc=>{
    const x=doc.data();
    const decision=commissionDecision(x);
@@ -26,6 +31,7 @@ export async function GET(req:Request){
    return [{
     submissionId:doc.id,reference:String(x.reference||''),agentId:String(x.agentId),
     trigger:decision.trigger,amount:decision.amount,
+    advancePaid:Math.max(0,Number(advances.get(doc.id)?.amountMinor||0)/100),
     currency:'ZMW',paidAt:x.commission.paidAt||null,paymentReference:x.commission.paymentReference||null,
     fundingEvidence:decision.trigger==='payment'?x.paymentVerification?.reference:x.cdfDisbursement?.bankReference
    }];
@@ -38,10 +44,21 @@ export async function GET(req:Request){
      recordedAmount:Number(x.commission.amount)||0,previouslyPaid:Boolean(x.commission.paidAt),
      legacyTrigger:String(x.commission.trigger||''),reason:decision.reason}];
   });
-  return json({commissions,reconciliation,truncated,totals:{
+  const progressive=[...advances.entries()].map(([submissionId,proof])=>{
+    const doc=docs.find(x=>x.id===submissionId);
+    const record=doc?.data();
+    return {submissionId,reference:String(record?.reference||submissionId),
+      agentId:proof.recipientUid,amount:proof.amountMinor/100,
+      policyMode:proof.policyMode,fullyVerified:record?commissionDecision(record).eligible:false};
+  }).filter(x=>!x.fullyVerified);
+  const paidAdvances=[...advances.values()].reduce((n,a)=>n+Math.max(0,a.amountMinor)/100,0);
+  const paidFinal=commissions.filter(c=>Boolean(c.paidAt))
+    .reduce((n,c)=>n+Math.max(0,c.amount-c.advancePaid),0);
+  return json({commissions,reconciliation,progressive,
+   truncated:truncated||advancePartial,totals:{
    eligible:commissions.reduce((n,c)=>n+c.amount,0),
-   paid:commissions.filter(c=>Boolean(c.paidAt)).reduce((n,c)=>n+c.amount,0),
-   pending:commissions.filter(c=>!c.paidAt).reduce((n,c)=>n+c.amount,0)
+   paid:paidFinal+paidAdvances,
+   pending:commissions.filter(c=>!c.paidAt).reduce((n,c)=>n+Math.max(0,c.amount-c.advancePaid),0)
   }});
  }catch(e){return fail(e);}
 }
