@@ -154,6 +154,24 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
      currency:'ZMW',trigger:previous.commission.trigger,
      paymentReference,recordedAt:now,recordedBy:actor.uid
     });
+    // A receipt is an audit record of KASA's recorded transfer, NOT proof that
+    // the recipient received it. Only the referred account owner can acknowledge it.
+    tx.create(db.collection('commissionReceipts').doc(id),{
+     submissionId:id,reference:String(previous.reference||id),
+     recipientUid:previous.agentId,amountMinor:Math.round(Number(previous.commission.amount)*100),
+     currency:'ZMW',transactionId:paymentReference,
+     trigger:previous.commission.trigger,recordedBy:actor.uid,recordedAt:now,
+     status:'awaiting_confirmation',confirmedAt:null,disputedAt:null,
+     payoutRequestId:reservation.exists?String(reservation.data()?.requestId||''):null,
+     createdAt:now,updatedAt:now
+    });
+    tx.create(db.collection('notificationOutbox').doc(),{
+     kind:'commission_payout_receipt',event:'commission_paid',
+     recipient:'agent',recipientUid:previous.agentId,reference:String(previous.reference||id),
+     submissionId:id,title:'Please confirm your KASA commission payment',
+     message:'KASA has recorded a commission transfer. Check your own account, then confirm the amount and transaction ID or report a difference.',
+     state:'pending',createdAt:now
+    });
    }
    tx.update(ref,changes);
    // In-app event queue is part of the same transaction as the status change.
