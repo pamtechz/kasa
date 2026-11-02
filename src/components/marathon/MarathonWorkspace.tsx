@@ -129,8 +129,9 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
  const hydrate=useCallback(async(userUid:string)=>{
   lastHydrateStarted.current=Date.now();
   try{
-   const data=await api<Bootstrap>('/api/marathon/bootstrap?event='+encodeURIComponent(selectedEventRef.current));
-   if(authUid.current!==userUid)return;
+   const requestedEvent=selectedEventRef.current;
+   const data=await api<Bootstrap>('/api/marathon/bootstrap?event='+encodeURIComponent(requestedEvent));
+   if(authUid.current!==userUid||selectedEventRef.current!==requestedEvent)return;
    let local:PendingEdit[]=[];
    try{local=await pendingMarathonEdits(userUid);}
    catch{setNotice('Offline storage is unavailable. Changes require a successful online save on this device.');}
@@ -145,7 +146,7 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
    if(authUid.current!==userUid)return;
    if(isNetworkFailure(e)){
     const cached=await readMarathonCache(userUid);
-    if(cached){
+    if(cached&&(cached.data as Bootstrap).selectedEvent?.id===selectedEventRef.current){
      const local=await pendingMarathonEdits(userUid).catch(()=>[]);
      if(authUid.current!==userUid)return;
      setState(overlayPending(cached.data as Bootstrap,local));setQueuedEdits(local);
