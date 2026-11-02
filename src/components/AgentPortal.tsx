@@ -106,7 +106,7 @@ export function AgentPortal({children}: {children: React.ReactNode}) {
     {name: 'Agent Portal Overview', href: '/agent-portal', icon: LayoutDashboard},
     {name: 'Register Candidate', href: '/dashboard/applications/new', icon: PlusCircle},
     {name: 'Referred Candidates', href: '/dashboard/referrals', icon: Users},
-    {name: 'Commission Ledger', href: '/dashboard/commissions', icon: Wallet},
+    {name: 'My Commission Payouts', href: '/agent-portal/payouts', icon: Wallet},
     {name: 'Agent Profile', href: '/dashboard/profile', icon: User}
   ];
 
