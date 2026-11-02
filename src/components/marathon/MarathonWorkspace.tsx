@@ -34,6 +34,7 @@ import {marathonCategories,categoryForSection,categoryForId,isMarathonCategoryId
 import type {MarathonFocus} from '@/lib/marathon-categories';
 import type {MarathonSeedInfo} from '@/lib/marathon-seed-import';
 import type {MarathonTask,MarathonRole,MarathonStatus} from '@/lib/marathon-types';
+import {LEGACY_MARATHON_EVENT_ID,type MarathonEvent} from '@/lib/marathon-event-model';
 import {marathonViewForPath} from '@/lib/marathon-navigation';
 import type {MarathonView as View} from '@/lib/marathon-navigation';
 
@@ -42,7 +43,7 @@ type Suggestion={id:string;taskId:string;recommendation:string;proposedStatus?:M
 type Member={uid:string;email:string;displayName:string;schoolRole:string;role:MarathonRole;schoolActive:boolean;marathonActive:boolean;active:boolean};
 type EventItem={id:string;action:string;actor:string;at:string;taskId?:string;targetUid?:string;changes?:Record<string,unknown>};
 type Permissions={edit:boolean;assign:boolean;review:boolean;manage:boolean;super:boolean};
-type Bootstrap={source?:MarathonSeedInfo;identity:Identity;tasks:MarathonTask[];meta:Record<string,unknown>|null;suggestions:Suggestion[];nextSuggestionCursor?:string|null;members:Member[];permissions:Permissions};
+type Bootstrap={source?:MarathonSeedInfo;identity:Identity;tasks:MarathonTask[];meta:Record<string,unknown>|null;suggestions:Suggestion[];nextSuggestionCursor?:string|null;members:Member[];permissions:Permissions;selectedEvent?:MarathonEvent;availableEvents?:MarathonEvent[]};
 type EditChanges=Partial<Pick<MarathonTask,'title'|'lead'|'section'|'dueDate'|'priority'|'importance'|'status'|'nextStep'|'notes'|'evidence'|'completedAt'|'archived'>>;
 const blank:Bootstrap={identity:{uid:'',email:'',displayName:'',schoolRole:'marathon_only',role:'kasaClient'},tasks:[],meta:null,suggestions:[],members:[],permissions:{edit:false,assign:false,review:false,manage:false,super:false}};
 const statusLabels:Record<MarathonStatus,string>={todo:'Not started',doing:'In progress',blocked:'Blocked',done:'Completed'};
@@ -74,6 +75,8 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
  const pathname=usePathname(),searchParams=useSearchParams();
  const view=marathonViewForPath(pathname,section);
  const [state,setState]=useState<Bootstrap>(blank),[loading,setLoading]=useState(true),[offline,setOffline]=useState(false);
+ const [selectedEventId,setSelectedEventId]=useState(LEGACY_MARATHON_EVENT_ID);
+ const selectedEventRef=useRef(LEGACY_MARATHON_EVENT_ID);
  const [authError,setAuthError]=useState(''),[notice,setNotice]=useState(''),[queuedEdits,setQueuedEdits]=useState<PendingEdit[]>([]);
  const [drawer,setDrawer]=useState<MarathonTask|null>(null),[newTask,setNewTask]=useState(false),[mobile,setMobile]=useState(false);
  const selectedTaskId=searchParams.get('task');
@@ -90,6 +93,13 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
  const [dateFilters,setDateFilters]=useState<ChecklistDateFilters>(defaultDateFilters);
  const [sortOrder,setSortOrder]=useState<ChecklistSort>('priority');
  const [focus,setFocus]=useState<MarathonFocus>('all'),[filtersOpen,setFiltersOpen]=useState(false),[onlyMine,setOnlyMine]=useState(false);
+ const eventParam=searchParams.get('event');
+ useEffect(()=>{
+  let next=eventParam||LEGACY_MARATHON_EVENT_ID;
+  try{if(!eventParam)next=window.localStorage.getItem('kasa_marathon_selected_event')||next;
+   window.localStorage.setItem('kasa_marathon_selected_event',next);}catch{}
+  if(next!==selectedEventRef.current){selectedEventRef.current=next;setSelectedEventId(next);}
+ },[eventParam]);
  const categoryParam=searchParams.get('category');
  const filterCategory=isMarathonCategoryId(categoryParam)?categoryParam:'all';
  const [events,setEvents]=useState<EventItem[]>([]);
@@ -119,7 +129,7 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
  const hydrate=useCallback(async(userUid:string)=>{
   lastHydrateStarted.current=Date.now();
   try{
-   const data=await api<Bootstrap>('/api/marathon/bootstrap');
+   const data=await api<Bootstrap>('/api/marathon/bootstrap?event='+encodeURIComponent(selectedEventRef.current));
    if(authUid.current!==userUid)return;
    let local:PendingEdit[]=[];
    try{local=await pendingMarathonEdits(userUid);}
@@ -160,6 +170,7 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
   return ()=>{active=false;authUid.current='';unsub();};
  },[hydrate,router]);
  const refresh=useCallback(async()=>{if(uid)await hydrate(uid);},[hydrate,uid]);
+ useEffect(()=>{if(uid&&selectedEventId!==state.selectedEvent?.id)void hydrate(uid);},[selectedEventId,uid,hydrate,state.selectedEvent?.id]);
  useEffect(()=>{
   if(!uid)return;
   // Near-live authorized revalidation, without granting raw Firestore access.
@@ -273,7 +284,7 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
  const inProgress=active.filter(t=>t.status==='doing').length;
  const critical=active.filter(t=>t.status!=='done'&&t.importance==='Critical').length;
  const pct=active.length?Math.round(complete/active.length*100):0;
- const daysLeft=Math.max(0,Math.ceil((new Date('2027-03-21T06:00:00+02:00').getTime()-Date.now())/86400000));
+ const daysLeft=Math.max(0,Math.ceil((new Date((state.selectedEvent?.eventDate||'2027-03-21')+'T06:00:00+02:00').getTime()-Date.now())/86400000));
  const leads=useMemo(()=>[...new Set(tasks.map(t=>t.lead).filter(Boolean))].sort(),[tasks]);
  function selectCategory(value:string){
   const url=new URL(window.location.href);
@@ -332,7 +343,7 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
   setSaving(true);
   try{
    if(!navigator.onLine)throw Error('Creating new actions requires an internet connection.');
-   const result=await api<{task:MarathonTask}>('/api/marathon/tasks',{method:'POST',body:JSON.stringify(values)});
+   const result=await api<{task:MarathonTask}>('/api/marathon/tasks',{method:'POST',body:JSON.stringify({...values,eventId:selectedEventRef.current})});
    setState(s=>({...s,tasks:[result.task,...s.tasks]}));closeTaskPage();setNotice('New operation created.');
   }catch(e){setNotice(errorMessage(e));}finally{setSaving(false);}
  }
@@ -406,7 +417,19 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
    <div className="ml-sidebar-header"><Link href="/marathon" className="ml-sidebar-brand" title="KASA Life Marathon" onClick={()=>setMobile(false)}><BrandLogo size={42}/><span><b>KASA <em>LIFE</em></b><small>MARATHON OPERATIONS</small></span></Link><button type="button" className="ml-sidebar-toggle" onClick={toggleSidebar} aria-label={collapsed?'Expand Marathon sidebar':'Collapse Marathon sidebar'} title={collapsed?'Expand sidebar':'Collapse sidebar'}><ChevronLeft size={18}/></button></div>
    <div className="ml-sidebar-scroll" tabIndex={0} aria-label="Scrollable Marathon navigation">
    <div className="ml-nav-section">WORKSPACE</div>
-   <nav aria-label="Marathon workspace navigation">{dailyMenu.map(navigationItem)}</nav>
+   <nav aria-label="Marathon workspace navigation">{dailyMenu.map(navigationItem)}
+    <Link href="/marathon/events" className="ml-nav-item"><CalendarDays size={19}/><span>Events</span></Link>
+    <Link href={'/marathon/budget?event='+selectedEventId} className="ml-nav-item"><TrendingUp size={19}/><span>Event Budget</span></Link>
+   </nav>
+   <label className="ml-nav-section" htmlFor="ml-event-switcher">SELECT EVENT</label>
+   <select id="ml-event-switcher" aria-label="Select Marathon event" value={selectedEventId}
+    onChange={e=>{const id=e.target.value;selectedEventRef.current=id;setSelectedEventId(id);
+     try{window.localStorage.setItem('kasa_marathon_selected_event',id);}catch{}
+     const url=new URL(window.location.href);url.searchParams.set('event',id);
+     window.history.replaceState(null,'',url.pathname+url.search);}}
+    style={{width:'100%',maxWidth:'100%',padding:'9px',marginBottom:12,borderRadius:8}}>
+    {(state.availableEvents||[{id:LEGACY_MARATHON_EVENT_ID,name:'KASA Life Marathon — March 2027'}]).map(ev=><option key={ev.id} value={ev.id}>{ev.name}</option>)}
+   </select>
    <details className="ml-nav-tools" open={collapsed||toolMenu.some(item=>item.view===view)||undefined}><summary>More tools <ChevronDown size={15}/></summary><nav aria-label="Other Marathon tools">{toolMenu.map(navigationItem)}</nav></details>
    {schoolDestination&&<div className="ml-school-switch"><span className="ml-nav-section">YOUR WORKSPACES</span>
     <Link href={schoolDestination} className="ml-nav-item ml-school-link"><ArrowDownRight size={19}/><span>Return to KASA School</span></Link>
