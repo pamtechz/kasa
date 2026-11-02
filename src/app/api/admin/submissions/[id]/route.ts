@@ -42,6 +42,12 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
    const snap=await tx.get(ref);
    if(!snap.exists)throw new HttpError(404,'Application not found.');
    const previous=snap.data()!;
+   const advanceDoc=previous.agentId&&['payment_verified','cdf_funds_received','commission_paid'].includes(status)
+    ?await tx.get(db.collection('commissionAdvances').doc(id)):null;
+   const advanceMinor=advanceDoc?.exists?Number(advanceDoc.data()?.amountMinor||0):0;
+   if(advanceDoc?.exists&&(advanceDoc.data()?.recipientUid!==previous.agentId||
+      !Number.isSafeInteger(advanceMinor)||advanceMinor<=0))
+    throw new HttpError(409,'Existing commission advance requires reconciliation.');
    // All Firestore reads must precede writes within this transaction.
    const referrer=previous.agentId&&['payment_verified','cdf_funds_received'].includes(status)
     ?await tx.get(db.collection('profiles').doc(String(previous.agentId))):null;
@@ -134,7 +140,10 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
      if(!Number.isFinite(rate)||rate<=0||rate>50000)
       throw new HttpError(409,'An explicit positive commission rate for this funding path must be approved in Settings. No fallback rate is allowed.');
      changes.referralVerified={by:actor.uid,at:now};
-     changes.commission={amount:rate,currency:'ZMW',trigger:kind==='payment'?'payment':'cdf_disbursement',approvedAt:now};
+     if(advanceMinor>Math.round(rate*100))
+      throw new HttpError(409,'An early advance exceeds the current commission rate. Finance must reconcile the difference.');
+     changes.commission={amount:rate,currency:'ZMW',trigger:kind==='payment'?'payment':'cdf_disbursement',approvedAt:now,
+      advancePaidMinor:advanceMinor};
      tx.create(db.collection('notificationOutbox').doc(),{
        kind:'commission_earned',event:'commission_approved',
        recipient:'agent',recipientUid:previous.agentId,
@@ -148,6 +157,10 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
     if(status==='commission_paid'){
     if(!previous.agentId||!previous.commission||previous.commission.paidAt||!commissionDecision(previous).eligible)
      throw new HttpError(409,'No eligible funded, fully enrolled and independently verified unpaid commission exists for this application.');
+    const fullMinor=Math.round(Number(previous.commission.amount)*100);
+    const remainingMinor=fullMinor-advanceMinor;
+    if(!Number.isSafeInteger(remainingMinor)||remainingMinor<=0)
+     throw new HttpError(409,'No remaining commission is due after the recorded advance. Finance must close the balance through audited reconciliation.');
     const paymentReference=safeText(body?.paymentReference,160);
     if(paymentReference.length<5)throw new HttpError(400,'A verified commission transfer reference is required.');
     const payoutRef=db.collection('commissionPayoutReferences').doc(digest(paymentReference.toLowerCase()));
@@ -162,13 +175,13 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
      const request=await tx.get(requestRef);
      if(!request.exists||request.data()?.status!=='approved')
       throw new HttpError(409,'The linked agent payout request must be approved before settlement.');
-     if(Math.round(Number(request.data()?.amount||0)*100)!==Math.round(Number(previous.commission.amount)*100))
+     if(Math.round(Number(request.data()?.amount||0)*100)!==remainingMinor)
       throw new HttpError(409,'Requested amount differs from the approved commission.');
      tx.update(requestRef,{status:'settled',settledAt:now,settledBy:actor.uid,paymentReference,updatedAt:now});
      tx.update(reserve,{status:'settled',updatedAt:now,paymentReference});
     }
     tx.create(payoutRef,{submissionId:id,agentId:previous.agentId,recordedAt:now,recordedBy:actor.uid});
-    changes.commission={...previous.commission,paidAt:now,paymentReference};
+    changes.commission={...previous.commission,paidAt:now,paymentReference,advancePaidMinor:advanceMinor,finalPaidMinor:remainingMinor};
     tx.create(db.collection('commissionPayments').doc(id),{
      submissionId:id,agentId:previous.agentId,amount:previous.commission.amount,
      currency:'ZMW',trigger:previous.commission.trigger,
