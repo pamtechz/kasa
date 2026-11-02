@@ -174,6 +174,38 @@ export async function POST(req: Request) {
         updates.fundingStatus = 'payment_recorded_pending_enrollment_verification';
       }
 
+      // Immutable tuition receipt for the exact recorded installment.
+      // Keep it separate from enrollment approval and referral commission entitlement.
+      const receiptId=digest('payment:' + receiptReference.toLowerCase());
+      tx.create(db.collection('tuitionReceipts').doc(receiptId),{
+        submissionId,applicationReference:reference,applicantUid:app.applicantUid||null,
+        amountMinor:Math.round(amountPaid*100),totalPaidMinor:Math.round(newPaidTotal*100),
+        feeTotalMinor:Math.round(approvedQuote.total*100),
+        currency:'ZMW',paymentMethod,transactionId:receiptReference,
+        recordedAt:now,recordedBy:actor.uid,
+        fundingStatus:Math.round(newPaidTotal*100)===Math.round(approvedQuote.total*100)
+          ?'fully_paid_pending_enrollment_review':'part_payment_recorded',
+        status:'recorded',note
+      });
+      tx.create(db.collection('notificationOutbox').doc(),{
+        kind:'tuition_payment_receipt',event:'tuition_payment_recorded',
+        recipient:'student',recipientUid:app.applicantUid||null,
+        reference,submissionId,
+        title:'KASA tuition receipt available',
+        message:'A verified tuition payment was recorded. View your student portal to download the receipt.',
+        state:app.applicantUid?'pending':'awaiting_student_account_link',
+        createdAt:now
+      });
+      if(app.agentId&&Math.round(newPaidTotal*100)===Math.round(approvedQuote.total*100)){
+        tx.create(db.collection('notificationOutbox').doc(),{
+          kind:'commission_eligibility_review',event:'full_tuition_recorded',
+          recipient:'admin',recipientUid:null,
+          reference,submissionId,
+          title:'Referred student fully paid — verify enrollment and referral',
+          message:'Full fees have been recorded. Independently verify enrollment and referral identity before approving any commission.',
+          state:'pending',createdAt:now
+        });
+      }
       tx.create(verificationRef, {
         submissionId,
         kind: 'payment_receipt',
@@ -195,7 +227,7 @@ export async function POST(req: Request) {
       ok: true,
       submissionId,
       totalPaidToDate: newPaidTotal,
-      message: `Tuition receipt of ZMW ${amountPaid.toFixed(2)} recorded for ${reference}. Enrollment verification remains a separate approval step.`
+      message: `Tuition receipt of ZMW ${amountPaid.toFixed(2)} recorded for ${reference}. The student can download their receipt. Any referred-student commission remains pending independent full-funding, enrollment and referral verification.`
     }, 201);
   } catch (e) {
     return fail(e);
