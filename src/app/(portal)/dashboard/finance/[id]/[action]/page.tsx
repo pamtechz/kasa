@@ -1,4 +1,5 @@
 'use client';
+import {TuitionReceiptList} from '@/components/TuitionReceiptList';
 import {useCallback,useEffect,useState} from 'react';
 import Link from 'next/link';
 import {useParams,useRouter} from 'next/navigation';
@@ -86,12 +87,13 @@ export default function FinanceActionPage(){
      <div className="field full"><label htmlFor="receipt-note">Evidence notes (optional)</label>
       <textarea id="receipt-note" maxLength={500} rows={3} value={note} onChange={e=>setNote(e.target.value)}/></div>
     </div>
-    <p className="muted">Amounts must be independently verified. Saving a receipt does not approve enrollment, change CDF status or trigger agent commission.</p>
+    <p className="muted">Amounts must be independently verified. Saving creates an immutable receipt for the student. Once full fees are received, Admissions must independently verify enrollment and the referrer before commission is approved.</p>
     <button className="btn btn-primary" type="submit" disabled={busy||!amount||reference.trim().length<4}>
      <Wallet size={17}/>{busy?'Recording…':'Record verified receipt'}
     </button>
    </form>}
   </section>}
+  {item&&<TuitionReceiptList submissionId={item.id}/>}
   {item&&!receipt&&!reconcile&&<div className="alert-error">Unknown finance operation.</div>}
  </>;
 }
