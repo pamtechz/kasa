@@ -183,7 +183,8 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
     tx.create(payoutRef,{submissionId:id,agentId:previous.agentId,recordedAt:now,recordedBy:actor.uid});
     changes.commission={...previous.commission,paidAt:now,paymentReference,advancePaidMinor:advanceMinor,finalPaidMinor:remainingMinor};
     tx.create(db.collection('commissionPayments').doc(id),{
-     submissionId:id,agentId:previous.agentId,amount:previous.commission.amount,
+     submissionId:id,agentId:previous.agentId,amount:remainingMinor/100,
+     grossCommissionAmount:previous.commission.amount,advancePaidMinor:advanceMinor,
      currency:'ZMW',trigger:previous.commission.trigger,
      paymentReference,recordedAt:now,recordedBy:actor.uid
     });
@@ -191,7 +192,7 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
     // the recipient received it. Only the referred account owner can acknowledge it.
     tx.create(db.collection('commissionReceipts').doc(id),{
      submissionId:id,reference:String(previous.reference||id),
-     recipientUid:previous.agentId,amountMinor:Math.round(Number(previous.commission.amount)*100),
+     recipientUid:previous.agentId,amountMinor:remainingMinor,
      currency:'ZMW',transactionId:paymentReference,
      trigger:previous.commission.trigger,recordedBy:actor.uid,recordedAt:now,
      status:'awaiting_confirmation',confirmedAt:null,disputedAt:null,
