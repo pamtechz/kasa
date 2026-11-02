@@ -272,7 +272,7 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
    if(retry)void flush();
   }catch(e){setReviewError(errorMessage(e));}finally{setSaving(false);}
  }
- useEffect(()=>{if(view==='activity'&&uid&&!offline)void api<{events:EventItem[]}>('/api/marathon/activity').then(x=>setEvents(x.events)).catch(e=>setNotice(errorMessage(e)));},[view,uid,offline]);
+ useEffect(()=>{if(view==='activity'&&uid&&!offline)void api<{events:EventItem[]}>('/api/marathon/activity?event='+encodeURIComponent(selectedEventId)).then(x=>setEvents(x.events)).catch(e=>setNotice(errorMessage(e)));},[view,uid,offline,selectedEventId]);
  const tasks=state.tasks;
  const today=marathonToday();
  const complete=tasks.filter(t=>t.status==='done'&&!t.archived).length;
