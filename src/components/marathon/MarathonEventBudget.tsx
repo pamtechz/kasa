@@ -1,5 +1,6 @@
 'use client';
 import {useCallback,useEffect,useState} from 'react';
+import Link from 'next/link';
 import {authHeaders} from '@/lib/firebase-client';
 import {LEGACY_MARATHON_EVENT_ID,type MarathonEvent,type BudgetLine} from '@/lib/marathon-event-model';
 import styles from './MarathonEventBudget.module.css';
@@ -127,8 +128,8 @@ export function MarathonEventBudget({view}:{view:'events'|'budget'}){
   <header className={styles.top}><div><h1>KASA Life Marathon — {view==='events'?'Event Management':'Event Budget'}</h1>
    <span className={styles.hint}>Secure event-scoped planning · All financial amounts in ZMW</span></div>
    <nav className={styles.links} aria-label="Marathon features">
-    <a href="/marathon">Command Center</a><a href="/marathon/events">Events</a>
-    <a href={'/marathon/budget?event='+selected}>Budget</a><a href={'/marathon/operations?event='+selected}>Checklist</a>
+    <Link href="/marathon">Command Center</Link><Link href="/marathon/events">Events</Link>
+    <Link href={'/marathon/budget?event='+selected}>Budget</Link><Link href={'/marathon/operations?event='+selected}>Checklist</Link>
    </nav></header>
   {error&&<div role="alert" className={styles.error}>{error}</div>}
   {notice&&<div role="status" className={styles.notice}>{notice}</div>}
