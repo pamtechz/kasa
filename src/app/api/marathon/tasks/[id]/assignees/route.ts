@@ -57,7 +57,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
    after(async()=>{
     for(const uid of newAssignees){
      try{await sendMarathonPush('KASA Life Marathon — task assigned','You have a new checklist assignment. Open Marathon to review and confirm its status.',
-       '/marathon/operations?event='+encodeURIComponent(taskEventId(task))+'&task='+encodeURIComponent(id),uid);}
+       '/marathon/operations?event='+encodeURIComponent(taskEventId(task as Record<string,unknown>))+'&task='+encodeURIComponent(id),uid);}
      catch(error){console.error('Marathon assignment push failed',error instanceof Error?error.message:'Unknown delivery error');}
     }
    });
