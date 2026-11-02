@@ -20,7 +20,7 @@ export async function marathonSuggestionsPage(identity:MarathonIdentity,status='
  const snap=await query.limit(PAGE_SIZE+1).get();
  const docs=snap.docs.slice(0,PAGE_SIZE);
  return {
-  suggestions:docs.map(d=>({...d.data(),id:d.id})).filter(record=>!eventId||taskEventId(record)===eventId),
+  suggestions:docs.map(d=>({...d.data(),id:d.id})).filter(record=>!eventId||taskEventId(record as Record<string,unknown>)===eventId),
   nextSuggestionCursor:snap.size>PAGE_SIZE?docs[docs.length-1].id:null
  };
 }
