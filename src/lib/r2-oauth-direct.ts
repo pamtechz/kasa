@@ -77,9 +77,10 @@ export async function oauthR2Credentials(uid:string,connectionId:string,target:T
  const group=(Array.isArray(groups.result)?groups.result:[]).find((g:{id?:string;name?:string})=>
   g.name==='Workers R2 Storage Bucket Item Write'&&/^[a-f0-9]{32}$/.test(g.id||''));
  if(!group)throw new HttpError(422,'Cloudflare did not grant permission to provision access to this R2 bucket.');
- const expiresAt=Date.now()+60*60*1000;
+ // Cloudflare token dates use whole-second UTC timestamps.
+ const expiresAt=Math.floor(Date.now()/1000)*1000+60*60*1000;
  const created=await oauthControl(uid,'/accounts/'+target.accountId+'/tokens','POST',{
-  name:'KASA direct files '+connectionId.slice(0,8),expires_on:new Date(expiresAt).toISOString(),
+  name:'KASA direct files '+connectionId.slice(0,8),expires_on:new Date(expiresAt).toISOString().replace('.000Z','Z'),
   policies:[{effect:'allow',permission_groups:[{id:group.id}],resources:{
    ['com.cloudflare.edge.r2.bucket.'+target.accountId+'_'+target.jurisdiction+'_'+target.bucket]:'*'
   }}]});

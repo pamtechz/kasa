@@ -37,6 +37,7 @@ test('OAuth provisioning creates only short-lived bucket-scoped S3 credentials a
  const policy=JSON.parse(requests[0].init.body);
  assert.deepEqual(policy.policies[0].resources,{['com.cloudflare.edge.r2.bucket.'+target.accountId+'_default_'+target.bucket]:'*'});
  assert.deepEqual(policy.policies[0].permission_groups,[{id:'b'.repeat(32)}]);
+ assert.match(policy.expires_on,/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
  assert.ok(Date.parse(policy.expires_on)>Date.now()+3500000&&Date.parse(policy.expires_on)<=Date.now()+3600000);
  const stored=fixture.records.get('r2ConnectionSecrets/own');
  assert.ok(stored.encrypted);assert.equal(stored.authorizedAt,'generation-1');assert.equal(stored.accessKeyId,undefined);
