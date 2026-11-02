@@ -86,6 +86,7 @@ export default function FinanceDashboardPage() {
         title="Financial Management & Tuition Ledger"
         subtitle="Manage self-funded tuition payments, record tuition receipts, and monitor revenue ledgers. Enrollment funding approval remains a separate review."
         action={<div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+          <Link className="btn btn-outline" href="/dashboard/finance/reconciliation">Reconciliation queue</Link>
           <Link className="btn btn-outline" href="/dashboard/finance/tariffs">Approved tariff registry</Link>
           <button className="btn btn-outline" onClick={() => void loadFinanceData()} disabled={loading} style={{display: 'inline-flex', alignItems: 'center', gap: 6}}>
             <RefreshCw size={15} className={loading ? 'spin' : ''} /> Refresh Ledger
