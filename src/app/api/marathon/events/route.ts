@@ -4,9 +4,10 @@ import {db} from '@/lib/firebase-admin';
 import {fail,json,HttpError} from '@/lib/errors';
 import {marathonIdentity} from '@/lib/marathon';
 import {sameOrigin} from '@/lib/security';
+import {isMarathonCalendarDate} from '@/lib/marathon-event-model';
 import {LEGACY_MARATHON_EVENT_ID,legacyMarathonEvent,type MarathonEvent} from '@/lib/marathon-event-model';
 export const runtime='nodejs';
-const date=z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const date=z.string().refine(isMarathonCalendarDate,'Choose a valid calendar date.');
 const create=z.object({name:z.string().trim().min(5).max(130),preparationStart:date,eventDate:date,closeoutDate:date,
  targetRunners:z.number().int().min(1).max(100000),registrationFeeMinor:z.number().int().min(0).max(10000000)});
 export async function GET(req:Request){
