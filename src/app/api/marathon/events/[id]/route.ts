@@ -37,7 +37,7 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
   const now=new Date().toISOString();let output:unknown;
   await db.runTransaction(async tx=>{
    const snap=await tx.get(ref);
-   const previous=snap.exists?{...snap.data(),id}:await getMarathonEvent(id);
+   const previous=snap.exists?{...snap.data(),id} as Awaited<ReturnType<typeof getMarathonEvent>>:await getMarathonEvent(id);
    if(Number(previous.revision)!==input.data.expectedRevision)throw new HttpError(409,'Event updated elsewhere. Refresh.');
    const next={...previous,...input.data.changes,revision:input.data.expectedRevision+1,updatedAt:now,updatedBy:actor.uid};
    if(next.preparationStart>next.eventDate||next.eventDate>next.closeoutDate)throw new HttpError(400,'Event dates are inconsistent.');
