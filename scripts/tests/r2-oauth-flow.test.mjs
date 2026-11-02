@@ -188,3 +188,53 @@ test('live storage diagnostic is strictly owner-scoped, read-only and does not u
  assert.match(ui,/Test storage/);
  assert.match(ui,/\/api\/r2\/oauth\/diagnose/);
 });
+
+
+test('first-time guest sees disconnected status rather than a 401 before storage consent',async()=>{
+ const src=read('src/app/api/r2/oauth/route.ts');
+ assert.match(src,/!req\.headers\.get\('authorization'\)/);
+ assert.match(src,/guestStorageIdentity\(req\)/);
+ assert.match(src,/connected:false,connectionId:null,selectedBucket:null/);
+ assert.match(src,/storageIdentity\(req\)/);
+});
+
+test('preview same-origin policy allows exact configured callback and stable branch host without trusting arbitrary origins',()=>{
+ const source=read('src/lib/security.ts');
+ assert.match(source,/CLOUDFLARE_OAUTH_REDIRECT_URI/);
+ assert.match(source,/VERCEL_BRANCH_URL/);
+ const mod=transpile('src/lib/security.ts',{
+  'server-only':{},'node:crypto':require('node:crypto'),
+  './firebase-admin':{adminAuth:{},db:{}},'./errors':{HttpError:class HttpError extends Error{constructor(status,message){super(message);this.status=status}}},
+  './permissions':{can:()=>false,routeCapability:()=>null},
+  './provisioned-sign-in':{canUseUnverifiedProvisionedAccount:()=>false}
+ });
+ const saved={};
+ for(const key of ['NODE_ENV','APP_URL','VERCEL_URL','VERCEL_BRANCH_URL','CLOUDFLARE_OAUTH_REDIRECT_URI'])saved[key]=process.env[key];
+ try{
+  process.env.NODE_ENV='production';
+  process.env.APP_URL='https://kasaschool.vercel.app';
+  process.env.VERCEL_URL='kasa-unique-build.vercel.app';
+  delete process.env.VERCEL_BRANCH_URL;
+  process.env.CLOUDFLARE_OAUTH_REDIRECT_URI='https://kasa-git-feature.vercel.app/api/r2/oauth/callback';
+  const check=origin=>mod.sameOrigin(new Request('https://kasa-git-feature.vercel.app/api/r2/guest',{method:'POST',headers:{origin}}));
+  assert.doesNotThrow(()=>check('https://kasa-git-feature.vercel.app'));
+  assert.throws(()=>check('https://attacker.example'),/Invalid request origin/);
+  assert.doesNotThrow(()=>check('https://kasaschool.vercel.app'));
+  delete process.env.CLOUDFLARE_OAUTH_REDIRECT_URI;
+  process.env.VERCEL_BRANCH_URL='kasa-git-feature.vercel.app';
+  assert.doesNotThrow(()=>check('https://kasa-git-feature.vercel.app'));
+ }finally{for(const [key,v] of Object.entries(saved)){if(v===undefined)delete process.env[key];else process.env[key]=v;}}
+});
+
+test('missing App Check token blocks guest session and file control traffic on the client without skipping enforcement',async t=>{
+ const client=transpile('src/lib/r2-upload-client.ts',{
+  './firebase-client':{getClientAuth:()=>({currentUser:null}),appCheckToken:async()=>''}
+ });
+ let called=0;
+ t.mock.method(globalThis,'fetch',async()=>{called++;throw Error('must not contact server');});
+ await assert.rejects(()=>client.storageJson('/api/r2/guest',{},true),/application verification is not configured/);
+ assert.equal(called,0);
+ const code=read('src/lib/r2-upload-client.ts');
+ assert.match(code,/authStateReady/);
+ assert.match(code,/if\(attest&&!token\)/);
+});

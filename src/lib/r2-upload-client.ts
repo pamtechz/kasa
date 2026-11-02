@@ -8,6 +8,8 @@ export async function externalStorageHeaders():Promise<Record<string,string>>{
 }
 export async function storageJson<T>(path:string,body?:unknown,attest=false):Promise<T>{
  const headers=await externalStorageHeaders(),token=attest?await appCheckToken():'';
+ if(attest&&!token)
+  throw Error('KASA application verification is not configured for this website. An administrator must set a valid Firebase App Check reCAPTCHA site key and register this website domain. No file or guest session was sent.');
  const response=await fetch(path,{method:body===undefined?'GET':'POST',headers:{...headers,
   ...(body===undefined?{}:{'Content-Type':'application/json'}),...(token?{'X-Firebase-AppCheck':token}:{})},
   ...(body===undefined?{}:{body:JSON.stringify(body)}),cache:'no-store'});
@@ -18,7 +20,10 @@ export async function storageJson<T>(path:string,body?:unknown,attest=false):Pro
 export async function authorizeExternalStorage(){
  const readiness=await storageJson<{available:boolean;message:string}>('/api/r2/oauth/readiness');
  if(!readiness.available)throw Error(readiness.message);
- if(!getClientAuth()?.currentUser)await storageJson('/api/r2/guest',{},true);
+ // Wait for Firebase Auth to restore an existing user before issuing a guest session.
+ const auth=getClientAuth();
+ if(auth?.authStateReady)await auth.authStateReady();
+ if(!auth?.currentUser)await storageJson('/api/r2/guest',{},true);
  const result=await storageJson<{url:string}>('/api/r2/oauth/start',{returnTo:location.pathname+location.search});
  location.assign(result.url);
 }
