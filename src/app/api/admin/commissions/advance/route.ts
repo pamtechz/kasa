@@ -36,6 +36,8 @@ export async function POST(req:Request){
     throw new HttpError(409,'Early advances require a self-funded referred student with an accepted offer.');
    if(!submission.agentId||submission.agentId===submission.applicantUid)
     throw new HttpError(409,'A genuine non-self referral is required.');
+   const existingRequest=await tx.get(db.collection('payoutReservations').doc(submissionId));
+   if(existingRequest.exists)throw new HttpError(409,'An existing payout request must be resolved before an early advance.');
    if(old.exists||receipt.exists||proof.exists)
     throw new HttpError(409,'An advance or this transfer reference is already recorded.');
    if(submission.commission?.paidAt)throw new HttpError(409,'This commission was already paid.');
@@ -79,5 +81,53 @@ export async function POST(req:Request){
   });
   return json({ok:true,advanceMinor:requestedMinor,limitMinor:advanceLimitMinor,
    receiptId:submissionId+'--advance',message:'Commission advance recorded with private recipient confirmation. It will reduce any later final commission payment.'},201);
+ }catch(e){return fail(e);}
+}
+
+export async function GET(req:Request){
+ try{
+  await operator(req,['super_admin','admin']);
+  const policy=(await db.collection('settings').doc('operations').get()).data()||{};
+  const rate=Number(policy.commissionAmountPaid)||0;
+  const rows:Array<{submissionId:string;reference:string;student:string;recipientUid:string;
+   paidMinor:number;feeMinor:number;limitMinor:number;advanceMinor:number;
+   advanceTransactionId:string|null;fundingStatus:string}>=[];
+  let cursor:FirebaseFirestore.QueryDocumentSnapshot|undefined,partial=false;
+  for(let page=0;page<40;page++){
+   let q=db.collection('submissions').where('formKind','==','student').orderBy('__name__').limit(250);
+   if(cursor)q=q.startAfter(cursor);
+   const docs=await q.get();
+   for(const doc of docs.docs){
+    const data=doc.data();
+    if(!data.agentId||data.agentId===data.applicantUid||data.fundingMethod!=='self_funded')continue;
+    const quote=readApprovedFeeQuote(data.feeQuote);
+    const paid=Number(data.paymentVerification?.amount||0);
+    if(!quote||!Number.isFinite(paid)||paid<=0)continue;
+    if(!['letter_issued','payment_verified'].includes(String(data.status)))continue;
+    const paidMinor=Math.round(paid*100),feeMinor=Math.round(quote.total*100);
+    if(feeMinor<=0||paidMinor<=0||paidMinor>feeMinor)continue;
+    rows.push({submissionId:doc.id,reference:String(data.reference||doc.id),
+     student:String(data.answers?.['full-name']||data.answers?.fullNames||'Student'),
+     recipientUid:String(data.agentId),paidMinor,feeMinor,
+     limitMinor:paidMinor<feeMinor&&rate>0?Math.floor(Math.round(rate*100)*paidMinor/feeMinor):0,
+     advanceMinor:0,advanceTransactionId:null,fundingStatus:String(data.status)});
+   }
+   if(docs.size<250)break;
+   cursor=docs.docs[docs.docs.length-1];
+   if(page===39)partial=true;
+  }
+  // Read advance proofs only for scoped student applications.
+  for(let i=0;i<rows.length;i+=100){
+   const refs=rows.slice(i,i+100).map(row=>db.collection('commissionAdvances').doc(row.submissionId));
+   const docs=await db.getAll(...refs);
+   docs.forEach((doc,j)=>{
+    if(doc.exists){
+     rows[i+j].advanceMinor=Number(doc.data()?.amountMinor||0);
+     rows[i+j].advanceTransactionId=String(doc.data()?.transactionId||'');
+    }
+   });
+  }
+  return json({rows,commissionRateMinor:Math.round(rate*100),partial,
+   note:'Only admin-recorded early advances are shown. These are not earned commissions; actual transfers require provider evidence and recipient confirmation.'});
  }catch(e){return fail(e);}
 }
