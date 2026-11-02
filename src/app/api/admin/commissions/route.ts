@@ -70,10 +70,9 @@ export async function PATCH(req:Request){
   await requireCapability(req,'commissions.manage');
   const body=await req.json();
   const submissionId=safeText(body?.submissionId,60);
-  const paymentReference=safeText(body?.paymentReference,160);
+  let paymentReference=safeText(body?.paymentReference,160);
   if(!submissionId)throw new HttpError(400,'Submission ID is required.');
   if(body?.paid===false)throw new HttpError(403,'Commission payment reversals require a separately audited reconciliation.');
-  if(paymentReference.length<5)throw new HttpError(400,'Enter an independently verified payout reference.');
   const record=await db.collection('submissions').doc(submissionId).get();
   if(!record.exists)throw new HttpError(404,'Application not found.');
   const data=record.data()!;
@@ -83,6 +82,17 @@ export async function PATCH(req:Request){
   if(body?.amount!==undefined && Number(body.amount)!==Number(data.commission.amount)){
    throw new HttpError(400,'Commission amounts are fixed by the approved funding policy.');
   }
+  if(body?.settleFromAdvances===true){
+   const old=await db.collection('commissionAdvances').doc(submissionId).get();
+   if(!old.exists||old.data()?.recipientUid!==data.agentId||
+     !Number.isSafeInteger(old.data()?.amountMinor)||
+     old.data()?.amountMinor!==Math.round(Number(data.commission.amount)*100))
+    throw new HttpError(409,'The full commission is not covered by verified recorded advances.');
+   // No new transfer and no duplicate financial receipt: canonical status gate
+   // marks the existing evidenced advances as final settlement.
+   paymentReference=String(old.data()?.transactionId||'');
+  }else if(paymentReference.length<5)
+   throw new HttpError(400,'Enter an independently verified payout reference.');
   // Reuse the canonical transactional status transition. That transition
   // creates immutable commissionPayments evidence and audits the payout.
   const transitionRequest=new Request(req.url,{
