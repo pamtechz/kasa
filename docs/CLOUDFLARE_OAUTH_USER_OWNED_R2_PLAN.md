@@ -128,3 +128,7 @@ Docs: https://developers.cloudflare.com/api/resources/iam/subresources/oauth_cli
 ## 2 November 2026 — Provider-side token revocation
 
 The Disconnect action now first marks the OAuth session as disconnecting (blocking new token issuance), attempts to DELETE each KASA-issued bucket token through Cloudflare, and then destroys local OAuth/S3 credentials and disables connections. Provider failures cannot prevent local disconnection. The response explicitly warns when an issued provider token could not be revoked; users must revoke such KASA tokens from their Cloudflare Dashboard or wait for their one-hour automatic expiry. Already issued presigned URLs can remain usable briefly until they expire. Owner objects and buckets are never deleted.
+
+## 2 November 2026 — Live OAuth credential diagnostic
+
+Signed-in users and guest applicants can now click **Test storage** after their Cloudflare account is connected. A limited, same-origin endpoint checks the actual Cloudflare grant, scoped R2 credentials and private-bucket HEAD access. It tests a fresh nonexistent key and expects 404 (authorized object absence); a 403 or other response is reported as a failure. It never uploads a test file or proxies user data. A real browser PUT, signed GET, sharing and revoke test remains necessary before release.

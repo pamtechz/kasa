@@ -171,3 +171,20 @@ test('provider token revocation deletes only owned encrypted KASA-issued tokens 
  globalThis.fetch=async()=>new Response(null,{status:404});
  assert.equal(await direct.revokeOAuthIssuedToken('owner',connectionId,accountId),true);
 });
+
+
+test('live storage diagnostic is strictly owner-scoped, read-only and does not upload files',()=>{
+ const route=read('src/app/api/r2/oauth/diagnose/route.ts');
+ const ui=read('src/components/ExternalStorageConnection.tsx');
+ assert.match(route,/storageIdentity\(req\)/);
+ assert.match(route,/sameOrigin\(req\)/);
+ assert.match(route,/rateLimit\(req/);
+ assert.match(route,/connection.ownerUid!==uid/);
+ assert.match(route,/connection.auth!=='oauth'/);
+ assert.match(route,/resolveR2\(uid,id\)/);
+ assert.match(route,/signR2Url\(bucket,'HEAD'/);
+ assert.match(route,/response.status===404/);
+ assert.doesNotMatch(route,/method:'PUT'|arrayBuffer\(|FormData|body:file/);
+ assert.match(ui,/Test storage/);
+ assert.match(ui,/\/api\/r2\/oauth\/diagnose/);
+});
