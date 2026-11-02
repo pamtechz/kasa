@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {LEGACY_MARATHON_EVENT_ID,legacyMarathonEvent,taskEventId,dateWithinEvent,calculatedLineMinor,canTransitionBudgetStatus,budgetTotals} from '../../src/lib/marathon-event-model.ts';
+import {LEGACY_MARATHON_EVENT_ID,legacyMarathonEvent,taskEventId,dateWithinEvent,isMarathonCalendarDate,calculatedLineMinor,canTransitionBudgetStatus,budgetTotals} from '../../src/lib/marathon-event-model.ts';
 import {marathon2027BudgetDraft,marathon2027BudgetDraftTotalMinor} from '../../src/data/marathon-2027-budget.ts';
 
 test('existing untagged tasks always belong to the March 2027 event',()=>{
@@ -99,4 +99,12 @@ test('recommendation creation, review, pagination and bootstrap stay in the sele
  assert.match(review,/requireEventTaskReview\(actor,event\)/);
  assert.match(paging,/taskEventId\(record\)===eventId/);
  assert.match(bootstrap,/marathonSuggestionsPage\(identity,'pending',null,eventId\)/);
+});
+
+test('rejects impossible event dates and preserves valid leap-day schedules',()=>{
+ assert.equal(isMarathonCalendarDate('2028-02-29'),true);
+ assert.equal(isMarathonCalendarDate('2027-02-29'),false);
+ assert.equal(isMarathonCalendarDate('2027-04-31'),false);
+ assert.equal(isMarathonCalendarDate('2027-03-21'),true);
+ assert.equal(dateWithinEvent('2027-02-29',legacyMarathonEvent),false);
 });
