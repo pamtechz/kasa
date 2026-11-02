@@ -56,6 +56,7 @@ test('finance reconciliation is read-only and exposes partial scans without sile
  assert.match(route,/if\(page===39\)partial=true/);
  assert.doesNotMatch(route,/\.update\(|\.create\(|\.set\(/);
  assert.match(score,/missing_quote/);
+ assert.match(score,/feeMinor===null&&needsQuote/);
  assert.match(score,/invalid_payment/);
  assert.match(score,/awaiting_enrollment/);
  assert.match(score,/cdf_awaiting_remittance/);
