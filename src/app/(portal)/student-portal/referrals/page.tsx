@@ -1,5 +1,5 @@
-import {CommissionReceiptCenter} from '@/components/CommissionReceiptCenter';
 'use client';
+import {CommissionReceiptCenter} from '@/components/CommissionReceiptCenter';
 
 import {useState, useEffect} from 'react';
 import {StudentPortal} from '@/components/StudentPortal';
