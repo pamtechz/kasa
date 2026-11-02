@@ -39,10 +39,12 @@ export async function GET(req: NextRequest) {
     const paidRate = Number(ops.commissionAmountPaid || 0);
 
     // 3. Query all submissions referred by this student
-    const [subByAgentId, subByCode] = await Promise.all([
+    const [subByAgentId, subByCode, advanceDocs] = await Promise.all([
       db.collection('submissions').where('agentId', '==', user.uid).get(),
-      db.collection('submissions').where('answers.agentCode', '==', agentCode).get()
+      db.collection('submissions').where('answers.agentCode', '==', agentCode).get(),
+      db.collection('commissionAdvances').where('recipientUid','==',user.uid).limit(300).get()
     ]);
+    const advanceBySubmission=new Map(advanceDocs.docs.map(d=>[d.id,Number(d.data().amountMinor||0)/100]));
 
     const referralsMap = new Map();
     for (const doc of [...subByAgentId.docs, ...subByCode.docs]) {
@@ -55,7 +57,8 @@ export async function GET(req: NextRequest) {
         status: d.status,
         fundingMethod: d.fundingMethod,
         submittedAt: d.submittedAt,
-        commissionEarned: commissionDecision(d).eligible ? Number(d.commission.amount) : 0
+        advancePaid:advanceBySubmission.get(doc.id)||0,
+        commissionEarned: Math.max(advanceBySubmission.get(doc.id)||0,commissionDecision(d).eligible ? Number(d.commission.amount) : 0)
       });
     }
 
