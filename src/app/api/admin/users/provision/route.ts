@@ -48,7 +48,7 @@ export async function POST(req: Request) {
 
     const uid = account.uid;
     const now = new Date().toISOString();
-    const agentCode = role === 'agent' ? `KASA-AGT-${uid.slice(0, 6).toUpperCase()}` : undefined;
+    const agentCode = role === 'agent' ? String(account.profile.agentCode || `KASA-AGT-${uid.slice(0, 6).toUpperCase()}`) : undefined;
     const studentCode = role === 'student' ? `KASA-STU-${uid.slice(0, 6).toUpperCase()}` : undefined;
 
     // Firestore sentinels are valid writes but not Profile string fields.
@@ -65,7 +65,22 @@ export async function POST(req: Request) {
       updatedAt: now
     };
 
-    await db.collection('profiles').doc(uid).set(profileData, {merge: true});
+    const profileRef=db.collection('profiles').doc(uid);
+    if(agentCode){
+      const duplicates=await db.collection('profiles').where('agentCode','==',agentCode).limit(2).get();
+      if(duplicates.docs.some(doc=>doc.id!==uid))
+        throw new HttpError(409,'A different account already owns this referral code. Reconcile the identity.');
+      const claimRef=db.collection('referralCodes').doc(agentCode);
+      await db.runTransaction(async tx=>{
+        const [current,claim]=await Promise.all([tx.get(profileRef),tx.get(claimRef)]);
+        if(!current.exists||current.data()?.active!==true)
+          throw new HttpError(403,'Only active School identities can be provisioned.');
+        if(claim.exists&&claim.data()?.ownerUid!==uid)
+          throw new HttpError(409,'The referral code is reserved for a different account.');
+        tx.set(profileRef,profileData,{merge:true});
+        if(!claim.exists)tx.create(claimRef,{ownerUid:uid,role:'agent',createdAt:now});
+      });
+    }else await profileRef.set(profileData, {merge:true});
 
     // Create notification in notificationOutbox for record keeping
     const noticeId = newId();
