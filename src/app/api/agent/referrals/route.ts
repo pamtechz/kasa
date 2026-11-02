@@ -50,12 +50,27 @@ export async function GET(req: Request) {
       };
     }).sort((a, b) => String(b.submittedAt || '').localeCompare(String(a.submittedAt || '')));
 
+    const ownerSnap=agentUid===agent.uid?null:await db.collection('profiles').doc(agentUid).get();
+    const owner=ownerSnap?.data()||agent;
+    const agentCode=String(owner.agentCode||'');
+    const studentForm=forms.docs.find(d=>d.data().kind==='student');
+    const slug=studentForm?String(studentForm.data().slug):'student-enrollment';
+    const referralLink=agentCode?
+      (process.env.APP_URL||'https://kasaschool.vercel.app')+'/apply/'+encodeURIComponent(slug)+'?ref='+encodeURIComponent(agentCode):'';
+    const eligible=referrals.filter(item=>item.commission!==null);
     return json({
       agent: {
-        agentCode: agent.agentCode || 'KASA-AGT',
-        district: agent.district || 'Unassigned',
-        active: agent.active
+        agentCode,
+        district: owner.district || 'Unassigned',
+        active: owner.active
       },
+      agentCode,referralLink,
+      referralsCount:referrals.length,
+      successfulCount:eligible.length,
+      totalEarned:eligible.reduce((sum,item)=>sum+(item.commission?.amount||0),0),
+      pendingCommission:eligible.filter(item=>!item.commission?.paidAt).reduce((sum,item)=>sum+(item.commission?.amount||0),0),
+      paidCommission:eligible.filter(item=>Boolean(item.commission?.paidAt)).reduce((sum,item)=>sum+(item.commission?.amount||0),0),
+      currency:'ZMW',
       forms: forms.docs
         .filter(d => d.data().kind === 'student')
         .map(d => ({slug: String(d.data().slug), title: String(d.data().title)})),
