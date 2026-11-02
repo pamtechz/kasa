@@ -53,7 +53,6 @@ export async function POST(req:Request){
   if(action==='confirm'&&transactionId.length<5)throw new HttpError(400,'Enter the transaction ID shown by your payment provider.');
   if(action==='dispute'&&note.length<10)throw new HttpError(400,'Explain the incorrect or missing payment (at least 10 characters).');
   const now=new Date().toISOString(),ref=db.collection('commissionReceipts').doc(submissionId);
-  let result:'confirmed'|'disputed'='disputed';
   await db.runTransaction(async tx=>{
    const snap=await tx.get(ref);
    if(!snap.exists)throw new HttpError(404,'Receipt not found. Ask finance to reconcile older payments.');
@@ -66,7 +65,7 @@ export async function POST(req:Request){
     transactionId.toUpperCase()===receipt.transactionId.trim().toUpperCase();
    if(action==='confirm'&&!matches)
     throw new HttpError(409,'Amount or transaction ID differs from KASA\'s recorded transfer. Choose Report a problem instead.');
-   result=action==='confirm'?'confirmed':'disputed';
+   const result=action==='confirm'?'confirmed':'disputed';
    tx.update(ref,{
     status:result,
     ...(result==='confirmed'?{confirmedAt:now,confirmedBy:user.uid,
@@ -90,7 +89,7 @@ export async function POST(req:Request){
     });
    }
   });
-  return json({ok:true,status:result,message:result==='confirmed'?
+  return json({ok:true,status:action==='confirm'?'confirmed':'disputed',message:action==='confirm'?
    'You acknowledged receipt of the stated amount and transaction ID. Your acknowledgement is saved to the official KASA receipt.':
    'Your payment discrepancy was recorded and flagged for administrator review.'});
  }catch(e){return fail(e);}
