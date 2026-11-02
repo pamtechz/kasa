@@ -42,6 +42,9 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
    const snap=await tx.get(ref);
    if(!snap.exists)throw new HttpError(404,'Application not found.');
    const previous=snap.data()!;
+   // All Firestore reads must precede writes within this transaction.
+   const referrer=previous.agentId&&['payment_verified','cdf_funds_received'].includes(status)
+    ?await tx.get(db.collection('profiles').doc(String(previous.agentId))):null;
    if(!stages[previous.status as SubmissionStatus]?.includes(status))
     throw new HttpError(400,'Invalid status transition. Refresh this application.');
    if(status==='under_review'&&previous.status==='letter_issued'&&previous.autoApproved!==true)
@@ -70,7 +73,11 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
     const evidence=safeText(kind==='payment'?body?.enrollmentPaymentReference:
       kind==='cdf_approval'?body?.cdfReference:body?.cdfGovernmentPaymentReference,160);
     if(evidence.length<5)throw new HttpError(400,'Enter the independently verified receipt or government reference.');
-    const verificationRef=db.collection('fundingVerifications').doc(digest(kind+':'+evidence.toLowerCase()));
+    // Finance's immutable payment receipt already reserves payment:<reference>.
+    // Use a separate enrollment-verification namespace so the second
+    // independently authorized step does not collide with the real receipt.
+    const verificationKey=(kind==='payment'?'enrollment_verified':kind)+':'+evidence.toLowerCase();
+    const verificationRef=db.collection('fundingVerifications').doc(digest(verificationKey));
     const priorVerification=await tx.get(verificationRef);
     if(priorVerification.exists)throw new HttpError(409,'Funding evidence reference already recorded. Reconcile this application rather than reusing it.');
     if(status==='payment_verified'){
@@ -117,12 +124,25 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
     tx.create(verificationRef,{submissionId:id,kind,reference:evidence,verifiedAt:now,verifiedBy:actor.uid,
      ...(status==='cdf_funds_received'?{amount:Number(body.cdfAmountReceived)}:{})});
     if(previous.agentId&&status!=='cdf_approved'){
-     if(body?.referralVerified!==true)throw new HttpError(400,'Independently verify agent attribution before earning commission.');
+     if(body?.referralVerified!==true)throw new HttpError(400,'Independently verify agent or student referral attribution before earning commission.');
+     if(previous.agentId===previous.applicantUid)
+      throw new HttpError(409,'Self-referral cannot earn commission.');
+     if(!referrer?.exists||referrer.data()?.active!==true||
+       !['student','agent'].includes(String(referrer.data()?.role)))
+      throw new HttpError(409,'The referred student must be linked to an active registered agent or student referrer.');
      const rate=Number(kind==='payment'?settings.commissionAmountPaid:settings.commissionAmountCdf);
      if(!Number.isFinite(rate)||rate<=0||rate>50000)
       throw new HttpError(409,'An explicit positive commission rate for this funding path must be approved in Settings. No fallback rate is allowed.');
      changes.referralVerified={by:actor.uid,at:now};
      changes.commission={amount:rate,currency:'ZMW',trigger:kind==='payment'?'payment':'cdf_disbursement',approvedAt:now};
+     tx.create(db.collection('notificationOutbox').doc(),{
+       kind:'commission_earned',event:'commission_approved',
+       recipient:'agent',recipientUid:previous.agentId,
+       reference:String(previous.reference||id),submissionId:id,
+       title:'Verified KASA referral commission earned',
+       message:'A fully funded referred student has been enrolled. Your approved commission is now available in the referral ledger.',
+       state:'pending',createdAt:now
+     });
     }
    }
     if(status==='commission_paid'){
@@ -153,6 +173,24 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
      submissionId:id,agentId:previous.agentId,amount:previous.commission.amount,
      currency:'ZMW',trigger:previous.commission.trigger,
      paymentReference,recordedAt:now,recordedBy:actor.uid
+    });
+    // A receipt is an audit record of KASA's recorded transfer, NOT proof that
+    // the recipient received it. Only the referred account owner can acknowledge it.
+    tx.create(db.collection('commissionReceipts').doc(id),{
+     submissionId:id,reference:String(previous.reference||id),
+     recipientUid:previous.agentId,amountMinor:Math.round(Number(previous.commission.amount)*100),
+     currency:'ZMW',transactionId:paymentReference,
+     trigger:previous.commission.trigger,recordedBy:actor.uid,recordedAt:now,
+     status:'awaiting_confirmation',confirmedAt:null,disputedAt:null,
+     payoutRequestId:reservation.exists?String(reservation.data()?.requestId||''):null,
+     createdAt:now,updatedAt:now
+    });
+    tx.create(db.collection('notificationOutbox').doc(),{
+     kind:'commission_payout_receipt',event:'commission_paid',
+     recipient:'agent',recipientUid:previous.agentId,reference:String(previous.reference||id),
+     submissionId:id,title:'Please confirm your KASA commission payment',
+     message:'KASA has recorded a commission transfer. Check your own account, then confirm the amount and transaction ID or report a difference.',
+     state:'pending',createdAt:now
     });
    }
    tx.update(ref,changes);

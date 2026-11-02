@@ -1,4 +1,5 @@
 'use client';
+import {CommissionReceiptCenter} from '@/components/CommissionReceiptCenter';
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import {api,PageHeader} from '@/components/Portal';
@@ -38,6 +39,7 @@ export default function ReviewPayoutRequests(){
    </tr>)}
    {!rows.length&&<tr><td colSpan={6}>No payout requests have been submitted.</td></tr>}
    </tbody></table></div></section>
+  <CommissionReceiptCenter admin/>
   <p className="muted">Approving a request does not initiate a bank or mobile-money transfer. Transfers require independent proof before recording settlement.</p>
  </>;
 }

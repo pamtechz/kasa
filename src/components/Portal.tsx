@@ -106,6 +106,7 @@ export function Portal({children}:{children:React.ReactNode}){
   ...(allowed('agents.manage')?[{name:'District agents',href:'/dashboard/agents',icon:Users}]:[]),
   ...(allowed('finance.read')?[{name:'Finance Ledger',href:'/dashboard/finance',icon:Wallet}]:[]),
   ...(allowed('commissions.read')?[{name:'Commissions',href:'/dashboard/commissions',icon:BarChart3}]:[]),
+  ...(allowed('settings.manage')?[{name:'Commission rates',href:'/dashboard/settings/commissions',icon:Wallet}]:[]),
   ...(role==='super_admin'||role==='admin'?[{name:'Payout requests',href:'/dashboard/payouts',icon:Wallet}]:[]),
   ...(allowed('automation.manage')?[{name:'Automations',href:'/dashboard/automations',icon:Bell}]:[]),
   ...(allowed('settings.manage')?[{name:'Settings',href:'/dashboard/settings',icon:Settings}]:[]),

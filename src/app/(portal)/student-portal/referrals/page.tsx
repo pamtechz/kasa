@@ -1,4 +1,5 @@
 'use client';
+import {CommissionReceiptCenter} from '@/components/CommissionReceiptCenter';
 
 import {useState, useEffect} from 'react';
 import {StudentPortal} from '@/components/StudentPortal';
@@ -206,6 +207,7 @@ export default function StudentPortalReferralsPage() {
           </table>
         </div>
       </div>
+      <CommissionReceiptCenter/>
     </StudentPortal>
   );
 }
