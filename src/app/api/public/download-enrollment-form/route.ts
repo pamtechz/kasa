@@ -1,5 +1,8 @@
 import {NextRequest,NextResponse} from 'next/server';
 import fs from 'fs';
+import {db} from '@/lib/firebase-admin';
+import {signedR2Read} from '@/lib/r2-storage';
+import {HttpError,fail} from '@/lib/errors';
 import path from 'path';
 import {generateEnrollmentFormPdf} from '@/lib/pdf-enrollment-form';
 
@@ -8,6 +11,13 @@ export const dynamic='force-dynamic';
 
 export async function GET(_req:NextRequest){
  try{
+  const config=(await db.collection('settings').doc('acceptanceLetter').get()).data();
+  const assetId=typeof config?.enrollmentForm?.url==='string'&&/^r2asset:[a-f0-9-]{36}$/i.test(config.enrollmentForm.url)?config.enrollmentForm.url.slice(8):'';
+  if(assetId){
+   const file=(await db.collection('r2Files').doc(assetId).get()).data();
+   if(!file||file.status!=='ready'||file.purpose!=='enrollment-pdf'||file.contentType!=='application/pdf')throw new HttpError(404,'The official external form is unavailable.');
+   return new NextResponse(null,{status:307,headers:{Location:await signedR2Read(file.ownerUid,file.connectionId,file.key),'Cache-Control':'no-store'}});
+  }
   const templatePath=path.join(process.cwd(),'public','templates','official-enrollment-form-template.pdf');
   if(fs.existsSync(templatePath)){
    const buffer=fs.readFileSync(templatePath);
@@ -56,6 +66,6 @@ export async function GET(_req:NextRequest){
    }
   });
  }catch(e){
-  return NextResponse.json({error:e instanceof Error?e.message:'Unable to download enrollment form.'},{status:500});
+  return fail(e);
  }
 }

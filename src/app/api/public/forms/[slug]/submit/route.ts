@@ -7,7 +7,9 @@ import {digest,newId,rateLimit,requireAppCheck,sameOrigin} from '@/lib/security'
 import {populateDynamicOptions} from '@/lib/form-options';
 import type {FormSchema, SubmissionStatus} from '@/lib/types';
 import type {Attachment} from '@/lib/schema';
+import {storageIdentity} from '@/lib/r2-storage';
 import {loadIntake} from '@/lib/intake-server';
+import {R2_STAGING,institutionalObjectHead} from '@/lib/institutional-storage';
 import {intakeWindow,normalizedIntake} from '@/lib/intake-policy';
 import {automationSchema,defaultAutomations,formatNotification} from '@/lib/automations';
 export const runtime='nodejs';
@@ -66,12 +68,26 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{slug:string
   const attachments=Object.values(answers).filter((v):v is Attachment=>Boolean(v&&typeof v==='object'&&!Array.isArray(v)&&'path' in v));
   if(new Set(attachments.map(a=>a.path)).size!==attachments.length)
    throw new HttpError(400,'Each document must be uploaded separately. Please select a unique file for each question.');
+  const externalIdentity=attachments.some(a=>a.path.startsWith('r2:'))?await storageIdentity(req):null;
   for(const a of attachments){
-   const [exists]=await storage.bucket().file(a.path).exists();
-   if(!exists)throw new HttpError(400,'An attachment could not be verified. Please upload it again.');
-   const [meta]=await storage.bucket().file(a.path).getMetadata();
-   if(Number(meta.size)>4*1024*1024||meta.contentType!==a.contentType)throw new HttpError(400,'Attachment validation failed.');
-   const uploadedAt=Date.parse(String(meta.timeCreated||''));
+   let size:number,contentType:string,createdAt:string;
+   if(a.path.startsWith('r2:')){
+    const asset=(await db.collection('r2Files').doc(a.path.slice(3)).get()).data();
+    if(!asset||asset.status!=='ready'||asset.purpose!=='application-attachment'||asset.ownerUid!==externalIdentity?.uid||asset.formSlug!==slug)
+     throw new HttpError(403,'Use a completed upload from your own storage for this application.');
+    size=asset.byteSize;contentType=asset.contentType;createdAt=asset.createdAt;
+   }else if(R2_STAGING.test(a.path)){
+    const meta=await institutionalObjectHead(a.path);
+    size=meta.size;contentType=meta.contentType;createdAt=meta.lastModified;
+   }else{
+    const file=storage.bucket().file(a.path);
+    const [exists]=await file.exists();
+    if(!exists)throw new HttpError(400,'An attachment could not be verified. Please upload it again.');
+    const [meta]=await file.getMetadata();
+    size=Number(meta.size);contentType=String(meta.contentType||'');createdAt=String(meta.timeCreated||'');
+   }
+   if(!Number.isFinite(size)||size<1||size>4*1024*1024||contentType!==a.contentType)throw new HttpError(400,'Attachment validation failed.');
+   const uploadedAt=Date.parse(createdAt);
    const uploadAge=Date.now()-uploadedAt;
    if(!Number.isFinite(uploadedAt)||uploadAge< -5*60*1000||uploadAge>7*24*60*60*1000)
     throw new HttpError(400,'One of the uploaded documents has expired. Please upload a fresh copy.');
@@ -146,9 +162,13 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{slug:string
    }
    const fileRefs=attachments.map(a=>db.collection('fileClaims').doc(digest(a.path)));
    const existing=await Promise.all(fileRefs.map(ref=>tx.get(ref)));
+   const externalAssets=await Promise.all(attachments.filter(a=>a.path.startsWith('r2:')).map(a=>tx.get(db.collection('r2Files').doc(a.path.slice(3)))));
+   if(externalAssets.some(d=>d.data()?.status!=='ready'||d.data()?.ownerUid!==externalIdentity?.uid||d.data()?.formSlug!==slug))
+    throw new HttpError(409,'An external attachment changed. Upload it again.');
    if(existing.some(s=>s.exists))throw new HttpError(409,'An attachment has already been used. Upload a new copy.');
    if(duplicateRef)tx.create(duplicateRef,{submissionId:id,formId:form.id,scope,createdAt:now});
    fileRefs.forEach((ref,index)=>tx.create(ref,{submissionId:id,path:attachments[index].path}));
+   externalAssets.forEach(doc=>tx.update(doc.ref,{sharedWithKasa:true,submissionId:id}));
    tx.create(db.collection('submissions').doc(id),{
     reference,formId:form.id,formTitle:form.title,formKind:form.kind,formVersion:form.version,
     status:finalStatus,fundingMethod,autoApproved,autoApprovalReason,downloadToken,

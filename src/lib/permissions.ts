@@ -74,17 +74,20 @@ export function routeCapability(pathname:string,method:string):Capability|null{
  if(path('/api/admin/users(?:/[^/]+)?')||path('/api/admin/users/provision'))
   return verb==='GET'?'users.read':'users.manage';
  if(path('/api/admin/agents(?:/[^/]+)?'))return verb==='GET'?'agents.read':'agents.manage';
- if(path('/api/admin/ads'))return verb==='GET'?'ads.read':'ads.manage';
+ if(path('/api/admin/ads(?:/media)?'))return verb==='GET'?'ads.read':'ads.manage';
  if(path('/api/admin/automations'))return verb==='GET'?'automation.read':'automation.manage';
  if(path('/api/admin/content'))return verb==='GET'?'content.read':'content.manage';
  if(path('/api/admin/forms/import'))return 'forms.manage';
  if(path('/api/admin/forms(?:/[^/]+)?'))return verb==='GET'?'forms.read':'forms.manage';
  if(path('/api/admin/intake'))return verb==='GET'?'intake.read':'intake.manage';
  if(path('/api/admin/site'))return verb==='GET'?'site.read':'site.manage';
+ if(path('/api/admin/settings/enrollment-form/attach'))return verb==='POST'?'settings.manage':null;
+ if(path('/api/admin/settings/storage-status'))return verb==='GET'?'settings.read':null;
  if(path('/api/admin/settings/acceptance-letter/preview-enrollment-form'))return 'settings.manage';
  if(path('/api/admin/settings/acceptance-letter/preview'))return 'settings.read';
- if(path('/api/admin/settings(?:/acceptance-letter(?:/upload)?)?'))
+ if(path('/api/admin/settings(?:/acceptance-letter(?:/(?:upload|attach))?)?'))
   return verb==='GET'?'settings.read':'settings.manage';
+ if(path('/api/admin/r2/shared(?:/[^/]+)?'))return verb==='GET'?'documents.read':null;
  if(path('/api/admin/file'))return 'documents.read';
  if(path('/api/admin/submissions/batch-email'))return 'applications.review';
  if(path('/api/admin/submissions/batch-download'))return 'documents.read';

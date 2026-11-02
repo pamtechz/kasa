@@ -1,18 +1,20 @@
 import {db} from '@/lib/firebase-admin';
 import {fail,json,HttpError} from '@/lib/errors';
 import {operator,audit,sameOrigin} from '@/lib/security';
+import {presentFormUploads} from '@/lib/form-upload-presentation';
+import type {FormSchema} from '@/lib/types';
 import {parseForm} from '@/lib/schema';
 export const runtime='nodejs';
 export async function GET(req:Request,{params}:{params:Promise<{id:string}>}){
  try{await operator(req,['super_admin','admin','reviewer']);const {id}=await params;
   const snap=await db.collection('forms').doc(id).get();if(!snap.exists)throw new HttpError(404,'Form not found.');
-  return json({form:{id,...snap.data()}});
+  return json({form:presentFormUploads({id,...snap.data()} as FormSchema)});
  }catch(e){return fail(e);}
 }
 export async function PUT(req:Request,{params}:{params:Promise<{id:string}>}){
  try{
   sameOrigin(req);const user=await operator(req,['super_admin','admin']);const {id}=await params;
-  const data=parseForm(await req.json());
+  const data=presentFormUploads(parseForm(await req.json()));
   const all=await db.collection('forms').where('slug','==',data.slug).limit(2).get();
   if(all.docs.some(x=>x.id!==id))throw new HttpError(409,'Form URL is already used.');
   let version=0;

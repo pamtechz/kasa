@@ -8,6 +8,7 @@ import {
   FileCheck, Clock, ShieldCheck, RefreshCw, AlertCircle
 } from 'lucide-react';
 import {authHeaders,appCheckToken} from '@/lib/firebase-client';
+import {ExternalStorageConnection} from '@/components/ExternalStorageConnection';
 import {uploadCdfDocumentDirect} from '@/lib/r2-upload-client';
 import {StatusBadge} from '@/components/Portal';
 import {downloadStudentPdf} from '@/lib/student-document-download';
@@ -80,21 +81,7 @@ export default function StudentPortalApplicationsPage() {
     setError('');
     setMessage('');
     try {
-      const r2Uploaded=await uploadCdfDocumentDirect(file,submissionId,kind);
-      if(!r2Uploaded){
-      const headers = await authHeaders();
-      const body = new FormData();
-      body.append('kind', kind);
-      body.append('file', file);
-      const check=await appCheckToken();
-      const uploadHeaders:Record<string,string>={...headers};
-      if(check)uploadHeaders['x-firebase-appcheck']=check;
-      const res = await fetch(`/api/student/applications/${submissionId}/documents`, {
-        method: 'POST',headers:uploadHeaders,body
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Document upload failed.');
-      }
+      await uploadCdfDocumentDirect(file,submissionId,kind);
       setMessage('Document uploaded successfully and queued for admissions review.');
       await loadApplications();
     } catch (err) {
@@ -125,7 +112,7 @@ export default function StudentPortalApplicationsPage() {
   }
 
   return (
-    <StudentPortal>
+    <StudentPortal><ExternalStorageConnection/>
       <div className="page-heading">
         <div>
           <h1>Student Applications & Verification Documents</h1>

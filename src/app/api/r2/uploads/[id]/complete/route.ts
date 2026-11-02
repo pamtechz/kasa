@@ -12,7 +12,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
   const ref=db.collection('r2Files').doc(id);
   const snap=await ref.get(),file=snap.data();
   if(!file||file.ownerUid!==uid)throw new HttpError(404,'Upload not found.');
-  if(file.purpose==='cdf-document'&&identity.profile.role==='student')await requireAppCheck(req);
+  if(file.purpose==='application-attachment'||(file.purpose==='cdf-document'&&identity.profile.role==='student'))await requireAppCheck(req);
   if(file.status==='ready')return json({ok:true,fileId:id,alreadyComplete:true});
   // Older pending capabilities can overwrite their key. Never promote one.
   if(file.writeOnce!==true)throw new HttpError(409,'Start a new upload to use protected file storage.');
@@ -65,7 +65,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
      contentType:data.contentType,size:data.byteSize,uploadedBy:uid,uploadedAt:now,verifiedAt:null,verifiedBy:null
     },updatedAt:now});
    }
-   tx.update(ref,{status:'ready',verifiedAt:new Date().toISOString(),
+   tx.update(ref,{status:'ready',...(submissionRef?{sharedWithKasa:true}:{}),verifiedAt:new Date().toISOString(),
     etag:head.headers.get('etag')||'',contentLength:bytes});
   });
   return json({ok:true,fileId:id,status:'ready'});

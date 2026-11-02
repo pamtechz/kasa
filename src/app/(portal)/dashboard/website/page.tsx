@@ -3,6 +3,8 @@ import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import {Save,Plus,Trash2,ExternalLink,Megaphone,Eye,MousePointerClick} from 'lucide-react';
 import {api,PageHeader} from '@/components/Portal';
+import {uploadToR2,storageJson} from '@/lib/r2-upload-client';
+import {ExternalStorageConnection} from '@/components/ExternalStorageConnection';
 import {defaultSite,type SiteSettings} from '@/lib/site';
 import type {AdCampaign} from '@/app/api/admin/ads/route.ts';
 type Key=keyof SiteSettings;
@@ -62,6 +64,17 @@ export default function Website(){
   } finally { setBusy(false); }
  }
 
+ async function uploadAdMedia(file?:File){
+  if(!file)return;
+  setBusy(true);setError('');setMessage('');
+  try{
+   const fileId=await uploadToR2(file,'public-media');
+   const result=await storageJson<{url:string}>('/api/admin/ads/media',{fileId,publish:true});
+   setNewAdImage(result.url);
+   setMessage('Banner uploaded to your external storage. Save the campaign to publish it.');
+  }catch(e){setError(e instanceof Error?e.message:'Image upload failed.');}
+  finally{setBusy(false);}
+ }
  async function toggleAd(ad: AdCampaign) {
   try {
    await api('/api/admin/ads', {
@@ -116,11 +129,11 @@ export default function Website(){
 
    {creatingAd&&(
     <form onSubmit={e=>void createAd(e)} style={{background:'#f8faf9',padding:16,borderRadius:12,border:'1px solid var(--border)',marginBottom:20}}>
-     <h3 style={{margin:'0 0 12px',fontSize:15}}>Create New Advertisement</h3>
+     <h3 style={{margin:'0 0 12px',fontSize:15}}>Create New Advertisement</h3><ExternalStorageConnection/><p className="field-hint">The banner you choose here will be publicly viewable when published.</p>
      <div className="form-grid">
       <div className="field full"><label>Ad Headline *</label><input required placeholder="E.g. 2027 January Intake Admissions Now Open!" value={newAdHeadline} onChange={e=>setNewAdHeadline(e.target.value)}/></div>
       <div className="field full"><label>Description / Subtitle</label><input placeholder="E.g. Apply for TEVETA-certified General Agriculture or Short Courses." value={newAdDesc} onChange={e=>setNewAdDesc(e.target.value)}/></div>
-      <div className="field"><label>Image Banner URL (Cloudinary / Image)</label><input placeholder="https://res.cloudinary.com/..." value={newAdImage} onChange={e=>setNewAdImage(e.target.value)}/></div>
+      <div className="field"><label>Upload banner (PNG or JPG, maximum 4 MB)</label><input type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg" disabled={busy} onChange={e=>void uploadAdMedia(e.target.files?.[0])}/>{newAdImage&&<small className="field-hint">Image uploaded to your external storage, ready to publish.</small>}</div>
       <div className="field"><label>Target Destination URL</label><input placeholder="https://... or /apply/kasa-enrollment-form" value={newAdUrl} onChange={e=>setNewAdUrl(e.target.value)}/></div>
       <div className="field"><label>Placement Location</label><select value={newAdPlacement} onChange={e=>setNewAdPlacement(e.target.value as any)}><option value="all">All Public Pages & Portal</option><option value="homepage_hero">Homepage Hero Banner</option><option value="programmes">Programmes Catalog</option><option value="student_portal">Student Portal Only</option></select></div>
      </div>

@@ -98,7 +98,7 @@ const studentEnrollmentSchema = {
           label: 'Applicant passport photograph',
           type: 'image',
           required: true,
-          description: 'Uploading images must be from https://console.cloudinary.com/app strictly. Upload your passport photo to your Cloudinary Console and paste the https://res.cloudinary.com/... link.'
+          description: 'Choose a JPG or PNG image from your device and authorize your external storage to upload it.'
         }
       ]
     },
@@ -182,7 +182,7 @@ const studentEnrollmentSchema = {
           label: 'Scanned copy of NRC or identity document',
           type: 'image',
           required: true,
-          description: 'Uploading images must be from https://console.cloudinary.com/app strictly. Upload your scanned NRC to Cloudinary and paste the https://res.cloudinary.com/... link.'
+          description: 'Choose a JPG or PNG image from your device and authorize your external storage to upload it.'
         },
         {
           id: 'medical-note',
@@ -235,7 +235,7 @@ const agentRecruitmentSchema = {
           label: 'Agent passport photograph',
           type: 'image',
           required: true,
-          description: 'Uploading images must be from https://console.cloudinary.com/app strictly. Upload your professional photo to your Cloudinary Console and paste the https://res.cloudinary.com/... link.'
+          description: 'Choose a JPG or PNG image from your device and authorize your external storage to upload it.'
         },
         {
           id: 'email',
@@ -330,7 +330,7 @@ const agentRecruitmentSchema = {
           label: 'Scanned copy of NRC (front and back)',
           type: 'image',
           required: true,
-          description: 'Uploading images must be from https://console.cloudinary.com/app strictly. Upload your scanned NRC to Cloudinary and paste the https://res.cloudinary.com/... link.'
+          description: 'Choose a JPG or PNG image from your device and authorize your external storage to upload it.'
         }
       ]
     },

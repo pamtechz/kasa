@@ -3,7 +3,7 @@ import {getApp,getApps,initializeApp} from 'firebase/app';
 import type {FirebaseApp} from 'firebase/app';
 import {getAuth,signOut} from 'firebase/auth';
 import type {Auth} from 'firebase/auth';
-import {getToken,initializeAppCheck,ReCaptchaV3Provider} from 'firebase/app-check';
+import {getToken,initializeAppCheck,ReCaptchaEnterpriseProvider} from 'firebase/app-check';
 
 // Keep literal NEXT_PUBLIC_ references. Next.js substitutes these browser
 // variables at build time; dynamic process.env[key] reads cannot be inlined.
@@ -51,14 +51,14 @@ export async function appCheckToken(): Promise<string> {
  try {
   if(!check) {
    check=initializeAppCheck(firebaseApp,{
-    provider:new ReCaptchaV3Provider(siteKey),
+    provider:new ReCaptchaEnterpriseProvider(siteKey),
     isTokenAutoRefreshEnabled:true
    });
   }
   const result = await getToken(check, false);
   return result.token || '';
  } catch (err) {
-  console.warn('Firebase AppCheck lookup safely bypassed:', err);
+  console.warn('Firebase App Check verification unavailable:', err);
   return '';
  }
 }

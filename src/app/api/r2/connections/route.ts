@@ -4,7 +4,7 @@ import {z} from 'zod';
 import {db} from '@/lib/firebase-admin';
 import {fail,json,HttpError} from '@/lib/errors';
 import {sameOrigin,rateLimit,audit} from '@/lib/security';
-import {storageIdentity,platformR2} from '@/lib/r2-storage';
+import {storageIdentity} from '@/lib/r2-storage';
 import {validateR2Address,signR2Url} from '@/lib/r2-signing';
 import {encryptR2Secrets,r2EncryptionReady} from '@/lib/r2-crypto';
 export const runtime='nodejs';
@@ -17,7 +17,7 @@ export async function GET(req:Request){
  try{
   const {uid}=await storageIdentity(req);
   const list=await db.collection('r2Connections').where('ownerUid','==',uid).limit(25).get();
-  return json({platformAvailable:Boolean(platformR2()),byobAvailable:r2EncryptionReady(),
+  return json({platformAvailable:false,byobAvailable:r2EncryptionReady(),
    connections:list.docs.map(d=>({id:d.id,label:d.data().label,accountId:d.data().accountId,bucket:d.data().bucket,
     jurisdiction:d.data().jurisdiction,status:d.data().status,createdAt:d.data().createdAt}))});
  }catch(e){return fail(e);}

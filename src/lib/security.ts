@@ -51,6 +51,11 @@ export function sameOrigin(req: Request) {
   const allowedOrigins = new Set([
     process.env.APP_URL ? new URL(process.env.APP_URL).origin : '',
     process.env.VERCEL_URL ? new URL('https://' + process.env.VERCEL_URL.replace('https://','').replace('http://','')).origin : '',
+    // Vercel stable git-branch alias, distinct from the hashed deployment host.
+    process.env.VERCEL_BRANCH_URL ? new URL('https://' + process.env.VERCEL_BRANCH_URL.replace(/^https?:\/\//,'')).origin : '',
+    // Exact callback host is configured privately by the KASA operator for this branch.
+    // This is NOT derived from request headers, so callers cannot add their own origins.
+    process.env.CLOUDFLARE_OAUTH_REDIRECT_URI ? new URL(process.env.CLOUDFLARE_OAUTH_REDIRECT_URI).origin : '',
     ...(process.env.NODE_ENV !== 'production' ? [new URL(req.url).origin] : [])
   ].filter(Boolean));
 

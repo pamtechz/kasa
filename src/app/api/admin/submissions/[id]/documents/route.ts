@@ -1,49 +1,10 @@
-import type {NextRequest} from 'next/server';
 import {db,storage} from '@/lib/firebase-admin';
 import {signedR2Read} from '@/lib/r2-storage';
-import {operator,sameOrigin,audit,newId} from '@/lib/security';
-import {loadIntake} from '@/lib/intake-server';
+import {operator,sameOrigin,audit} from '@/lib/security';
 import {fail,json,HttpError} from '@/lib/errors';
 export const runtime='nodejs';
-const allowed:Record<string,string>={'application/pdf':'pdf','image/png':'png','image/jpeg':'jpg'};
-function validMime(bytes:Buffer,mime:string){
- if(mime==='application/pdf')return bytes.subarray(0,5).toString()==='%PDF-';
- if(mime==='image/png')return bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]));
- return mime==='image/jpeg'&&bytes[0]===255&&bytes[1]===216&&bytes[2]===255;
-}
-export async function POST(req:NextRequest,{params}:{params:Promise<{id:string}>}){
- try{
-  sameOrigin(req);const actor=await operator(req,['super_admin','admin','reviewer']);
-  const {id}=await params,policy=await loadIntake();
-  if(Number(req.headers.get('content-length')||0)>4.5*1024*1024)throw new HttpError(413,'Maximum document size is 4 MB.');
-  const form=await req.formData(),kind=String(form.get('kind')||'');
-  const rule=policy.cdfRequiredDocuments.find(x=>x.id===kind);
-  if(!rule)throw new HttpError(400,'Select a configured CDF document type.');
-  const file=form.get('file');
-  if(!(file instanceof File)||!allowed[file.type]||file.size===0||file.size>4*1024*1024)throw new HttpError(400,'Upload a PDF, PNG or JPEG document under 4 MB.');
-  const bytes=Buffer.from(await file.arrayBuffer());
-  if(!validMime(bytes,file.type))throw new HttpError(400,'File content does not match its declared type.');
-  const ref=db.collection('submissions').doc(id),record=await ref.get();
-  if(!record.exists||record.data()?.formKind!=='student')throw new HttpError(404,'Student application not found.');
-  if(['rejected','cdf_approved','cdf_funds_received','payment_verified','commission_paid'].includes(String(record.data()?.status)))throw new HttpError(409,'Cannot modify documents for this status.');
-  const path='cdf-documents/'+id+'/'+newId()+'.'+allowed[file.type];
-  const obj=storage.bucket().file(path);
-  await obj.save(bytes,{resumable:false,contentType:file.type,metadata:{cacheControl:'private,no-store'}});
-  let replaced='';
-  try{
-   await db.runTransaction(async tx=>{
-    const snap=await tx.get(ref);if(!snap.exists||snap.data()?.formKind!=='student')throw new HttpError(404,'Application changed.');
-    if(['rejected','cdf_approved','cdf_funds_received','payment_verified','commission_paid'].includes(String(snap.data()?.status)))throw new HttpError(409,'Funding documentation is locked after approval or rejection.');
-    const old=snap.data()?.documents||{};
-    replaced=old[kind]?.path||'';
-    tx.update(ref,{['documents.'+kind]:{kind,label:rule.label,path,fileName:file.name.slice(0,150),contentType:file.type,size:file.size,uploadedBy:actor.uid,uploadedAt:new Date().toISOString(),verifiedAt:null,verifiedBy:null},updatedAt:new Date().toISOString()});
-   });
-  }catch(e){await obj.delete().catch(()=>{});throw e;}
-  if(replaced&&replaced!==path)await storage.bucket().file(replaced).delete().catch(()=>{});
-  await audit(actor.uid,'cdf_document.uploaded',id,{kind});
-  return json({ok:true,kind});
- }catch(e){return fail(e);}
-}
+export async function POST(){return json({error:'Use a direct upload to your authorized external storage.',code:'DIRECT_UPLOAD_REQUIRED'},410);}
+
 export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
  try{
   sameOrigin(req);const actor=await operator(req,['super_admin','admin','reviewer']);
@@ -68,7 +29,7 @@ export async function GET(req:Request,{params}:{params:Promise<{id:string}>}){
   const file=doc.data()?.documents?.[kind];
   if(typeof file?.r2FileId==='string'&&file.path==='r2:'+file.r2FileId){
    const snap=await db.collection('r2Files').doc(file.r2FileId).get(),asset=snap.data();
-   if(!asset||asset.status!=='ready'||asset.purpose!=='cdf-document'||asset.submissionId!==id||asset.kind!==kind||asset.connectionId!=='platform')
+   if(!asset||asset.status!=='ready'||asset.purpose!=='cdf-document'||asset.submissionId!==id||asset.kind!==kind||(asset.connectionId!=='platform'&&asset.sharedWithKasa!==true))
     throw new HttpError(404,'R2 document unavailable.');
    return json({url:await signedR2Read(asset.ownerUid,asset.connectionId,asset.key),expiresInSeconds:90});
   }

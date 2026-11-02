@@ -403,17 +403,17 @@ const exactKasaForm = {
         },
         {
           id: 'passport-photo',
-          label: 'Applicant photograph (strictly from https://console.cloudinary.com/app)',
+          label: 'Applicant photograph',
           type: 'image',
           required: false,
-          description: 'Uploading images must be from https://console.cloudinary.com/app strictly. Paste your Cloudinary URL starting with https://res.cloudinary.com/...'
+          description: 'Choose a JPG or PNG image from your device and authorize your external storage to upload it.'
         },
         {
           id: 'identity-document-url',
           label: 'NRC / Identity document image (optional)',
           type: 'image',
           required: false,
-          description: 'Optional scanned NRC from https://console.cloudinary.com/app. You can also present original NRC upon reporting.'
+          description: 'Choose a JPG or PNG image from your device and authorize your external storage to upload it. You can also present original NRC upon reporting.'
         }
       ]
     },

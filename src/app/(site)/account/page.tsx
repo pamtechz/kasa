@@ -3,10 +3,11 @@ import {useEffect,useState} from 'react';
 import {onAuthStateChanged,EmailAuthProvider,reauthenticateWithCredential,sendPasswordResetEmail,updatePassword} from 'firebase/auth';
 import Link from 'next/link';
 import {useRouter} from 'next/navigation';
-import {User,Phone,MapPin,Lock,Save,KeyRound,LogOut,AlertCircle,ShieldCheck,CheckCircle2,ExternalLink,ArrowRight} from 'lucide-react';
+import {User,Phone,MapPin,Lock,Save,KeyRound,LogOut,AlertCircle,ShieldCheck,CheckCircle2,ArrowRight} from 'lucide-react';
 import {SiteChrome,PageIntro} from '@/components/SiteChrome';
 import {auth,authHeaders,firebaseConfigured,signOutClient,requireClientAuth} from '@/lib/firebase-client';
 import {PasswordInput} from '@/components/PasswordInput';
+import {R2StoragePanel} from '@/components/R2StoragePanel';
 import type {Profile} from '@/lib/types';
 
 export default function AccountPage(){
@@ -26,7 +27,6 @@ export default function AccountPage(){
   const [constituency,setConstituency]=useState('');
   const [ward,setWard]=useState('');
   const [bio,setBio]=useState('');
-  const [photoUrl,setPhotoUrl]=useState('');
 
   // Password fields
   const [currentPassword,setCurrentPassword]=useState('');
@@ -54,7 +54,6 @@ export default function AccountPage(){
       setConstituency(data.profile.constituency||'');
       setWard(data.profile.ward||'');
       setBio(data.profile.bio||'');
-      setPhotoUrl(data.profile.photoUrl||'');
     }catch(e){
       setStatusErr(e instanceof Error?e.message:'Unable to load profile.');
     }
@@ -98,10 +97,6 @@ export default function AccountPage(){
     setStatusMsg('');
     setBusy(true);
     try{
-      if(photoUrl.trim() && !photoUrl.startsWith('https://res.cloudinary.com/') && !photoUrl.startsWith('https://console.cloudinary.com/')){
-        throw new Error('Profile photos must strictly be uploaded to Cloudinary (https://console.cloudinary.com/app).');
-      }
-
       const headers=await authHeaders();
       const res=await fetch('/api/profile',{
         method:'PATCH',
@@ -114,8 +109,7 @@ export default function AccountPage(){
           province:province.trim(),
           constituency:constituency.trim(),
           ward:ward.trim(),
-          bio:bio.trim(),
-          photoUrl:photoUrl.trim()
+          bio:bio.trim()
         })
       });
 
@@ -329,27 +323,6 @@ export default function AccountPage(){
                       />
                     </div>
 
-                    <div className="field full">
-                      <label htmlFor="stu-photo">Profile Photo URL (Cloudinary)</label>
-                      <input
-                        id="stu-photo"
-                        type="url"
-                        value={photoUrl}
-                        onChange={e=>setPhotoUrl(e.target.value)}
-                        placeholder="https://res.cloudinary.com/..."
-                      />
-                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:'4px'}}>
-                        <span className="field-hint">Strictly Cloudinary image URLs are allowed.</span>
-                        <a
-                          href="https://console.cloudinary.com/app"
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{fontSize:'12px',color:'var(--green)',display:'inline-flex',alignItems:'center',gap:'4px',fontWeight:700}}
-                        >
-                          Open Cloudinary Console <ExternalLink size={12}/>
-                        </a>
-                      </div>
-                    </div>
                   </div>
 
                   {statusErr && <div className="alert-error" role="alert">{statusErr}</div>}
@@ -362,6 +335,8 @@ export default function AccountPage(){
                   </div>
                 </form>
               </section>
+
+              <R2StoragePanel/>
 
               {/* Password & Security */}
               <section className="profile-section-card">
