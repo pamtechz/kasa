@@ -19,7 +19,9 @@ export function financeSnapshot(record:Record<string,any>,receipts?:{amountMinor
  const balanceMinor=feeMinor===null||receivedMinor===null?null:Math.max(0,feeMinor-receivedMinor);
  const fullyEnrolled=fundedEnrollment(record).funded;
  const flags:FinanceFlag[]=[];
- if(feeMinor===null)flags.push({id:'missing_quote',level:'critical',message:'Approved fee quotation missing or invalid'});
+ const needsQuote=['accepted','letter_issued','cdf_submitted','cdf_approved','cdf_funds_received','payment_verified','commission_paid'].includes(String(record.status))
+  ||(paidMinor!==null&&paidMinor>0)||Boolean(record.paymentVerification?.reference);
+ if(feeMinor===null&&needsQuote)flags.push({id:'missing_quote',level:'critical',message:'Approved fee quotation missing or invalid for a processed application'});
  if(paidMinor===null)flags.push({id:'invalid_payment',level:'critical',message:'Recorded tuition amount needs reconciliation'});
  if(feeMinor!==null&&receivedMinor!==null&&receivedMinor>feeMinor)
   flags.push({id:'overpayment',level:'critical',message:'Recorded funds exceed approved fees'});
