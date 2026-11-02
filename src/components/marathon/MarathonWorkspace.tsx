@@ -49,7 +49,7 @@ const blank:Bootstrap={identity:{uid:'',email:'',displayName:'',schoolRole:'mara
 const statusLabels:Record<MarathonStatus,string>={todo:'Not started',doing:'In progress',blocked:'Blocked',done:'Completed'};
 const roles=['kasaAdmin','kasaOperations','kasaEditor','kasaReviewer','kasaClient'] as const;
 const nav=[{view:'overview' as View,label:'Home',icon:LayoutDashboard},{view:'operations' as View,label:'Checklist',icon:ClipboardCheck},{view:'categories' as View,label:'Categories',icon:Layers3},
- {view:'timeline' as View,label:'Timeline',icon:CalendarDays},{view:'recommendations' as View,label:'Recommendations',icon:MessageSquarePlus},
+ {view:'timeline' as View,label:'Timeline',icon:CalendarDays},{view:'race-day' as View,label:'Race-day desk',icon:Flag},{view:'recommendations' as View,label:'Recommendations',icon:MessageSquarePlus},
  {view:'activity' as View,label:'Activity log',icon:Activity},{view:'archive' as View,label:'Archive & recovery',icon:Trash2},{view:'settings' as View,label:'Settings & roles',icon:Settings2},
  {view:'sync' as View,label:'Offline edits',icon:CloudOff},
  {view:'super' as View,label:'Super admin',icon:ShieldCheck}];
