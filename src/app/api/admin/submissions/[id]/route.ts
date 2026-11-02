@@ -132,6 +132,21 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
     if(paymentReference.length<5)throw new HttpError(400,'A verified commission transfer reference is required.');
     const payoutRef=db.collection('commissionPayoutReferences').doc(digest(paymentReference.toLowerCase()));
     if((await tx.get(payoutRef)).exists)throw new HttpError(409,'This commission transfer reference has already been used.');
+    const reserve=db.collection('payoutReservations').doc(id);
+    const reservation=await tx.get(reserve);
+    if(reservation.exists){
+     const requestId=String(reservation.data()?.requestId||'');
+     if(!requestId||reservation.data()?.agentUid!==previous.agentId)
+      throw new HttpError(409,'Commission payout reservation needs reconciliation.');
+     const requestRef=db.collection('payoutRequests').doc(requestId);
+     const request=await tx.get(requestRef);
+     if(!request.exists||request.data()?.status!=='approved')
+      throw new HttpError(409,'The linked agent payout request must be approved before settlement.');
+     if(Math.round(Number(request.data()?.amount||0)*100)!==Math.round(Number(previous.commission.amount)*100))
+      throw new HttpError(409,'Requested amount differs from the approved commission.');
+     tx.update(requestRef,{status:'settled',settledAt:now,settledBy:actor.uid,paymentReference,updatedAt:now});
+     tx.update(reserve,{status:'settled',updatedAt:now,paymentReference});
+    }
     tx.create(payoutRef,{submissionId:id,agentId:previous.agentId,recordedAt:now,recordedBy:actor.uid});
     changes.commission={...previous.commission,paidAt:now,paymentReference};
     tx.create(db.collection('commissionPayments').doc(id),{
