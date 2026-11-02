@@ -7,13 +7,18 @@ import {marathonSuggestionsPage} from '@/lib/marathon-suggestions';
 import seed from '@/data/marathon-seed.json';
 import {checklistSourceInfo} from '@/lib/marathon-seed-import';
 import {canAssignMarathonTasks} from '@/lib/marathon-assignment';
+import {getMarathonEvent} from '@/lib/marathon-event-server';
+import {LEGACY_MARATHON_EVENT_ID,taskEventId} from '@/lib/marathon-event-model';
 
 export const runtime='nodejs';
 export async function GET(req:Request){
  try{
   const identity=await marathonIdentity(req);
-  const [tasks,meta,suggestions,profiles,superProfiles]=await Promise.all([
-   db.collection('marathonTasks').limit(500).get(),
+  const eventId=new URL(req.url).searchParams.get('event')||LEGACY_MARATHON_EVENT_ID;
+  const selectedEvent=await getMarathonEvent(eventId);
+  const [tasks,meta,suggestions,profiles,superProfiles,existingEvents]=await Promise.all([
+   eventId===LEGACY_MARATHON_EVENT_ID?db.collection('marathonTasks').limit(500).get():
+    db.collection('marathonTasks').where('eventId','==',eventId).limit(500).get(),
    db.collection('marathonMeta').doc('source').get(),
    marathonSuggestionsPage(identity),
    // Super admin manages the second role from this Marathon page, but all roles
@@ -24,11 +29,14 @@ export async function GET(req:Request){
    // The School super administrator inherits Marathon access without any secondary role.
    canAssignMarathonTasks(identity.role)
     ?db.collection('profiles').where('role','==','super_admin').limit(50).get()
-    :Promise.resolve(null)
+    :Promise.resolve(null),
+   db.collection('marathonEvents').limit(100).get()
   ]);
   return json({
    identity,
-   tasks:tasks.docs.map(x=>({id:x.id,...x.data()})),
+   tasks:tasks.docs.map(x=>({id:x.id,...x.data()})).filter(task=>taskEventId(task)===eventId),
+   selectedEvent,
+   availableEvents:[...new Map([[LEGACY_MARATHON_EVENT_ID,selectedEvent.id===LEGACY_MARATHON_EVENT_ID?selectedEvent:null],...existingEvents.docs.map(d=>[d.id,{id:d.id,...d.data()}])].filter(x=>x[1]).map(x=>x as [string,object])).values()],
    meta:meta.data()||null,
    source:checklistSourceInfo(seed),
    ...suggestions,
