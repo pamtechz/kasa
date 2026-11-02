@@ -1,7 +1,7 @@
 import type {NextRequest} from 'next/server';
 import {adminAuth, db} from '@/lib/firebase-admin';
 import {fail, HttpError, json} from '@/lib/errors';
-import {rateLimit, safeText, newId, sameOrigin} from '@/lib/security';
+import {rateLimit, safeText, sameOrigin} from '@/lib/security';
 import {invalidateSubmissionsCache} from '@/lib/server-cache';
 import type {ApplicantRecord} from '@/lib/types';
 import {commissionDecision} from '@/lib/commission-eligibility';
