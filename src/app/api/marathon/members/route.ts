@@ -10,7 +10,7 @@ export const runtime='nodejs';
 const schema=z.object({
  email:z.string().trim().email().max(240),
  displayName:z.string().trim().max(120).optional(),
- initialPassword:z.string().min(12).max(128).optional(),
+ initialPassword:z.string().min(6).max(128).optional(),
  role:z.enum(marathonRoles)
 }).strict();
 

@@ -65,3 +65,26 @@ test('School and Marathon have routed account editors with secure password and v
  assert.doesNotMatch(workspace,/sendMemberPasswordReset/);
  assert.match(switcher,/MarathonWorkspace/);
 });
+
+
+test('6-character uppercase lowercase digit and symbol policy applies to every initial-password surface',async()=>{
+ const {isValidInitialPassword,INITIAL_PASSWORD_MIN_LENGTH,INITIAL_PASSWORD_HINT}=await import('../../src/lib/initial-password-policy.ts');
+ assert.equal(INITIAL_PASSWORD_MIN_LENGTH,6);
+ assert.equal(isValidInitialPassword('Ab1!cd'),true);
+ for(const value of ['Ab1!c','abcdef1!','ABCDEF1!','Abcdef!!','Abcdef12','Ab1! cde','Password1!','Ab1!'+'x'.repeat(125)])
+  assert.equal(isValidInitialPassword(value),false,value);
+ assert.match(INITIAL_PASSWORD_HINT,/6–128/);
+ const server=read('src/lib/admin-initial-password.ts');
+ assert.match(server,/isValidInitialPassword\(password\)/);
+ assert.match(server,/new HttpError\(400,INITIAL_PASSWORD_HINT\)/);
+ assert.match(read('src/app/api/admin/users/[id]/initial-password/route.ts'),/validateInitialPassword\(body.password\)/);
+ assert.match(read('src/lib/account-onboarding.ts'),/validateInitialPassword\(input.initialPassword\)/);
+ assert.match(read('src/app/api/marathon/members/route.ts'),/initialPassword:z.string\(\).min\(6\).max\(128\)/);
+ for(const path of ['src/app/(portal)/dashboard/staff/page.tsx','src/app/(portal)/dashboard/staff/[uid]/edit/page.tsx',
+ 'src/app/marathon/settings/members/[uid]/page.tsx','src/components/marathon/MarathonWorkspace.tsx']){
+  const source=read(path);
+  assert.match(source,/isValidInitialPassword\(/);
+  assert.match(source,/minLength=\{6\}/);
+  assert.doesNotMatch(source,/12\+ chars|12\+ characters|password.length<12|initialPassword.length<12/);
+ }
+});

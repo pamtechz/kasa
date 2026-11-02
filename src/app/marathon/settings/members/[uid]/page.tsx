@@ -5,6 +5,7 @@ import {useParams} from 'next/navigation';
 import {ArrowLeft,Save,KeyRound,ShieldCheck} from 'lucide-react';
 import {api} from '@/components/Portal';
 import {BrandLogo} from '@/components/BrandLogo';
+import {INITIAL_PASSWORD_HINT,isValidInitialPassword} from '@/lib/initial-password-policy';
 
 type Account={uid:string;email:string;displayName:string;role:string;active:boolean;
  phone:string;district:string;province:string;address:string;marathonRole:string|null;
@@ -90,10 +91,11 @@ export default function MarathonMemberEditor(){
     <aside className="panel pad-panel">
      <h2><ShieldCheck size={19}/> Password and verification</h2>
      <p>Only the global super administrator may set a member&apos;s initial password. Firebase never exposes their existing password.</p>
-     <div className="field"><label htmlFor="mem-initial">Initial password (12+ characters)</label><input id="mem-initial" autoComplete="new-password" type="password" value={password} maxLength={128} onChange={e=>setPassword(e.target.value)}/></div>
+     <div className="field"><label htmlFor="mem-initial">Initial password (6+ characters)</label><input id="mem-initial" autoComplete="new-password" type="password" value={password} minLength={6} maxLength={128} onChange={e=>setPassword(e.target.value)}/></div>
+     <p className="muted">{INITIAL_PASSWORD_HINT}</p>
      <div className="field"><label htmlFor="mem-confirm">Confirm password</label><input id="mem-confirm" autoComplete="new-password" type="password" value={confirmation} onChange={e=>setConfirmation(e.target.value)}/></div>
      <label className="required-toggle"><input type="checkbox" checked={approval} onChange={e=>setApproval(e.target.checked)}/> Confirm replacing this member&apos;s credentials</label>
-     <button type="button" className="btn btn-outline" disabled={busy||password.length<12||password!==confirmation||!approval} onClick={()=>void setInitialPassword()}><KeyRound size={17}/> Set initial password</button>
+     <button type="button" className="btn btn-outline" disabled={busy||!isValidInitialPassword(password)||password!==confirmation||!approval} onClick={()=>void setInitialPassword()}><KeyRound size={17}/> Set initial password</button>
      <p className="muted">A new initial password permits provisional sign-in for 30 days. The member will be regularly asked to verify their email using the message in their Inbox, Spam or Promotions folder.</p>
     </aside>
    </div>}
