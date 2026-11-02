@@ -18,7 +18,8 @@ test('policy uses exactly two future-funding rates; general settings never overw
  assert.doesNotMatch(general,/commissionAmountPaid:paidAmount/);
  assert.doesNotMatch(general,/commissionAmountCdf:cdfAmount/);
  assert.match(admin,/CDF approval letter alone does not qualify/);
- assert.match(existing,/settings.commissionAmountPaid:settings.commissionAmountCdf/);
+ assert.match(existing,/commissionPolicyFromSettings\(settings\)/);
+ assert.match(existing,/settings.commissionAmountCdf/);
 });
 
 test('every recorded payout transaction also creates a recipient-scoped proof and alert atomically',()=>{
