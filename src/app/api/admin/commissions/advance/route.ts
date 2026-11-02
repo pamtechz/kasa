@@ -53,6 +53,18 @@ export async function POST(req:Request){
    const paidMinor=Math.round(paid*100),feeMinor=Math.round(quote.total*100);
    if(paidMinor<=0||paidMinor>feeMinor)
     throw new HttpError(409,'Student payment ledger exceeds the approved fee total.');
+   // Verify the latest installment exists in BOTH the Finance evidence ledger
+   // and the immutable student receipt collection, at this same aggregate total.
+   const receiptKey=digest('payment:'+String(app.paymentVerification.reference).toLowerCase());
+   const [financeEvidence,studentReceipt]=await Promise.all([
+    tx.get(db.collection('fundingVerifications').doc(receiptKey)),
+    tx.get(db.collection('tuitionReceipts').doc(receiptKey))
+   ]);
+   if(!financeEvidence.exists||!studentReceipt.exists||
+     financeEvidence.data()?.submissionId!==submissionId||
+     studentReceipt.data()?.submissionId!==submissionId||
+     studentReceipt.data()?.totalPaidMinor!==paidMinor)
+    throw new HttpError(409,'Finance must reconcile the latest tuition receipt and payment evidence before a commission payout.');
    const current=commissionPolicyFromSettings(settings);
    const previous=old.data();
    if(old.exists&&(!previous?.policyMode||!Number.isSafeInteger(previous.fullRateMinor)||
