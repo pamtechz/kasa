@@ -4,6 +4,12 @@ import {verifiedStudent} from '@/lib/student-access';
 import {operator} from '@/lib/security';
 import {HttpError} from '@/lib/errors';
 
+export type TuitionReceiptData={
+ submissionId:string;applicationReference:string;applicantUid:string|null;
+ amountMinor:number;totalPaidMinor:number;feeTotalMinor:number;currency:'ZMW';
+ paymentMethod:string;transactionId:string;recordedAt:string;recordedBy:string;
+ fundingStatus:string;status:string;note?:string;
+};
 export async function getTuitionReceiptViewer(req:Request):Promise<{uid:string;staff:boolean}>{
  try{
   const actor=await verifiedStudent(req);
@@ -17,7 +23,7 @@ export async function readTuitionReceipt(req:Request,receiptId:string){
  const viewer=await getTuitionReceiptViewer(req);
  const doc=await db.collection('tuitionReceipts').doc(receiptId).get();
  if(!doc.exists)throw new HttpError(404,'Tuition receipt not found.');
- const record=doc.data()!;
+ const record=doc.data() as TuitionReceiptData;
  if(!viewer.staff){
   const application=await db.collection('submissions').doc(String(record.submissionId)).get();
   if(!application.exists||application.data()?.applicantUid!==viewer.uid)
