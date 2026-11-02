@@ -20,7 +20,7 @@ test('student can only list/download own linked application receipts',()=>{
  const route=read('src/app/api/tuition-receipts/route.ts');
  const secure=read('src/lib/tuition-receipt-server.ts');
  const pdf=read('src/app/api/tuition-receipts/[id]/pdf/route.ts');
- assert.match(route,/application\.data\(\)\?\.applicantUid!==viewer.uid/);
+ assert.match(route,/app\.data\(\)\?\.applicantUid!==viewer.uid/);
  assert.match(route,/where\('submissionId','==',submissionId\)/);
  assert.match(secure,/record\.submissionId/);
  assert.match(secure,/application.data\(\)\?\.applicantUid!==viewer.uid/);
