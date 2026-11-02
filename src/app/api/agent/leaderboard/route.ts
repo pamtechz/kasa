@@ -53,8 +53,18 @@ export async function GET(req: Request) {
     const agents = profilesSnap.docs.map(d => ({uid: d.id, ...d.data()}));
 
     // Fetch all student submissions
-    const subSnap = await db.collection('submissions').where('formKind', '==', 'student').limit(500).get();
-    const submissions = subSnap.docs.map(d => ({id: d.id, ...d.data()}));
+    const submissions:Array<Record<string,unknown>>=[];
+    let cursor:FirebaseFirestore.QueryDocumentSnapshot|undefined;
+    let partial=false;
+    for(let page=0;page<40;page++){
+      let q=db.collection('submissions').where('formKind','==','student').orderBy('__name__').limit(250);
+      if(cursor)q=q.startAfter(cursor);
+      const snap=await q.get();
+      submissions.push(...snap.docs.map(d=>({id:d.id,...d.data()})));
+      if(snap.size<250)break;
+      cursor=snap.docs[snap.docs.length-1];
+      if(page===39)partial=true;
+    }
 
     // Group submissions by agentId or agentCode
     const agentStats: Record<string, {
@@ -118,7 +128,7 @@ export async function GET(req: Request) {
     return json({
       monthKey,
       totalAgents: leaderboard.length,
-      partial:subSnap.size===500,
+      partial,
       topDistrict: leaderboard[0]?.district || 'Lusaka',
       leaderboard
     });
