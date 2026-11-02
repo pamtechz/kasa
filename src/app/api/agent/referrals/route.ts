@@ -1,5 +1,5 @@
 import {db} from '@/lib/firebase-admin';
-import {operator, newId, safeText, sameOrigin} from '@/lib/security';
+import {operator, safeText, sameOrigin} from '@/lib/security';
 import {fail, json, HttpError} from '@/lib/errors';
 import type {ApplicantRecord, SubmissionStatus} from '@/lib/types';
 import {commissionDecision} from '@/lib/commission-eligibility';
