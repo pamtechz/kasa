@@ -47,6 +47,8 @@ test('commission is granted to a verified active referrer, either agent or stude
  assert.match(status,/referrer\.data\(\)\?\.active!==true/);
  assert.match(status,/Self-referral cannot earn commission/);
  assert.match(status,/commission_earned/);
+ assert.match(status,/kind==='payment'\?'enrollment_verified':kind/);
+ assert.match(read('src/app/api/admin/finance/route.ts'),/digest\('payment:' \+ receiptReference.toLowerCase\(\)\)/);
  assert.match(status,/referralVerified!==true/);
  assert.match(eligibility,/fundedEnrollment\(record\)/);
  assert.match(funded,/p\.verifiedAt/);
