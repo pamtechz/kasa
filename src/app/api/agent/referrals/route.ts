@@ -81,70 +81,13 @@ export async function GET(req: Request) {
   }
 }
 
+/** Candidate creation must use the published-form intake path for deduplication and evidence validation. */
 export async function POST(req: Request) {
-  try {
-    sameOrigin(req);
-    const agent = await operator(req, ['agent', 'super_admin', 'admin']);
-    const body = await req.json();
-
-    const candidateName = safeText(body.candidateName || body.name, 120);
-    const phone = safeText(body.phone, 50);
-    const email = safeText(body.email, 160).toLowerCase();
-    const nrc = safeText(body.nrc, 40);
-    const programme = safeText(body.programme, 150);
-    const fundingMethod: 'cdf' | 'self_funded' = body.fundingMethod === 'self_funded' ? 'self_funded' : 'cdf';
-    const district = safeText(body.district, 80) || agent.district || 'National';
-    const note = safeText(body.note, 500);
-
-    if (!candidateName) throw new HttpError(400, 'Candidate full name is required.');
-    if (!phone) throw new HttpError(400, 'Candidate phone number is required.');
-    if (!programme) throw new HttpError(400, 'Selected training programme is required.');
-
-    const id = newId();
-    const reference = `KASA-${new Date().getFullYear()}-${id.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
-    const now = new Date().toISOString();
-
-    const newRecord: ApplicantRecord = {
-      id,
-      reference,
-      formId: 'agent-direct-referral',
-      formTitle: `${programme} (Agent Referral)`,
-      formKind: 'student',
-      formVersion: 1,
-      status: 'submitted',
-      answers: {
-        'student-name': candidateName,
-        name: candidateName,
-        phone,
-        email: email || `${phone.replace(/\D/g, '')}@kasa.referral.zm`,
-        nrc,
-        program: programme,
-        programme,
-        district,
-        'funding-type': fundingMethod,
-        fundingMethod,
-        agentNote: note
-      },
-      agentId: agent.uid,
-      submittedAt: now,
-      updatedAt: now,
-      fundingMethod,
-      internalNotes: [
-        {
-          body: `Direct candidate enrollment registered by district agent ${agent.displayName || agent.email} (${agent.agentCode || 'Agent'}).${note ? ` Note: ${note}` : ''}`,
-          at: now,
-          by: agent.displayName || agent.email
-        }
-      ]
-    };
-
-    await db.collection('submissions').doc(id).set(newRecord);
-    invalidateSubmissionsCache();
-
-    return json({ok: true, id, reference, referral: newRecord});
-  } catch (e) {
-    return fail(e);
-  }
+ try{
+  sameOrigin(req);
+  await operator(req, ['agent', 'super_admin', 'admin']);
+  throw new HttpError(409,'Register referred candidates using your official referral link. The published application form enforces intake, identity, document and duplicate checks.');
+ }catch(e){return fail(e);}
 }
 
 export async function PATCH(req: Request) {
