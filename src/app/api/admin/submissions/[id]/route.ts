@@ -4,6 +4,7 @@ import {operator,audit,safeText,sameOrigin,digest} from '@/lib/security';
 import {normalizedIntake} from '@/lib/intake-policy';
 import {readApprovedFeeQuote} from '@/lib/approved-fee-quote';
 import {commissionDecision} from '@/lib/commission-eligibility';
+import {commissionPolicyFromSettings,commissionTotalMinor} from '@/lib/commission-payment-policy';
 import type {SubmissionStatus} from '@/lib/types';
 import {automationSchema,defaultAutomations,formatNotification} from '@/lib/automations';
 import {invalidateSubmissionsCache} from '@/lib/server-cache';
@@ -136,8 +137,12 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
      if(!referrer?.exists||referrer.data()?.active!==true||
        !['student','agent'].includes(String(referrer.data()?.role)))
       throw new HttpError(409,'The referred student must be linked to an active registered agent or student referrer.');
-     const rate=Number(kind==='payment'?settings.commissionAmountPaid:settings.commissionAmountCdf);
-     if(!Number.isFinite(rate)||rate<=0||rate>50000)
+     const computedMinor=kind==='payment'
+      ?(advanceDoc?.exists?Number(advanceDoc.data()?.fullRateMinor):
+        commissionTotalMinor(Math.round(quote!.total*100),commissionPolicyFromSettings(settings)))
+      :Math.round(Number(settings.commissionAmountCdf)*100);
+     const rate=computedMinor/100;
+     if(!Number.isSafeInteger(computedMinor)||!Number.isFinite(rate)||rate<=0||rate>50000)
       throw new HttpError(409,'An explicit positive commission rate for this funding path must be approved in Settings. No fallback rate is allowed.');
      changes.referralVerified={by:actor.uid,at:now};
      if(advanceMinor>Math.round(rate*100))
@@ -159,8 +164,18 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
      throw new HttpError(409,'No eligible funded, fully enrolled and independently verified unpaid commission exists for this application.');
     const fullMinor=Math.round(Number(previous.commission.amount)*100);
     const remainingMinor=fullMinor-advanceMinor;
-    if(!Number.isSafeInteger(remainingMinor)||remainingMinor<=0)
-     throw new HttpError(409,'No remaining commission is due after the recorded advance. Finance must close the balance through audited reconciliation.');
+    if(!Number.isSafeInteger(remainingMinor)||remainingMinor<0)
+     throw new HttpError(409,'Recorded advances exceed the approved commission. Finance reconciliation required.');
+    if(remainingMinor===0){
+     // Every kwacha was transferred previously with its own receipt and provider ID.
+     // Do not create a fictitious zero-kwacha transfer or duplicate payment proof.
+     if(!advanceDoc?.exists||advanceMinor!==fullMinor)
+      throw new HttpError(409,'No verified advance evidence exists to close this commission.');
+     changes.commission={...previous.commission,paidAt:now,
+      paymentReference:String(advanceDoc.data()?.transactionId||''),
+      advancePaidMinor:advanceMinor,finalPaidMinor:0,settledByAdvances:true};
+    }else{
+
     const paymentReference=safeText(body?.paymentReference,160);
     if(paymentReference.length<5)throw new HttpError(400,'A verified commission transfer reference is required.');
     const payoutRef=db.collection('commissionPayoutReferences').doc(digest(paymentReference.toLowerCase()));
@@ -206,6 +221,7 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
      message:'KASA has recorded a commission transfer. Check your own account, then confirm the amount and transaction ID or report a difference.',
      state:'pending',createdAt:now
     });
+    }
    }
    tx.update(ref,changes);
    // In-app event queue is part of the same transaction as the status change.
