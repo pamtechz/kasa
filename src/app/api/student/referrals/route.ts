@@ -67,11 +67,12 @@ export async function GET(req: NextRequest) {
     const successfulCount = referrals.filter(r => r.commissionEarned > 0).length;
 
     const origin = process.env.APP_URL || 'https://kasaschool.vercel.app';
-    const referralLink = `${origin}/apply/student-enrollment?ref=${agentCode}`;
+    const referralsEnabled=ops.referralsEnabled!==false;
+    const referralLink = referralsEnabled?`${origin}/apply/student-enrollment?ref=${agentCode}`:'';
 
     return json({
       agentCode,
-      referralLink,
+      referralLink,referralsEnabled,
       referralsCount: referrals.length,
       successfulCount,
       totalEarned,
