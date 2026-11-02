@@ -4,6 +4,7 @@ import Link from 'next/link';
 import {useParams} from 'next/navigation';
 import {ArrowLeft,Save,ShieldCheck,KeyRound,AlertTriangle} from 'lucide-react';
 import {api,PageHeader} from '@/components/Portal';
+import {INITIAL_PASSWORD_HINT,isValidInitialPassword} from '@/lib/initial-password-policy';
 
 type Account={uid:string;displayName:string;email:string;role:string;active:boolean;
  district:string;phone:string;province:string;mustChangePassword:boolean};
@@ -97,14 +98,14 @@ export default function EditSchoolAccount(){
     <p>Existing passwords cannot be viewed. Only the global super administrator may set a new initial password. This changes the Firebase Auth password; it is not a recovery email.</p>
     {actorRole==='super_admin'&&account.role!=='super_admin'?<>
      <h3><KeyRound size={17}/> Set initial password</h3>
-     <p className="muted">Choose a unique 12–128 character password containing uppercase, lowercase, a number and a symbol. Share it privately. The user can sign in without email verification for up to 30 days and will receive regular reminders to verify. Previously issued credentials will stop working.</p>
+     <p className="muted">{INITIAL_PASSWORD_HINT} Share it privately. The user can sign in without email verification for up to 30 days and will receive regular reminders to verify. Previously issued credentials will stop working.</p>
      <div className="field"><label htmlFor="initial-password">Initial password</label>
-      <input id="initial-password" type="password" autoComplete="new-password" minLength={12} maxLength={128} value={initialPassword} onChange={e=>setInitialPassword(e.target.value)}/></div>
+      <input id="initial-password" type="password" autoComplete="new-password" minLength={6} maxLength={128} value={initialPassword} onChange={e=>setInitialPassword(e.target.value)}/></div>
      <div className="field"><label htmlFor="initial-password-confirm">Confirm initial password</label>
       <input id="initial-password-confirm" type="password" autoComplete="new-password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)}/></div>
      <label className="required-toggle"><input type="checkbox" checked={confirmedReset} onChange={e=>setConfirmedReset(e.target.checked)}/>
       I confirm that I am authorized to replace this user&apos;s sign-in password.</label>
-     <button type="button" className="btn btn-outline" disabled={!confirmedReset||resetBusy||initialPassword!==confirmPassword||initialPassword.length<12} onClick={()=>void setPassword()}>
+     <button type="button" className="btn btn-outline" disabled={!confirmedReset||resetBusy||initialPassword!==confirmPassword||!isValidInitialPassword(initialPassword)} onClick={()=>void setPassword()}>
       <KeyRound size={16}/> {resetBusy?'Saving…':'Set initial password'}
      </button>
     </>:<p className="muted"><AlertTriangle size={16}/> Only the global super administrator may provision another account&apos;s password.</p>}

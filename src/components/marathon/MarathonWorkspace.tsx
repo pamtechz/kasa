@@ -13,6 +13,7 @@ import {
  Sparkles,Target,Trash2,TrendingUp,UserPlus,Users,WifiOff,X,AlertTriangle
 } from 'lucide-react';
 import {authHeaders,getClientAuth,signOutClient} from '@/lib/firebase-client';
+import {INITIAL_PASSWORD_HINT,isValidInitialPassword} from '@/lib/initial-password-policy';
 import {
  readMarathonCache,saveMarathonCache,pendingMarathonEdits,queueMarathonEdit,
  claimMarathonEdit,acknowledgeMarathonEdit,handleMarathonSyncFailure,resolveMarathonEdit
@@ -499,9 +500,10 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
        {memberSearch?.found&&memberSearch.member&&<p className="ml-form-help"><strong>Account found:</strong> {memberSearch.member.displayName} ({memberSearch.member.schoolRole}) · {memberSearch.member.emailVerified?'Email verified':'Verification pending'} · {memberSearch.member.marathonRole||'No Marathon role'}. {memberSearch.message||''}</p>}
        {memberSearch&&!memberSearch.found&&<p className="ml-form-help">No matching KASA account. Create a Marathon-only member by providing their name and initial password.</p>}
        <label>Full name {memberSearch?.found?'(from School account)':'(required for new accounts)'}<input type="text" maxLength={120} placeholder="Full name" value={inviteName} onChange={e=>setInviteName(e.target.value)} readOnly={Boolean(memberSearch?.found)}/></label>
-       {!memberSearch?.found&&<label>Initial password for new member<input type="password" minLength={12} maxLength={128} autoComplete="new-password" placeholder="12+ chars: uppercase, lowercase, number, symbol" value={invitePassword} onChange={e=>setInvitePassword(e.target.value)}/></label>}
+       {!memberSearch?.found&&<label>Initial password for new member<input type="password" minLength={6} maxLength={128} autoComplete="new-password" placeholder="6+ chars: uppercase, lowercase, number, symbol" value={invitePassword} onChange={e=>setInvitePassword(e.target.value)}/></label>}
+       {!memberSearch?.found&&<p className="ml-form-help">{INITIAL_PASSWORD_HINT}</p>}
        <label>Marathon role<select value={inviteRole} onChange={e=>setInviteRole(e.target.value as typeof inviteRole)}>{roles.map(role=><option key={role} value={role}>{role}</option>)}</select></label>
-       <button className="ml-primary" disabled={saving||memberSearch?.member?.eligible===false||(!memberSearch?.found&&(!inviteName.trim()||invitePassword.length<12))}>Assign Marathon role <ArrowRight size={17}/></button>
+       <button className="ml-primary" disabled={saving||memberSearch?.member?.eligible===false||(!memberSearch?.found&&(!inviteName.trim()||!isValidInitialPassword(invitePassword)))}>Assign Marathon role <ArrowRight size={17}/></button>
       </form>
       <p className="ml-form-help">Students cannot be assigned Marathon access. New accounts may sign in with the initial password and receive regular email-verification instructions. Super administrators cannot edit another super administrator&apos;s credentials.</p>
      </section>
