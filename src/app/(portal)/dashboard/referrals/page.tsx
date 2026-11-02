@@ -30,6 +30,9 @@ type Referral = {
 type FormInfo = {slug: string; title: string};
 
 type ReferralResponse = {
+  referralLink: string;
+  referralsCount: number;
+  totalEarned: number;
   agent: {agentCode: string; district: string; active?: boolean};
   forms: FormInfo[];
   referrals: Referral[];
