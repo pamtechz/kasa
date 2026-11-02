@@ -45,7 +45,8 @@ export async function GET(req: Request) {
     await operator(req, ['super_admin', 'admin', 'reviewer', 'agent']);
 
     const url = new URL(req.url);
-    const monthKey = url.searchParams.get('month') || new Date().toISOString().slice(0, 7); // e.g. 2026-10
+    const requestedMonth=url.searchParams.get('month')||'';
+    const monthKey=/^\d{4}-(0[1-9]|1[0-2])$/.test(requestedMonth)?requestedMonth:new Date().toISOString().slice(0,7);
 
     // Fetch all profiles for agents
     const profilesSnap = await db.collection('profiles').where('role', '==', 'agent').get();
@@ -64,6 +65,7 @@ export async function GET(req: Request) {
       district: string;
       totalReferrals: number;
       confirmedEnrollments: number;
+      lifetimeConfirmedEnrollments:number;
       monthlyEarned: number;
     }> = {};
 
@@ -77,6 +79,7 @@ export async function GET(req: Request) {
         district: (a as any).district || 'District Hub',
         totalReferrals: 0,
         confirmedEnrollments: 0,
+        lifetimeConfirmedEnrollments:0,
         monthlyEarned: 0
       };
     }
@@ -90,9 +93,12 @@ export async function GET(req: Request) {
         const eligibility=commissionDecision(x);
         const isConfirmed=eligibility.eligible;
         if (isConfirmed) {
-          agentStats[agentUid].confirmedEnrollments += 1;
-          if(String(x.commission?.approvedAt||'').startsWith(monthKey))
+          agentStats[agentUid].lifetimeConfirmedEnrollments += 1;
+          // The selected month drives both the tier and the monthly earnings.
+          if(String(x.commission?.approvedAt||'').startsWith(monthKey)){
+            agentStats[agentUid].confirmedEnrollments += 1;
             agentStats[agentUid].monthlyEarned += eligibility.amount;
+          }
         }
       }
     }
@@ -112,6 +118,7 @@ export async function GET(req: Request) {
     return json({
       monthKey,
       totalAgents: leaderboard.length,
+      partial:subSnap.size===500,
       topDistrict: leaderboard[0]?.district || 'Lusaka',
       leaderboard
     });
