@@ -210,7 +210,7 @@ export default function AgentPortalDashboard() {
                 <th>District Territory</th>
                 <th>Confirmed Enrollments</th>
                 <th>Achievement Tier</th>
-                <th>Earnings + Bonus</th>
+                <th>Verified commission and transfers</th>
               </tr>
             </thead>
             <tbody>
