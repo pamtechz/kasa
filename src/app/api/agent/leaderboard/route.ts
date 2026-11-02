@@ -70,8 +70,6 @@ export async function GET(req: Request) {
     const agentStats: Record<string, {
       uid: string;
       displayName: string;
-      email: string;
-      agentCode: string;
       district: string;
       totalReferrals: number;
       confirmedEnrollments: number;
@@ -80,12 +78,9 @@ export async function GET(req: Request) {
     }> = {};
 
     for (const a of agents) {
-      const code = (a as any).agentCode || `KASA-AGT-${a.uid.slice(0, 6).toUpperCase()}`;
       agentStats[a.uid] = {
         uid: a.uid,
         displayName: (a as any).displayName || (a as any).email,
-        email: (a as any).email,
-        agentCode: code,
         district: (a as any).district || 'District Hub',
         totalReferrals: 0,
         confirmedEnrollments: 0,
