@@ -87,3 +87,16 @@ test('activity endpoint prevents global financial audit disclosure',()=>{
  assert.match(activity,/selectedEvent&&recordEvent!==selectedEvent.id/);
  assert.match(workspace,/\/api\/marathon\/activity\?event=/);
 });
+
+test('recommendation creation, review, pagination and bootstrap stay in the selected event',()=>{
+ const base=new URL('../../src/app/api/marathon/',import.meta.url);
+ const create=readFileSync(new URL('suggestions/route.ts',base),'utf8');
+ const review=readFileSync(new URL('suggestions/[id]/route.ts',base),'utf8');
+ const paging=readFileSync(new URL('../../src/lib/marathon-suggestions.ts',import.meta.url),'utf8');
+ const bootstrap=readFileSync(new URL('bootstrap/route.ts',base),'utf8');
+ assert.match(create,/eventId=taskEventId\(task.data\(\)\|\|\{\}\)/);
+ assert.match(create,/marathonSuggestionsPage\(actor,query.get/);
+ assert.match(review,/requireEventTaskReview\(actor,event\)/);
+ assert.match(paging,/taskEventId\(record\)===eventId/);
+ assert.match(bootstrap,/marathonSuggestionsPage\(identity,'pending',null,eventId\)/);
+});
