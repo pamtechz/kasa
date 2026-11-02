@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {LEGACY_MARATHON_EVENT_ID,legacyMarathonEvent,taskEventId,dateWithinEvent,calculatedLineMinor,budgetTotals} from '../../src/lib/marathon-event-model.ts';
+import {LEGACY_MARATHON_EVENT_ID,legacyMarathonEvent,taskEventId,dateWithinEvent,calculatedLineMinor,canTransitionBudgetStatus,budgetTotals} from '../../src/lib/marathon-event-model.ts';
 import {marathon2027BudgetDraft,marathon2027BudgetDraftTotalMinor} from '../../src/data/marathon-2027-budget.ts';
 
 test('existing untagged tasks always belong to the March 2027 event',()=>{
@@ -49,4 +49,24 @@ test('source code keeps budget and task creation on audited authenticated server
  assert.match(budgets,/requireBudgetAccess/);
  assert.match(update,/expectedRevision/);
  assert.match(tasks,/requireEventTaskEdit/);
+});
+
+test('budget state machine prevents approval bypass and post-payment voiding',()=>{
+ assert.equal(canTransitionBudgetStatus('draft','paid'),false);
+ assert.equal(canTransitionBudgetStatus('draft','submitted'),true);
+ assert.equal(canTransitionBudgetStatus('submitted','approved'),true);
+ assert.equal(canTransitionBudgetStatus('submitted','committed'),false);
+ assert.equal(canTransitionBudgetStatus('approved','committed'),true);
+ assert.equal(canTransitionBudgetStatus('committed','paid'),true);
+ assert.equal(canTransitionBudgetStatus('paid','draft'),false);
+ assert.equal(canTransitionBudgetStatus('paid','void'),false);
+ assert.equal(canTransitionBudgetStatus('void','draft'),true);
+});
+test('budget route enforces an approver-only workflow and approved content lock',()=>{
+ const route=readFileSync(new URL('../../src/app/api/marathon/events/[id]/budget/[lineId]/route.ts',import.meta.url),'utf8');
+ assert.match(route,/data\.changes\.actualPaidMinor!==undefined\)requireBudgetAccess\(actor,event,'approve'\)/);
+ assert.match(route,/canTransitionBudgetStatus\(previous\.status,data\.changes\.status\)/);
+ assert.match(route,/Approved budget details are locked/);
+ assert.match(route,/next\.actualPaidMinor>next\.plannedMinor/);
+ assert.match(route,/if\(data\.changes\.status==='draft'\)/);
 });
