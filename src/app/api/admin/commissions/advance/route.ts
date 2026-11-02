@@ -23,7 +23,8 @@ export async function POST(req:Request){
   const requestedMinor=Math.round(amount*100),now=new Date().toISOString();
   const subRef=db.collection('submissions').doc(submissionId);
   const advanceRef=db.collection('commissionAdvances').doc(submissionId);
-  const receiptRef=db.collection('commissionReceipts').doc(submissionId+'--advance');
+  const receiptId=digest('commission_advance:'+submissionId);
+  const receiptRef=db.collection('commissionReceipts').doc(receiptId);
   const proofRef=db.collection('commissionPayoutReferences').doc(digest(transferReference.toLowerCase()));
   const settingRef=db.collection('settings').doc('operations');
   let advanceLimitMinor=0;
@@ -80,7 +81,7 @@ export async function POST(req:Request){
     state:'pending',createdAt:now});
   });
   return json({ok:true,advanceMinor:requestedMinor,limitMinor:advanceLimitMinor,
-   receiptId:submissionId+'--advance',message:'Commission advance recorded with private recipient confirmation. It will reduce any later final commission payment.'},201);
+   receiptId:digest('commission_advance:'+submissionId),message:'Commission advance recorded with private recipient confirmation. It will reduce any later final commission payment.'},201);
  }catch(e){return fail(e);}
 }
 
@@ -93,7 +94,7 @@ export async function GET(req:Request){
    paidMinor:number;feeMinor:number;limitMinor:number;advanceMinor:number;
    advanceTransactionId:string|null;fundingStatus:string}>=[];
   let cursor:FirebaseFirestore.QueryDocumentSnapshot|undefined,partial=false;
-  for(let page=0;page<40;page++){
+  for(let page=0;page<2;page++){
    let q=db.collection('submissions').where('formKind','==','student').orderBy('__name__').limit(250);
    if(cursor)q=q.startAfter(cursor);
    const docs=await q.get();
@@ -114,7 +115,7 @@ export async function GET(req:Request){
    }
    if(docs.size<250)break;
    cursor=docs.docs[docs.docs.length-1];
-   if(page===39)partial=true;
+   if(page===1)partial=true;
   }
   // Read advance proofs only for scoped student applications.
   for(let i=0;i<rows.length;i+=100){
