@@ -105,8 +105,10 @@ export function MarathonEventBudget({view}:{view:'events'|'budget'}){
   },'Budget line saved.');
  }
  async function updateLine(line:BudgetLine,status:BudgetLine['status']){
+  const entered=status==='paid'?window.prompt('Actual paid amount (K)',String(line.actualPaidMinor/100)):null;
+  if(status==='paid'&&entered===null)return;
   await execute(async()=>{
-   const amount=status==='paid'?Math.round(Number(window.prompt('Actual paid amount (K)',String(line.actualPaidMinor/100))||'0')*100):line.actualPaidMinor;
+   const amount=status==='paid'?Math.round(Number(entered)*100):line.actualPaidMinor;
    if(!Number.isInteger(amount)||amount<0)throw Error('Invalid payment amount.');
    await request('/api/marathon/events/'+selected+'/budget/'+line.id,{method:'PATCH',body:JSON.stringify({
     expectedRevision:line.revision,changes:status==='paid'?{status,actualPaidMinor:amount}:{status}
@@ -211,7 +213,7 @@ export function MarathonEventBudget({view}:{view:'events'|'budget'}){
     <td>{line.category}</td><td><strong>{line.description}</strong>{line.taskId&&<div className={styles.hint}>Task: {line.taskId}</div>}</td>
     <td>{line.quantity} × {line.months}</td><td>{money(line.plannedMinor)}</td><td>{money(line.actualPaidMinor)}</td>
     <td>{line.status}</td><td><div className={styles.actions}>
-     {budget.permissions.write&&<button disabled={busy} onClick={()=>editLine(line)}>Edit</button>}
+     {budget.permissions.write&&line.status==='draft'&&<button disabled={busy} onClick={()=>editLine(line)}>Edit</button>}
      {budget.permissions.write&&line.status==='draft'&&<button disabled={busy} onClick={()=>void updateLine(line,'submitted')}>Submit</button>}
      {budget.permissions.write&&line.status==='submitted'&&<button disabled={busy} onClick={()=>void updateLine(line,'draft')}>Return to draft</button>}
      {budget.permissions.approve&&line.status==='submitted'&&<button disabled={busy} onClick={()=>void updateLine(line,'approved')}>Approve</button>}
