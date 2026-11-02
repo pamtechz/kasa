@@ -21,7 +21,7 @@ export async function GET(req:Request){
    eventId===LEGACY_MARATHON_EVENT_ID?db.collection('marathonTasks').limit(500).get():
     db.collection('marathonTasks').where('eventId','==',eventId).limit(500).get(),
    db.collection('marathonMeta').doc('source').get(),
-   marathonSuggestionsPage(identity),
+   marathonSuggestionsPage(identity,'pending',null,eventId),
    // Super admin manages the second role from this Marathon page, but all roles
    // are stored only in the existing KASA School profiles collection.
    canAssignMarathonTasks(identity.role)
