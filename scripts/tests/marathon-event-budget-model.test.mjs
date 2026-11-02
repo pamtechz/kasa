@@ -70,3 +70,20 @@ test('budget route enforces an approver-only workflow and approved content lock'
  assert.match(route,/next\.actualPaidMinor>next\.plannedMinor/);
  assert.match(route,/if\(data\.changes\.status==='draft'\)/);
 });
+
+test('task assignment and confirmation are event-scoped and closed events are immutable',()=>{
+ const assignment=readFileSync(new URL('../../src/app/api/marathon/tasks/[id]/assignees/route.ts',import.meta.url),'utf8');
+ const confirmation=readFileSync(new URL('../../src/app/api/marathon/tasks/[id]/confirmation/route.ts',import.meta.url),'utf8');
+ assert.match(assignment,/requireEventTaskEdit\(actor,event\)/);
+ assert.match(assignment,/This event is closed to task assignment changes/);
+ assert.match(confirmation,/This event is closed to task confirmations/);
+ assert.match(assignment,/eventId:taskEventId\(before\)/);
+ assert.match(confirmation,/eventId:taskEventId\(prior\)/);
+});
+test('activity endpoint prevents global financial audit disclosure',()=>{
+ const activity=readFileSync(new URL('../../src/app/api/marathon/activity/route.ts',import.meta.url),'utf8');
+ const workspace=readFileSync(new URL('../../src/components/marathon/MarathonWorkspace.tsx',import.meta.url),'utf8');
+ assert.match(activity,/requireBudgetAccess\(identity,event,'read'\)/);
+ assert.match(activity,/selectedEvent&&recordEvent!==selectedEvent.id/);
+ assert.match(workspace,/\/api\/marathon\/activity\?event=/);
+});
