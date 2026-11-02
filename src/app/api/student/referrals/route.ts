@@ -37,6 +37,9 @@ export async function GET(req: NextRequest) {
     const ops = opsSnap.data() || {};
     const cdfRate = Number(ops.commissionAmountCdf || 0);
     const paidRate = Number(ops.commissionAmountPaid || 0);
+    const rateType=ops.commissionRateType==='percentage'?'percentage':'fixed';
+    const commissionPercentage=Number(ops.commissionPercentBps||0)/100;
+    const paymentMode=String(ops.commissionPaymentMode||'after_full_enrollment');
 
     // 3. Query all submissions referred by this student
     const [subByAgentId, subByCode, advanceDocs] = await Promise.all([
@@ -81,7 +84,7 @@ export async function GET(req: NextRequest) {
       totalEarned,
       currency: 'ZMW',
       cdfRate,
-      paidRate,
+      paidRate,rateType,commissionPercentage,paymentMode,
       referrals
     });
   } catch (e) {
