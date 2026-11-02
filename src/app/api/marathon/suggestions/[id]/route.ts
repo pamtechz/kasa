@@ -3,6 +3,8 @@ import {db} from '@/lib/firebase-admin';
 import {fail,json,HttpError} from '@/lib/errors';
 import {marathonIdentity,requireMarathon} from '@/lib/marathon';
 import {sameOrigin} from '@/lib/security';
+import {getMarathonEvent,requireEventTaskReview} from '@/lib/marathon-event-server';
+import {taskEventId} from '@/lib/marathon-event-model';
 export const runtime='nodejs';
 export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
  try{
@@ -14,6 +16,9 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
   await db.runTransaction(async tx=>{
    const snap=await tx.get(ref);
    if(!snap.exists)throw new HttpError(404,'Recommendation not found.');
+   const event=await getMarathonEvent(taskEventId(snap.data()||{}));
+   requireEventTaskReview(actor,event);
+   if(['completed','archived','cancelled'].includes(event.status))throw new HttpError(409,'This event is closed to recommendations.');
    if(snap.data()?.status!=='pending')throw new HttpError(409,'Recommendation already reviewed.');
    tx.update(ref,{status:parsed.data.decision,reviewNote:parsed.data.note,reviewedBy:actor.uid,reviewedAt:new Date().toISOString()});
   });

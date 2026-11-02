@@ -34,6 +34,7 @@ import {marathonCategories,categoryForSection,categoryForId,isMarathonCategoryId
 import type {MarathonFocus} from '@/lib/marathon-categories';
 import type {MarathonSeedInfo} from '@/lib/marathon-seed-import';
 import type {MarathonTask,MarathonRole,MarathonStatus} from '@/lib/marathon-types';
+import {LEGACY_MARATHON_EVENT_ID,type MarathonEvent} from '@/lib/marathon-event-model';
 import {marathonViewForPath} from '@/lib/marathon-navigation';
 import type {MarathonView as View} from '@/lib/marathon-navigation';
 
@@ -42,8 +43,8 @@ type Suggestion={id:string;taskId:string;recommendation:string;proposedStatus?:M
 type Member={uid:string;email:string;displayName:string;schoolRole:string;role:MarathonRole;schoolActive:boolean;marathonActive:boolean;active:boolean};
 type EventItem={id:string;action:string;actor:string;at:string;taskId?:string;targetUid?:string;changes?:Record<string,unknown>};
 type Permissions={edit:boolean;assign:boolean;review:boolean;manage:boolean;super:boolean};
-type Bootstrap={source?:MarathonSeedInfo;identity:Identity;tasks:MarathonTask[];meta:Record<string,unknown>|null;suggestions:Suggestion[];nextSuggestionCursor?:string|null;members:Member[];permissions:Permissions};
-type EditChanges=Partial<Pick<MarathonTask,'title'|'lead'|'section'|'dueDate'|'priority'|'importance'|'status'|'nextStep'|'notes'|'evidence'|'completedAt'|'archived'>>;
+type Bootstrap={source?:MarathonSeedInfo;identity:Identity;tasks:MarathonTask[];meta:Record<string,unknown>|null;suggestions:Suggestion[];nextSuggestionCursor?:string|null;members:Member[];permissions:Permissions;selectedEvent?:MarathonEvent;availableEvents?:MarathonEvent[]};
+type EditChanges=Partial<Pick<MarathonTask,'title'|'lead'|'section'|'startDate'|'endDate'|'dueDate'|'priority'|'importance'|'status'|'nextStep'|'notes'|'evidence'|'completedAt'|'archived'>>;
 const blank:Bootstrap={identity:{uid:'',email:'',displayName:'',schoolRole:'marathon_only',role:'kasaClient'},tasks:[],meta:null,suggestions:[],members:[],permissions:{edit:false,assign:false,review:false,manage:false,super:false}};
 const statusLabels:Record<MarathonStatus,string>={todo:'Not started',doing:'In progress',blocked:'Blocked',done:'Completed'};
 const roles=['kasaAdmin','kasaOperations','kasaEditor','kasaReviewer','kasaClient'] as const;
@@ -74,6 +75,8 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
  const pathname=usePathname(),searchParams=useSearchParams();
  const view=marathonViewForPath(pathname,section);
  const [state,setState]=useState<Bootstrap>(blank),[loading,setLoading]=useState(true),[offline,setOffline]=useState(false);
+ const [selectedEventId,setSelectedEventId]=useState(LEGACY_MARATHON_EVENT_ID);
+ const selectedEventRef=useRef(LEGACY_MARATHON_EVENT_ID);
  const [authError,setAuthError]=useState(''),[notice,setNotice]=useState(''),[queuedEdits,setQueuedEdits]=useState<PendingEdit[]>([]);
  const [drawer,setDrawer]=useState<MarathonTask|null>(null),[newTask,setNewTask]=useState(false),[mobile,setMobile]=useState(false);
  const selectedTaskId=searchParams.get('task');
@@ -90,6 +93,13 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
  const [dateFilters,setDateFilters]=useState<ChecklistDateFilters>(defaultDateFilters);
  const [sortOrder,setSortOrder]=useState<ChecklistSort>('priority');
  const [focus,setFocus]=useState<MarathonFocus>('all'),[filtersOpen,setFiltersOpen]=useState(false),[onlyMine,setOnlyMine]=useState(false);
+ const eventParam=searchParams.get('event');
+ useEffect(()=>{
+  let next=eventParam||LEGACY_MARATHON_EVENT_ID;
+  try{if(!eventParam)next=window.localStorage.getItem('kasa_marathon_selected_event')||next;
+   window.localStorage.setItem('kasa_marathon_selected_event',next);}catch{}
+  if(next!==selectedEventRef.current){selectedEventRef.current=next;setSelectedEventId(next);}
+ },[eventParam]);
  const categoryParam=searchParams.get('category');
  const filterCategory=isMarathonCategoryId(categoryParam)?categoryParam:'all';
  const [events,setEvents]=useState<EventItem[]>([]);
@@ -119,8 +129,9 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
  const hydrate=useCallback(async(userUid:string)=>{
   lastHydrateStarted.current=Date.now();
   try{
-   const data=await api<Bootstrap>('/api/marathon/bootstrap');
-   if(authUid.current!==userUid)return;
+   const requestedEvent=selectedEventRef.current;
+   const data=await api<Bootstrap>('/api/marathon/bootstrap?event='+encodeURIComponent(requestedEvent));
+   if(authUid.current!==userUid||selectedEventRef.current!==requestedEvent)return;
    let local:PendingEdit[]=[];
    try{local=await pendingMarathonEdits(userUid);}
    catch{setNotice('Offline storage is unavailable. Changes require a successful online save on this device.');}
@@ -135,7 +146,7 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
    if(authUid.current!==userUid)return;
    if(isNetworkFailure(e)){
     const cached=await readMarathonCache(userUid);
-    if(cached){
+    if(cached&&(cached.data as Bootstrap).selectedEvent?.id===selectedEventRef.current){
      const local=await pendingMarathonEdits(userUid).catch(()=>[]);
      if(authUid.current!==userUid)return;
      setState(overlayPending(cached.data as Bootstrap,local));setQueuedEdits(local);
@@ -160,6 +171,7 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
   return ()=>{active=false;authUid.current='';unsub();};
  },[hydrate,router]);
  const refresh=useCallback(async()=>{if(uid)await hydrate(uid);},[hydrate,uid]);
+ useEffect(()=>{if(uid&&selectedEventId!==state.selectedEvent?.id)void hydrate(uid);},[selectedEventId,uid,hydrate,state.selectedEvent?.id]);
  useEffect(()=>{
   if(!uid)return;
   // Near-live authorized revalidation, without granting raw Firestore access.
@@ -233,13 +245,13 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
   if(!uid)return;
   const request=++suggestionRequest.current;setSuggestionLoading(true);
   try{
-   const page=await api<{suggestions:Suggestion[];nextSuggestionCursor:string|null}>('/api/marathon/suggestions?status='+suggestionFilter+(cursor?'&cursor='+encodeURIComponent(cursor):''));
+   const page=await api<{suggestions:Suggestion[];nextSuggestionCursor:string|null}>('/api/marathon/suggestions?status='+suggestionFilter+'&event='+encodeURIComponent(selectedEventId)+(cursor?'&cursor='+encodeURIComponent(cursor):''));
    if(authUid.current!==uid||request!==suggestionRequest.current)return;
    setState(s=>({...s,suggestions:cursor?[...new Map([...s.suggestions,...page.suggestions].map(x=>[x.id,x])).values()]:page.suggestions}));
    setSuggestionCursor(page.nextSuggestionCursor);
   }catch(e){if(authUid.current===uid)setNotice(errorMessage(e));}
   finally{if(request===suggestionRequest.current)setSuggestionLoading(false);}
- },[uid,suggestionFilter]);
+ },[uid,suggestionFilter,selectedEventId]);
  useEffect(()=>{if(view==='recommendations'&&!offline)void loadSuggestions();},[view,offline,loadSuggestions]);
  async function inspectEdit(edit:PendingEdit){
   const request=++reviewRequest.current;
@@ -260,7 +272,7 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
    if(retry)void flush();
   }catch(e){setReviewError(errorMessage(e));}finally{setSaving(false);}
  }
- useEffect(()=>{if(view==='activity'&&uid&&!offline)void api<{events:EventItem[]}>('/api/marathon/activity').then(x=>setEvents(x.events)).catch(e=>setNotice(errorMessage(e)));},[view,uid,offline]);
+ useEffect(()=>{if(view==='activity'&&uid&&!offline)void api<{events:EventItem[]}>('/api/marathon/activity?event='+encodeURIComponent(selectedEventId)).then(x=>setEvents(x.events)).catch(e=>setNotice(errorMessage(e)));},[view,uid,offline,selectedEventId]);
  const tasks=state.tasks;
  const today=marathonToday();
  const complete=tasks.filter(t=>t.status==='done'&&!t.archived).length;
@@ -273,7 +285,7 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
  const inProgress=active.filter(t=>t.status==='doing').length;
  const critical=active.filter(t=>t.status!=='done'&&t.importance==='Critical').length;
  const pct=active.length?Math.round(complete/active.length*100):0;
- const daysLeft=Math.max(0,Math.ceil((new Date('2027-03-21T06:00:00+02:00').getTime()-Date.now())/86400000));
+ const daysLeft=Math.max(0,Math.ceil((new Date((state.selectedEvent?.eventDate||'2027-03-21')+'T06:00:00+02:00').getTime()-Date.now())/86400000));
  const leads=useMemo(()=>[...new Set(tasks.map(t=>t.lead).filter(Boolean))].sort(),[tasks]);
  function selectCategory(value:string){
   const url=new URL(window.location.href);
@@ -328,11 +340,11 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
   }catch(e){setNotice('This edit could not be saved. Keep the form open and retry. '+errorMessage(e));}
   finally{setSaving(false);}
  }
- async function createTask(values:{title:string;lead:string;section:string;dueDate:string|null;priority:string;importance:string;nextStep:string;notes:string}){
+ async function createTask(values:{title:string;lead:string;section:string;startDate:string|null;endDate:string|null;dueDate:string|null;priority:string;importance:string;nextStep:string;notes:string}){
   setSaving(true);
   try{
    if(!navigator.onLine)throw Error('Creating new actions requires an internet connection.');
-   const result=await api<{task:MarathonTask}>('/api/marathon/tasks',{method:'POST',body:JSON.stringify(values)});
+   const result=await api<{task:MarathonTask}>('/api/marathon/tasks',{method:'POST',body:JSON.stringify({...values,eventId:selectedEventRef.current})});
    setState(s=>({...s,tasks:[result.task,...s.tasks]}));closeTaskPage();setNotice('New operation created.');
   }catch(e){setNotice(errorMessage(e));}finally{setSaving(false);}
  }
@@ -406,7 +418,19 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
    <div className="ml-sidebar-header"><Link href="/marathon" className="ml-sidebar-brand" title="KASA Life Marathon" onClick={()=>setMobile(false)}><BrandLogo size={42}/><span><b>KASA <em>LIFE</em></b><small>MARATHON OPERATIONS</small></span></Link><button type="button" className="ml-sidebar-toggle" onClick={toggleSidebar} aria-label={collapsed?'Expand Marathon sidebar':'Collapse Marathon sidebar'} title={collapsed?'Expand sidebar':'Collapse sidebar'}><ChevronLeft size={18}/></button></div>
    <div className="ml-sidebar-scroll" tabIndex={0} aria-label="Scrollable Marathon navigation">
    <div className="ml-nav-section">WORKSPACE</div>
-   <nav aria-label="Marathon workspace navigation">{dailyMenu.map(navigationItem)}</nav>
+   <nav aria-label="Marathon workspace navigation">{dailyMenu.map(navigationItem)}
+    <Link href="/marathon/events" className="ml-nav-item"><CalendarDays size={19}/><span>Events</span></Link>
+    <Link href={'/marathon/budget?event='+selectedEventId} className="ml-nav-item"><TrendingUp size={19}/><span>Event Budget</span></Link>
+   </nav>
+   <label className="ml-nav-section" htmlFor="ml-event-switcher">SELECT EVENT</label>
+   <select id="ml-event-switcher" aria-label="Select Marathon event" value={selectedEventId}
+    onChange={e=>{const id=e.target.value;selectedEventRef.current=id;setSelectedEventId(id);
+     try{window.localStorage.setItem('kasa_marathon_selected_event',id);}catch{}
+     const url=new URL(window.location.href);url.searchParams.set('event',id);
+     window.history.replaceState(null,'',url.pathname+url.search);}}
+    style={{width:'100%',maxWidth:'100%',padding:'9px',marginBottom:12,borderRadius:8}}>
+    {(state.availableEvents||[{id:LEGACY_MARATHON_EVENT_ID,name:'KASA Life Marathon — March 2027'}]).map(ev=><option key={ev.id} value={ev.id}>{ev.name}</option>)}
+   </select>
    <details className="ml-nav-tools" open={collapsed||toolMenu.some(item=>item.view===view)||undefined}><summary>More tools <ChevronDown size={15}/></summary><nav aria-label="Other Marathon tools">{toolMenu.map(navigationItem)}</nav></details>
    {schoolDestination&&<div className="ml-school-switch"><span className="ml-nav-section">YOUR WORKSPACES</span>
     <Link href={schoolDestination} className="ml-nav-item ml-school-link"><ArrowDownRight size={19}/><span>Return to KASA School</span></Link>
@@ -528,18 +552,19 @@ function EmptyState({text}:{text:string}){return <div className="ml-empty"><Clip
 function TaskRow({task,queued,onOpen,onQuickDone}:{task:MarathonTask;queued:boolean;onOpen:()=>void;onQuickDone?:()=>void}){return <article className="ml-task-row"><button className={'ml-task-check '+(task.status==='done'?'checked':'')} aria-label={onQuickDone?(task.status==='done'?'Mark '+task.title+' as not done':'Mark '+task.title+' as done'):'View '+task.title} aria-pressed={task.status==='done'} title={onQuickDone?(task.status==='done'?'Mark as not done':'Mark as done'):'View action'} onClick={onQuickDone||onOpen}>{task.status==='done'?<Check size={15}/>:<Circle size={20}/>}</button><button className="ml-task-title" onClick={onOpen}><span>{task.id} <i className={'ml-priority-dot '+(task.priority.startsWith('P1')?'urgent':'')}/>{task.priority.split(' ').slice(0,2).join(' ')}</span><strong>{task.title}</strong><small>{task.lead}</small><span className="ml-category-badge">{categoryForSection(task.section).label}</span></button><span className={progressClass(task.status)}>{statusLabels[task.status]}</span><span className="ml-task-date"><CalendarDays size={15}/>{formatDate(task.dueDate)}</span>{queued&&<span className="ml-queued" title="Waiting to sync"><CloudOff size={16}/></span>}<button className="ml-task-arrow" aria-label={'Open '+task.title} onClick={onOpen}><ChevronRight size={19}/></button></article>;}
 function TaskDrawer({task,editable,saving,queued,onClose,onSave,onRecommend}:{task:MarathonTask;editable:boolean;saving:boolean;queued:boolean;onClose:()=>void;onSave:(x:EditChanges)=>void;onRecommend:()=>void}){
  const [title,setTitle]=useState(task.title),[lead,setLead]=useState(task.lead),[dueDate,setDueDate]=useState(task.dueDate||'');
+ const [startDate,setStartDate]=useState(task.startDate||''),[endDate,setEndDate]=useState(task.endDate||'');
  const [categorySection,setCategorySection]=useState(isMarathonCategorySection(task.section)?task.section:'');
  const [priority,setPriority]=useState(task.priority),[importance,setImportance]=useState(task.importance),[status,setStatus]=useState<MarathonStatus>(task.status);
  const [completion,setCompletion]=useState(dateTimeLocal(task.completedAt)),[nextStep,setNextStep]=useState(task.nextStep),[evidence,setEvidence]=useState(task.evidence||''),[notes,setNotes]=useState(task.notes||'');
  const [archived,setArchived]=useState(Boolean(task.archived));
- function submit(e:React.FormEvent){e.preventDefault();const changes:EditChanges={title,lead,section:categorySection,dueDate:dueDate||null,priority,importance,status,nextStep,evidence,notes,archived};
+ function submit(e:React.FormEvent){e.preventDefault();const changes:EditChanges={title,lead,section:categorySection,startDate:startDate||null,endDate:endDate||null,dueDate:dueDate||null,priority,importance,status,nextStep,evidence,notes,archived};
   if(status==='done'&&completion&&completion!==dateTimeLocal(task.completedAt))changes.completedAt=new Date(completion).toISOString();
   onSave(changes);
  }
- return <div className="ml-editor-body"><section className="ml-drawer" aria-label="Action details editor"><header><div><span className="ml-eyebrow">ACTION DETAILS · {task.id}</span><h2>Task details</h2></div><button onClick={onClose} aria-label="Close details"><X size={22}/></button></header><div className="ml-drawer-content"><span className={progressClass(task.status)}>{statusLabels[task.status]}</span>{queued&&<p className="ml-form-help">This action has edits pending offline synchronisation.</p>}{task.status==='done'&&!task.completedAt&&<p className="ml-form-help">Marked Done in the source checklist. Record the actual completion date when it is known.</p>}<form className="ml-form" id="ml-task-form" onSubmit={submit}><label>Action title<input maxLength={220} value={title} onChange={e=>setTitle(e.target.value)} disabled={!editable} required/></label><label>Category<select required value={categorySection} onChange={e=>setCategorySection(e.target.value)} disabled={!editable}><option value="">Choose a category</option>{marathonCategories.map(c=><option key={c.id} value={c.section}>{c.label}</option>)}</select></label><div className="ml-form-grid"><label>Responsible team<input maxLength={100} value={lead} onChange={e=>setLead(e.target.value)} disabled={!editable} required/></label><label>Due date<input type="date" value={dueDate} onChange={e=>setDueDate(e.target.value)} disabled={!editable}/></label></div><label>Status<select value={status} onChange={e=>setStatus(e.target.value as MarathonStatus)} disabled={!editable}>{Object.entries(statusLabels).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>{status==='done'&&<label>Actual completion date and time (backdating allowed)<input type="datetime-local" value={completion} onChange={e=>setCompletion(e.target.value)} disabled={!editable}/><small className="ml-form-help">The audit log records the entry time separately from the actual completion date.</small></label>}<label>Next step<textarea rows={3} value={nextStep} onChange={e=>setNextStep(e.target.value)} disabled={!editable}/></label><label>Evidence or reference<textarea rows={3} value={evidence} placeholder="Meeting minutes, letter reference, document location or other verifiable evidence" onChange={e=>setEvidence(e.target.value)} disabled={!editable}/></label><details className="ml-task-more" open={task.archived||undefined}><summary>{editable?'More details and archive':'More details'}</summary><div className="ml-extra-fields"><div className="ml-form-grid"><label>Priority<select value={priority} onChange={e=>setPriority(e.target.value)} disabled={!editable}><option>P1 Act now</option><option>P2 Next 30 days</option><option>P3 Schedule</option></select></label><label>Importance<select value={importance} onChange={e=>setImportance(e.target.value)} disabled={!editable}>{['Critical','High','Medium','Low'].map(x=><option key={x}>{x}</option>)}</select></label></div><label>Internal notes<textarea rows={3} value={notes} onChange={e=>setNotes(e.target.value)} disabled={!editable}/></label><div className="ml-meta-line">Dependencies: {task.dependencies?.join(', ')||'None'} · Last update: {formatDate(task.updatedAt)}</div>{editable&&<label className="ml-checkbox-row"><input type="checkbox" checked={archived} onChange={e=>setArchived(e.target.checked)}/> Archive this record (recoverable)</label>}{task.sourceRow&&<p className="ml-form-help">Source checklist row {task.sourceRow}</p>}{task.dateCorrection&&<p className="ml-form-help">Source deadline: {task.sourceDeadline}. {task.dateCorrection}</p>}</div></details></form></div><footer><button className="ml-secondary" onClick={onRecommend}><MessageSquarePlus size={16}/> Recommend change</button>{editable?<button className="ml-primary" type="submit" form="ml-task-form" disabled={saving}>{saving?'Saving…':'Save changes'}<Check size={17}/></button>:<button className="ml-primary" onClick={onClose}>Close</button>}</footer></section></div>;
+ return <div className="ml-editor-body"><section className="ml-drawer" aria-label="Action details editor"><header><div><span className="ml-eyebrow">ACTION DETAILS · {task.id}</span><h2>Task details</h2></div><button onClick={onClose} aria-label="Close details"><X size={22}/></button></header><div className="ml-drawer-content"><span className={progressClass(task.status)}>{statusLabels[task.status]}</span>{queued&&<p className="ml-form-help">This action has edits pending offline synchronisation.</p>}{task.status==='done'&&!task.completedAt&&<p className="ml-form-help">Marked Done in the source checklist. Record the actual completion date when it is known.</p>}<form className="ml-form" id="ml-task-form" onSubmit={submit}><label>Action title<input maxLength={220} value={title} onChange={e=>setTitle(e.target.value)} disabled={!editable} required/></label><label>Category<select required value={categorySection} onChange={e=>setCategorySection(e.target.value)} disabled={!editable}><option value="">Choose a category</option>{marathonCategories.map(c=><option key={c.id} value={c.section}>{c.label}</option>)}</select></label><div className="ml-form-grid"><label>Responsible team<input maxLength={100} value={lead} onChange={e=>setLead(e.target.value)} disabled={!editable} required/></label><label>Due date<input type="date" value={dueDate} onChange={e=>setDueDate(e.target.value)} disabled={!editable}/></label></div><div className="ml-form-grid"><label>Activity start<input type="date" value={startDate} onChange={e=>setStartDate(e.target.value)} disabled={!editable}/></label><label>Activity end<input type="date" value={endDate} onChange={e=>setEndDate(e.target.value)} disabled={!editable}/></label></div><label>Status<select value={status} onChange={e=>setStatus(e.target.value as MarathonStatus)} disabled={!editable}>{Object.entries(statusLabels).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>{status==='done'&&<label>Actual completion date and time (backdating allowed)<input type="datetime-local" value={completion} onChange={e=>setCompletion(e.target.value)} disabled={!editable}/><small className="ml-form-help">The audit log records the entry time separately from the actual completion date.</small></label>}<label>Next step<textarea rows={3} value={nextStep} onChange={e=>setNextStep(e.target.value)} disabled={!editable}/></label><label>Evidence or reference<textarea rows={3} value={evidence} placeholder="Meeting minutes, letter reference, document location or other verifiable evidence" onChange={e=>setEvidence(e.target.value)} disabled={!editable}/></label><details className="ml-task-more" open={task.archived||undefined}><summary>{editable?'More details and archive':'More details'}</summary><div className="ml-extra-fields"><div className="ml-form-grid"><label>Priority<select value={priority} onChange={e=>setPriority(e.target.value)} disabled={!editable}><option>P1 Act now</option><option>P2 Next 30 days</option><option>P3 Schedule</option></select></label><label>Importance<select value={importance} onChange={e=>setImportance(e.target.value)} disabled={!editable}>{['Critical','High','Medium','Low'].map(x=><option key={x}>{x}</option>)}</select></label></div><label>Internal notes<textarea rows={3} value={notes} onChange={e=>setNotes(e.target.value)} disabled={!editable}/></label><div className="ml-meta-line">Dependencies: {task.dependencies?.join(', ')||'None'} · Last update: {formatDate(task.updatedAt)}</div>{editable&&<label className="ml-checkbox-row"><input type="checkbox" checked={archived} onChange={e=>setArchived(e.target.checked)}/> Archive this record (recoverable)</label>}{task.sourceRow&&<p className="ml-form-help">Source checklist row {task.sourceRow}</p>}{task.dateCorrection&&<p className="ml-form-help">Source deadline: {task.sourceDeadline}. {task.dateCorrection}</p>}</div></details></form></div><footer><button className="ml-secondary" onClick={onRecommend}><MessageSquarePlus size={16}/> Recommend change</button>{editable?<button className="ml-primary" type="submit" form="ml-task-form" disabled={saving}>{saving?'Saving…':'Save changes'}<Check size={17}/></button>:<button className="ml-primary" onClick={onClose}>Close</button>}</footer></section></div>;
 }
-function NewTaskModal({saving,onClose,onSave,initialSection=''}:{saving:boolean;initialSection?:string;onClose:()=>void;onSave:(x:{title:string;lead:string;section:string;dueDate:string|null;priority:string;importance:string;nextStep:string;notes:string})=>void}){
+function NewTaskModal({saving,onClose,onSave,initialSection=''}:{saving:boolean;initialSection?:string;onClose:()=>void;onSave:(x:{title:string;lead:string;section:string;startDate:string|null;endDate:string|null;dueDate:string|null;priority:string;importance:string;nextStep:string;notes:string})=>void}){
  const [categorySection,setCategorySection]=useState(initialSection);
- const [title,setTitle]=useState(''),[lead,setLead]=useState(''),[dueDate,setDueDate]=useState(''),[priority,setPriority]=useState('P2 Next 30 days'),[importance,setImportance]=useState('High'),[nextStep,setNextStep]=useState(''),[notes,setNotes]=useState('');
- return <div className="ml-editor-body"><section className="ml-drawer" aria-label="Create a checklist action"><header><div><span className="ml-eyebrow">NEW ACTION</span><h2>Add a checklist action</h2></div><button onClick={onClose} aria-label="Close"><X/></button></header><div className="ml-drawer-content"><form id="ml-new-form" className="ml-form" onSubmit={e=>{e.preventDefault();onSave({title,lead,section:categorySection,dueDate:dueDate||null,priority,importance,nextStep,notes});}}><label>Action title<input required minLength={3} maxLength={220} value={title} onChange={e=>setTitle(e.target.value)}/></label><label>Category<select required value={categorySection} onChange={e=>setCategorySection(e.target.value)}><option value="">Choose a category</option>{marathonCategories.map(c=><option key={c.id} value={c.section}>{c.label}</option>)}</select></label><label>Responsible team<input required minLength={2} maxLength={100} value={lead} onChange={e=>setLead(e.target.value)}/></label><label>Target date<input type="date" value={dueDate} onChange={e=>setDueDate(e.target.value)}/></label><label>Next action<textarea rows={3} value={nextStep} onChange={e=>setNextStep(e.target.value)}/></label><details className="ml-task-more"><summary>Optional details</summary><div className="ml-extra-fields"><label>Priority<select value={priority} onChange={e=>setPriority(e.target.value)}><option>P1 Act now</option><option>P2 Next 30 days</option><option>P3 Schedule</option></select></label><label>Importance<select value={importance} onChange={e=>setImportance(e.target.value)}><option>Critical</option><option>High</option><option>Medium</option><option>Low</option></select></label><label>Notes<textarea rows={3} value={notes} onChange={e=>setNotes(e.target.value)}/></label></div></details></form></div><footer><button className="ml-secondary" onClick={onClose}>Cancel</button><button className="ml-primary" disabled={saving} type="submit" form="ml-new-form">Create action <Plus size={17}/></button></footer></section></div>;
+ const [title,setTitle]=useState(''),[lead,setLead]=useState(''),[dueDate,setDueDate]=useState(''),[startDate,setStartDate]=useState(''),[endDate,setEndDate]=useState(''),[priority,setPriority]=useState('P2 Next 30 days'),[importance,setImportance]=useState('High'),[nextStep,setNextStep]=useState(''),[notes,setNotes]=useState('');
+ return <div className="ml-editor-body"><section className="ml-drawer" aria-label="Create a checklist action"><header><div><span className="ml-eyebrow">NEW ACTION</span><h2>Add a checklist action</h2></div><button onClick={onClose} aria-label="Close"><X/></button></header><div className="ml-drawer-content"><form id="ml-new-form" className="ml-form" onSubmit={e=>{e.preventDefault();onSave({title,lead,section:categorySection,startDate:startDate||null,endDate:endDate||null,dueDate:dueDate||null,priority,importance,nextStep,notes});}}><label>Action title<input required minLength={3} maxLength={220} value={title} onChange={e=>setTitle(e.target.value)}/></label><label>Category<select required value={categorySection} onChange={e=>setCategorySection(e.target.value)}><option value="">Choose a category</option>{marathonCategories.map(c=><option key={c.id} value={c.section}>{c.label}</option>)}</select></label><label>Responsible team<input required minLength={2} maxLength={100} value={lead} onChange={e=>setLead(e.target.value)}/></label><label>Target date<input type="date" value={dueDate} onChange={e=>setDueDate(e.target.value)}/></label><div className="ml-form-grid"><label>Activity start<input type="date" value={startDate} onChange={e=>setStartDate(e.target.value)}/></label><label>Activity end<input type="date" value={endDate} onChange={e=>setEndDate(e.target.value)}/></label></div><label>Next action<textarea rows={3} value={nextStep} onChange={e=>setNextStep(e.target.value)}/></label><details className="ml-task-more"><summary>Optional details</summary><div className="ml-extra-fields"><label>Priority<select value={priority} onChange={e=>setPriority(e.target.value)}><option>P1 Act now</option><option>P2 Next 30 days</option><option>P3 Schedule</option></select></label><label>Importance<select value={importance} onChange={e=>setImportance(e.target.value)}><option>Critical</option><option>High</option><option>Medium</option><option>Low</option></select></label><label>Notes<textarea rows={3} value={notes} onChange={e=>setNotes(e.target.value)}/></label></div></details></form></div><footer><button className="ml-secondary" onClick={onClose}>Cancel</button><button className="ml-primary" disabled={saving} type="submit" form="ml-new-form">Create action <Plus size={17}/></button></footer></section></div>;
 }

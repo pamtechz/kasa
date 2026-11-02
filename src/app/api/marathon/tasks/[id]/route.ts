@@ -8,6 +8,8 @@ import {sameOrigin} from '@/lib/security';
 import {completionChanges,preserveSourceCategory} from '@/lib/marathon-task-update';
 import {isMarathonCategorySection} from '@/lib/marathon-categories';
 import type {MarathonTask} from '@/lib/marathon-types';
+import {getMarathonEvent,requireEventTaskEdit} from '@/lib/marathon-event-server';
+import {taskEventId,dateWithinEvent} from '@/lib/marathon-event-model';
 export const runtime='nodejs';
 function validId(id:string){return /^(T\d{3}|WEB-\d{2}|M-[0-9a-f-]{36})$/.test(id);}
 export async function GET(req:Request,{params}:{params:Promise<{id:string}>}){
@@ -27,6 +29,8 @@ const patch=z.object({
   title:z.string().trim().min(3).max(220).optional(),
   lead:z.string().trim().min(1).max(100).optional(),
   section:z.string().refine(isMarathonCategorySection,'Choose a checklist category.').optional(),
+  startDate:z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/),z.null()]).optional(),
+  endDate:z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/),z.null()]).optional(),
   dueDate:z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/),z.null()]).optional(),
   priority:z.enum(['P1 Act now','P2 Next 30 days','P3 Schedule']).optional(),
   importance:z.enum(['Critical','High','Medium','Low']).optional(),
@@ -64,6 +68,17 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
    }
    if(!prior.exists)throw new HttpError(404,'Action not found. Import checklist first.');
    const before=prior.data()!;
+   const selectedEvent=await getMarathonEvent(taskEventId(before));
+   requireEventTaskEdit(identity,selectedEvent);
+   if(['completed','archived','cancelled'].includes(selectedEvent.status))throw new HttpError(409,'Event closed.');
+   const finalStart=changes.startDate===undefined?before.startDate:changes.startDate;
+   const finalEnd=changes.endDate===undefined?before.endDate:changes.endDate;
+   // Imported historical dates may precede today's preparation window.
+   // Preserve unchanged values; only validate dates the user actually moves.
+   const changedDates=(['startDate','endDate','dueDate'] as const).every(key=>
+    changes[key]===undefined||changes[key]===before[key]||dateWithinEvent(changes[key],selectedEvent));
+   if(!changedDates||(finalStart&&finalEnd&&finalStart>finalEnd))
+    throw new HttpError(400,'New action dates must fall within the event preparation and closeout period.');
    if(Number(before.revision)!==expectedRevision)
     throw new HttpError(409,'This action was changed elsewhere. Refresh and review the latest version before retrying.');
    const next={...changes,revision:expectedRevision+1,updatedAt:now,updatedBy:identity.uid} as Record<string,unknown>;

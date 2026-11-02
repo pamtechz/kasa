@@ -7,15 +7,21 @@ import {marathonSuggestionsPage} from '@/lib/marathon-suggestions';
 import seed from '@/data/marathon-seed.json';
 import {checklistSourceInfo} from '@/lib/marathon-seed-import';
 import {canAssignMarathonTasks} from '@/lib/marathon-assignment';
+import {getMarathonEvent} from '@/lib/marathon-event-server';
+import {LEGACY_MARATHON_EVENT_ID,legacyMarathonEvent,taskEventId} from '@/lib/marathon-event-model';
+import {requireEventTaskEdit} from '@/lib/marathon-event-server';
 
 export const runtime='nodejs';
 export async function GET(req:Request){
  try{
   const identity=await marathonIdentity(req);
-  const [tasks,meta,suggestions,profiles,superProfiles]=await Promise.all([
-   db.collection('marathonTasks').limit(500).get(),
+  const eventId=new URL(req.url).searchParams.get('event')||LEGACY_MARATHON_EVENT_ID;
+  const selectedEvent=await getMarathonEvent(eventId);
+  const [tasks,meta,suggestions,profiles,superProfiles,existingEvents]=await Promise.all([
+   eventId===LEGACY_MARATHON_EVENT_ID?db.collection('marathonTasks').limit(500).get():
+    db.collection('marathonTasks').where('eventId','==',eventId).limit(500).get(),
    db.collection('marathonMeta').doc('source').get(),
-   marathonSuggestionsPage(identity),
+   marathonSuggestionsPage(identity,'pending',null,eventId),
    // Super admin manages the second role from this Marathon page, but all roles
    // are stored only in the existing KASA School profiles collection.
    canAssignMarathonTasks(identity.role)
@@ -24,11 +30,16 @@ export async function GET(req:Request){
    // The School super administrator inherits Marathon access without any secondary role.
    canAssignMarathonTasks(identity.role)
     ?db.collection('profiles').where('role','==','super_admin').limit(50).get()
-    :Promise.resolve(null)
+    :Promise.resolve(null),
+   db.collection('marathonEvents').limit(100).get()
   ]);
+  let eventCanEdit=false;
+  try{requireEventTaskEdit(identity,selectedEvent);eventCanEdit=!['archived','completed','cancelled'].includes(selectedEvent.status);}catch{}
   return json({
    identity,
-   tasks:tasks.docs.map(x=>({id:x.id,...x.data()})),
+   tasks:tasks.docs.map(x=>({id:x.id,...x.data()})).filter(task=>taskEventId(task as {eventId?:string})===eventId),
+   selectedEvent,
+   availableEvents:[...(existingEvents.docs.some(d=>d.id===LEGACY_MARATHON_EVENT_ID)?[]:[legacyMarathonEvent]),...existingEvents.docs.map(d=>({id:d.id,...d.data()}))],
    meta:meta.data()||null,
    source:checklistSourceInfo(seed),
    ...suggestions,
@@ -40,7 +51,7 @@ export async function GET(req:Request){
       marathonActive:p.role==='super_admin'?p.active===true:p.marathonAccess?.active===true,
       active:p.role!=='student'&&p.active===true&&(p.role==='super_admin'||p.marathonAccess?.active===true)};
    }):[],
-   permissions:{edit:canEdit(identity.role),assign:canAssignMarathonTasks(identity.role),review:canReview(identity.role),
+   permissions:{edit:eventCanEdit&&canEdit(identity.role),assign:canAssignMarathonTasks(identity.role),review:canReview(identity.role),
     manage:canManage(identity.role),super:identity.role==='super_admin'}
   });
  }catch(e){return fail(e);}

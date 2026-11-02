@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {stripTypeScriptTypes} from 'node:module';
 import {completionChanges,preserveSourceCategory} from '../../src/lib/marathon-task-update.ts';
+import {LEGACY_MARATHON_EVENT_ID,taskEventId,dateWithinEvent} from '../../src/lib/marathon-event-model.ts';
 import {marathonCategories,isMarathonCategorySection} from '../../src/lib/marathon-categories.ts';
 import {z} from 'zod';
 
@@ -72,6 +73,9 @@ const route=await loadModule('src/app/api/marathon/tasks/[id]/route.ts',{
  db,z,HttpError,completionChanges,preserveSourceCategory,isMarathonCategorySection,
  marathonIdentity:async req=>{if(!req.headers.has('authorization'))throw new HttpError(401,'Sign in first.');return actor;},
  requireMarathon:identity=>{if(identity.role==='kasaClient')throw new HttpError(403,'View only.');},
+ getMarathonEvent:async id=>({id,status:'planning',preparationStart:'2026-01-01',closeoutDate:'2028-01-01'}),
+ requireEventTaskEdit:identity=>{if(identity.role==='kasaClient')throw new HttpError(403,'View only.');},
+ taskEventId,dateWithinEvent,
  sameOrigin:()=>{},json:(body,status=200)=>Response.json(body,{status}),fail:error=>Response.json({error:error.message},{status:error.status||500})
 });
 const context={params:Promise.resolve({id:'T001'})};
@@ -129,6 +133,9 @@ test('the real create endpoint requires a known category and still enforces edit
    batch:()=>({create:(ref,value)=>saved.push({path:ref.path,value}),commit:async()=>{}})},
   marathonIdentity:async()=>actor,
   requireMarathon:identity=>{if(identity.role==='kasaClient')throw new HttpError(403,'View only.');},
+  getMarathonEvent:async id=>({id,status:'planning',preparationStart:'2026-01-01',closeoutDate:'2028-01-01'}),
+  requireEventTaskEdit:identity=>{if(identity.role==='kasaClient')throw new HttpError(403,'View only.');},
+  LEGACY_MARATHON_EVENT_ID,dateWithinEvent,
   sameOrigin:()=>{},json:(body,status=200)=>Response.json(body,{status}),
   fail:error=>Response.json({error:error.message},{status:error.status||500})
  });
