@@ -1,5 +1,5 @@
-import {CommissionReceiptCenter} from '@/components/CommissionReceiptCenter';
 'use client';
+import {CommissionReceiptCenter} from '@/components/CommissionReceiptCenter';
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import {AgentPortal} from '@/components/AgentPortal';
