@@ -27,7 +27,7 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string;line
   const parsed=patch.safeParse(await req.json());
   if(!parsed.success)throw new HttpError(400,'Invalid budget changes or revision.');
   const data=parsed.data;
-  if(data.changes.status&&['approved','committed','paid'].includes(data.changes.status))
+  if(data.changes.status&&['approved','committed','paid','void'].includes(data.changes.status))
    requireBudgetAccess(actor,event,'approve');
   if(data.changes.actualPaidMinor!==undefined)requireBudgetAccess(actor,event,'approve');
   const taskId=data.changes.taskId;
@@ -43,6 +43,7 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string;line
    if(!doc.exists)throw new HttpError(404,'Budget line not found.');
    const previous=doc.data() as BudgetLine;
    if(previous.revision!==data.expectedRevision)throw new HttpError(409,'This budget line changed elsewhere. Reload before editing.');
+   if(['approved','committed','paid'].includes(previous.status)&&data.changes.status==='draft')requireBudgetAccess(actor,event,'approve');
    if(previous.status==='void'&&data.changes.status!=='draft')throw new HttpError(409,'Restore a void line to draft before editing.');
    // A previously approved line must be returned to draft by an approver before changing its amount.
    if(['approved','committed','paid'].includes(previous.status)&&
