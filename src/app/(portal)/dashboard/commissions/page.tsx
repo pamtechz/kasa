@@ -40,7 +40,7 @@ export default function Commissions(){
  return <>
   <PageHeader title="Commissions and referrals"
    subtitle="Commissions require completed admissions, full student tuition receipts or government CDF funds actually received by KASA, plus independently verified referral evidence."
-   action={can(role,'settings.manage')?<Link href="/dashboard/settings" className="btn btn-outline">Configure rates <ExternalLink size={16}/></Link>:undefined}/>
+   action={can(role,'settings.manage')?<Link href="/dashboard/settings/commissions" className="btn btn-outline">Configure commission rates <ExternalLink size={16}/></Link>:undefined}/>
   {error&&<div className="alert-error" role="alert">{error}</div>}
   {notice&&<div className="notice" role="status">{notice}</div>}
   {truncated&&<div className="alert-error" role="alert">This ledger exceeds the current reporting limit; displayed totals are partial and must not be used as audited financial totals.</div>}
