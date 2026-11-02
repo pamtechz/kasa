@@ -245,13 +245,13 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
   if(!uid)return;
   const request=++suggestionRequest.current;setSuggestionLoading(true);
   try{
-   const page=await api<{suggestions:Suggestion[];nextSuggestionCursor:string|null}>('/api/marathon/suggestions?status='+suggestionFilter+(cursor?'&cursor='+encodeURIComponent(cursor):''));
+   const page=await api<{suggestions:Suggestion[];nextSuggestionCursor:string|null}>('/api/marathon/suggestions?status='+suggestionFilter+'&event='+encodeURIComponent(selectedEventId)+(cursor?'&cursor='+encodeURIComponent(cursor):''));
    if(authUid.current!==uid||request!==suggestionRequest.current)return;
    setState(s=>({...s,suggestions:cursor?[...new Map([...s.suggestions,...page.suggestions].map(x=>[x.id,x])).values()]:page.suggestions}));
    setSuggestionCursor(page.nextSuggestionCursor);
   }catch(e){if(authUid.current===uid)setNotice(errorMessage(e));}
   finally{if(request===suggestionRequest.current)setSuggestionLoading(false);}
- },[uid,suggestionFilter]);
+ },[uid,suggestionFilter,selectedEventId]);
  useEffect(()=>{if(view==='recommendations'&&!offline)void loadSuggestions();},[view,offline,loadSuggestions]);
  async function inspectEdit(edit:PendingEdit){
   const request=++reviewRequest.current;
