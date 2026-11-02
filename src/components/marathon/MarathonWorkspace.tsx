@@ -49,7 +49,7 @@ const blank:Bootstrap={identity:{uid:'',email:'',displayName:'',schoolRole:'mara
 const statusLabels:Record<MarathonStatus,string>={todo:'Not started',doing:'In progress',blocked:'Blocked',done:'Completed'};
 const roles=['kasaAdmin','kasaOperations','kasaEditor','kasaReviewer','kasaClient'] as const;
 const nav=[{view:'overview' as View,label:'Home',icon:LayoutDashboard},{view:'operations' as View,label:'Checklist',icon:ClipboardCheck},{view:'categories' as View,label:'Categories',icon:Layers3},
- {view:'timeline' as View,label:'Timeline',icon:CalendarDays},{view:'recommendations' as View,label:'Recommendations',icon:MessageSquarePlus},
+ {view:'timeline' as View,label:'Timeline',icon:CalendarDays},{view:'race-day' as View,label:'Race-day desk',icon:Flag},{view:'recommendations' as View,label:'Recommendations',icon:MessageSquarePlus},
  {view:'activity' as View,label:'Activity log',icon:Activity},{view:'archive' as View,label:'Archive & recovery',icon:Trash2},{view:'settings' as View,label:'Settings & roles',icon:Settings2},
  {view:'sync' as View,label:'Offline edits',icon:CloudOff},
  {view:'super' as View,label:'Super admin',icon:ShieldCheck}];
@@ -403,7 +403,7 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
  const displayName=state.identity.displayName||state.identity.email.split('@')[0]||'Team member';
  const schoolDestination=state.identity.schoolRole==='marathon_only'?null:schoolWorkspace(state.identity.schoolRole);
  const menu=nav.filter(x=>x.view!=='super'||state.permissions.super).filter(x=>x.view!=='settings'||state.permissions.super).filter(x=>x.view!=='archive'||state.permissions.edit);
- const dailyMenu=menu.filter(item=>['overview','operations','categories','timeline','recommendations'].includes(item.view));
+ const dailyMenu=menu.filter(item=>['overview','operations','categories','timeline','race-day','recommendations'].includes(item.view));
  const toolMenu=menu.filter(item=>!dailyMenu.includes(item));
  function navigationItem(item:typeof nav[number]){
   const Icon=item.icon;

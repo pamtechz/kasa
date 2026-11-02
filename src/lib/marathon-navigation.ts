@@ -1,4 +1,4 @@
-export const marathonViews=['overview','categories','operations','timeline','recommendations','archive','settings','team','super','activity','sync'] as const;
+export const marathonViews=['overview','categories','operations','timeline','recommendations','archive','settings','team','super','activity','sync','race-day'] as const;
 export type MarathonView=(typeof marathonViews)[number];
 
 export function marathonViewForPath(pathname:string,fallback:string='overview'):MarathonView{
@@ -10,5 +10,5 @@ export function marathonViewForPath(pathname:string,fallback:string='overview'):
 export function isMarathonWorkspacePath(href:string):boolean{
  const pathname=href.split(/[?#]/,1)[0];
  const match=/^\/marathon(?:\/([^/]+))?\/?$/.exec(pathname);
- return !!match&&(!match[1]||marathonViews.includes(match[1] as MarathonView));
+ return !!match&&match[1]!=='race-day'&&(!match[1]||marathonViews.includes(match[1] as MarathonView));
 }

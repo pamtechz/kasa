@@ -41,6 +41,7 @@ service cloud.firestore {
   match /commissionPayments/{id} { allow read, write: if false; }
   match /commissionReceipts/{id} { allow read, write: if false; }
   match /tuitionReceipts/{id} { allow read, write: if false; }
+  match /marathonRaceDayItems/{id} { allow read, write: if false; }
   match /payoutRequests/{id} { allow read, write: if false; }
   match /payoutReservations/{id} { allow read, write: if false; }
   match /referralCodes/{id} { allow read, write: if false; }

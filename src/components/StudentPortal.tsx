@@ -101,6 +101,7 @@ export function StudentPortal({children}: {children: React.ReactNode}) {
   const links = [
     {name: 'Portal Overview', href: '/student-portal', icon: ClipboardList},
     {name: 'Applications & Documents', href: '/student-portal/applications', icon: FileText},
+    {name: 'My Fee Statement', href: '/student-portal/fees', icon: Download},
     {name: 'Refer & Earn Program', href: '/student-portal/referrals', icon: Share2},
     {name: 'Announcements', href: '/student-portal/notifications', icon: Bell},
     {name: 'My Profile & Security', href: '/student-portal/profile', icon: User}
