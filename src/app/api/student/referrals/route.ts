@@ -85,75 +85,13 @@ export async function GET(req: NextRequest) {
   }
 }
 
+/** Candidate creation must use the published-form intake path for deduplication and evidence validation. */
 export async function POST(req: NextRequest) {
-  try {
-    sameOrigin(req);
-    await rateLimit(req, 'student-referral-submit', 10, 10);
-    const user = await verifiedStudent(req);
-    const body = await req.json();
-
-    const candidateName = safeText(body.candidateName || body.name, 120);
-    const phone = safeText(body.phone, 50);
-    const email = safeText(body.email, 160).toLowerCase();
-    const nrc = safeText(body.nrc, 40);
-    const programme = safeText(body.programme, 150);
-    const fundingMethod: 'cdf' | 'self_funded' = body.fundingMethod === 'self_funded' ? 'self_funded' : 'cdf';
-    const district = safeText(body.district, 80);
-    const note = safeText(body.note, 500);
-
-    if (!candidateName) throw new HttpError(400, 'Candidate full name is required.');
-    if (!phone) throw new HttpError(400, 'Candidate phone number is required.');
-    if (!programme) throw new HttpError(400, 'Selected training programme is required.');
-
-    // Do not change profile roles or reactivate an inactive account.
-    const agentCode=await studentReferralCode(user.uid);
-
-    const id = newId();
-    const reference = `KASA-${new Date().getFullYear()}-${id.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
-    const now = new Date().toISOString();
-
-    const newRecord: ApplicantRecord = {
-      id,
-      reference,
-      formId: 'student-direct-referral',
-      formTitle: `${programme} (Student Referral)`,
-      formKind: 'student',
-      formVersion: 1,
-      status: 'submitted',
-      answers: {
-        'student-name': candidateName,
-        name: candidateName,
-        phone,
-        email: email || `${phone.replace(/\D/g, '')}@kasa.referral.zm`,
-        nrc,
-        program: programme,
-        programme,
-        district,
-        'funding-type': fundingMethod,
-        fundingMethod,
-        agentCode,
-        studentNote: note
-      },
-      agentId: user.uid,
-      submittedAt: now,
-      updatedAt: now,
-      fundingMethod,
-      internalNotes: [
-        {
-          body: `Direct candidate referral registered by enrolled student ${user.name || user.email} (${agentCode}).${note ? ` Note: ${note}` : ''}`,
-          at: now,
-          by: user.name || user.email || 'Student'
-        }
-      ]
-    };
-
-    await db.collection('submissions').doc(id).set(newRecord);
-    invalidateSubmissionsCache();
-
-    return json({ok: true, id, reference, referral: newRecord});
-  } catch (e) {
-    return fail(e);
-  }
+ try{
+  sameOrigin(req);
+  await verifiedStudent(req);
+  throw new HttpError(409,'Register referred candidates using your official referral link. The published application form enforces intake, identity, document and duplicate checks.');
+ }catch(e){return fail(e);}
 }
 
 export async function PATCH(req: Request) {
