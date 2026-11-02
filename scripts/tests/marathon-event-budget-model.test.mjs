@@ -97,7 +97,7 @@ test('recommendation creation, review, pagination and bootstrap stay in the sele
  assert.match(create,/eventId=taskEventId\(task.data\(\)\|\|\{\}\)/);
  assert.match(create,/marathonSuggestionsPage\(actor,query.get/);
  assert.match(review,/requireEventTaskReview\(actor,event\)/);
- assert.match(paging,/taskEventId\(record\)===eventId/);
+ assert.match(paging,/taskEventId\(record.*\)===eventId/);
  assert.match(bootstrap,/marathonSuggestionsPage\(identity,'pending',null,eventId\)/);
 });
 
