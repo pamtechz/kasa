@@ -2,6 +2,7 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {Cloud,CheckCircle2,LoaderCircle} from 'lucide-react';
 import {authorizeExternalStorage,storageJson} from '@/lib/r2-upload-client';
+import {oauthConnectionError} from '@/lib/r2-oauth-errors';
 type Status={connected:boolean;connectionId:string|null;selectedBucket:{bucket:string}|null};
 export function ExternalStorageConnection({onReady}:{onReady?:(id:string)=>void}){
  const [status,setStatus]=useState<Status|null>(null),[busy,setBusy]=useState(true),[error,setError]=useState('');
@@ -19,7 +20,7 @@ export function ExternalStorageConnection({onReady}:{onReady?:(id:string)=>void}
    const state=await storageJson<Status>('/api/r2/oauth');setStatus(state);
    const url=new URL(location.href),result=url.searchParams.get('cloudflare');
    if(result){url.searchParams.delete('cloudflare');history.replaceState(null,'',url.pathname+url.search+url.hash);}
-   if(result&&result!=='connected')setError(result==='cancelled'?'Cloudflare authorization was cancelled. Your application progress is saved.':'Cloudflare authorization could not be completed. Your progress is saved; try connecting again.');
+   if(result&&result!=='connected')setError(oauthConnectionError(result));
    if(state.connected&&state.connectionId){callback.current?.(state.connectionId);return;}
    if(state.connected){
     const setup=await storageJson<{accounts?:{id:string;name:string}[];connectionId?:string;selectedBucket?:{bucket:string}}>('/api/r2/oauth/provision',{});

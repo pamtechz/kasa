@@ -2,6 +2,7 @@ import {NextRequest,NextResponse} from 'next/server';
 import {timingSafeEqual} from 'node:crypto';
 import {db} from '@/lib/firebase-admin';
 import {OAUTH_COOKIE,oauthStateHash,oauthConfig,exchangeCloudflare,saveOAuthSession} from '@/lib/r2-oauth';
+import {oauthCallbackFailure} from '@/lib/r2-oauth-errors';
 export const runtime='nodejs';
 function redirect(url:string,code:string,returnTo='/account'){
  const destination=new URL(returnTo,url);destination.searchParams.set('cloudflare',code);
@@ -32,7 +33,11 @@ export async function GET(req:NextRequest){
   });
   if(!data)return redirect(req.url,'expired');
   returnTo=data.returnTo;
-  if(uri.searchParams.has('error')||!code||code.length>4096)return redirect(req.url,'cancelled',returnTo);
+  const failure=oauthCallbackFailure(uri.searchParams);
+  if(failure){
+   console.warn('Cloudflare OAuth callback rejected:',failure);
+   return redirect(req.url,failure,returnTo);
+  }
   const profile=await db.collection('profiles').doc(data.uid).get();
   const guest=data.uid.startsWith('guest_')?(await db.collection('r2GuestSessions').doc(data.uid).get()).data():null;
   if((!profile.exists||profile.data()?.active!==true)&&!(guest&&Number(guest.expiresAt)>Date.now()))return redirect(req.url,'inactive',data.returnTo);
