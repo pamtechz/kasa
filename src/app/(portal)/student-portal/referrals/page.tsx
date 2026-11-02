@@ -28,6 +28,7 @@ type ReferralData = {
   currency: string;
   cdfRate: number;
   paidRate: number;
+  rateType?:'percentage'|'fixed';commissionPercentage?:number;paymentMode?:string;
   referrals: ReferralItem[];
 };
 
@@ -101,7 +102,8 @@ export default function StudentPortalReferralsPage() {
           <div className="metric-icon green"><Wallet /></div>
           <span>Total Commission Earned</span>
           <strong>{loading ? '—' : `ZMW ${(data?.totalEarned || 0).toFixed(2)}`}</strong>
-          <small>Earn ZMW 300.00 per verified student</small>
+          <small>{data?.rateType==='percentage'?((data?.commissionPercentage||0)+'% of approved tuition; timing follows verified payments'):
+     ('K'+(data?.paidRate||0).toFixed(2)+' fixed self-funded referral rate, subject to approval')}</small>
         </div>
       </div>
 
