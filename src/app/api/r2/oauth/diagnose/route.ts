@@ -1,4 +1,5 @@
 import {randomUUID} from 'node:crypto';
+import type {NextRequest} from 'next/server';
 import {db} from '@/lib/firebase-admin';
 import {fail,json,HttpError} from '@/lib/errors';
 import {sameOrigin,rateLimit} from '@/lib/security';
@@ -10,7 +11,7 @@ export const runtime='nodejs';
  * R2 should return 404 for a random object name. It cannot prove browser PUT
  * or CORS; those still require an explicit user-authorized upload test.
  */
-export async function POST(req:Request){
+export async function POST(req:NextRequest){
  try{
   sameOrigin(req);const {uid}=await storageIdentity(req);
   await rateLimit(req,'r2-diagnose:'+uid,4,10);
