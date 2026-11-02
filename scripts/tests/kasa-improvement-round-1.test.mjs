@@ -40,7 +40,7 @@ test('student fee statement verifies linked ownership and never fabricates an un
  const math=read('src/lib/finance-operations.ts');
  assert.match(route,/verifiedStudent\(req\)/);
  assert.match(route,/app\?\.applicantUid!==user.uid/);
- assert.match(route,/read/); // financeSnapshot requires an approved quote
+ assert.match(route,/financeSnapshot\(app,/); // pure shared calculator requires approved quote
  assert.match(math,/readApprovedFeeQuote\(record.feeQuote\)/);
  assert.match(math,/feeMinor===null\|\|receivedMinor===null\?null/);
  assert.match(route,/partial:rows.size>100/);
