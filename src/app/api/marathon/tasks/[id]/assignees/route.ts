@@ -7,6 +7,8 @@ import {marathonIdentity} from '@/lib/marathon';
 import {canAssignMarathonTasks,validMarathonTaskId,validateMarathonAssignees} from '@/lib/marathon-assignment';
 import {sendMarathonPush} from '@/lib/mobile-push';
 import {sameOrigin} from '@/lib/security';
+import {getMarathonEvent,requireEventTaskEdit} from '@/lib/marathon-event-server';
+import {taskEventId} from '@/lib/marathon-event-model';
 
 export const runtime='nodejs';
 const schema=z.object({
@@ -33,6 +35,10 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
    const snap=await tx.get(ref);
    if(!snap.exists)throw new HttpError(404,'Task not found.');
    const before=snap.data()!;
+   const event=await getMarathonEvent(taskEventId(before));
+   requireEventTaskEdit(actor,event);
+   if(['completed','archived','cancelled'].includes(event.status))
+    throw new HttpError(409,'This event is closed to task assignment changes.');
    if(before.archived||before.status==='done')throw new HttpError(409,'This checklist task is already closed and cannot be reassigned.');
    if(Number(before.revision)!==body.data.expectedRevision)
     throw new HttpError(409,'Task changed. Refresh before saving assignments.');
@@ -43,7 +49,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
    const updates={assigneeUids,confirmationByUid,revision:body.data.expectedRevision+1,updatedAt:now,updatedBy:actor.uid};
    tx.update(ref,updates);
    tx.create(db.collection('marathonAudit').doc(randomUUID()),{
-    taskId:id,actor:actor.uid,at:now,action:'task.assigned',before:{assigneeUids:previous},changes:{assigneeUids}
+    taskId:id,eventId:taskEventId(before),actor:actor.uid,at:now,action:'task.assigned',before:{assigneeUids:previous},changes:{assigneeUids}
    });
    return {id,...before,...updates};
   });
@@ -51,7 +57,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
    after(async()=>{
     for(const uid of newAssignees){
      try{await sendMarathonPush('KASA Life Marathon — task assigned','You have a new checklist assignment. Open Marathon to review and confirm its status.',
-       '/marathon/operations?task='+encodeURIComponent(id),uid);}
+       '/marathon/operations?event='+encodeURIComponent(taskEventId(task))+'&task='+encodeURIComponent(id),uid);}
      catch(error){console.error('Marathon assignment push failed',error instanceof Error?error.message:'Unknown delivery error');}
     }
    });
