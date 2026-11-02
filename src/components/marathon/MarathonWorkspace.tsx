@@ -403,7 +403,7 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
  const displayName=state.identity.displayName||state.identity.email.split('@')[0]||'Team member';
  const schoolDestination=state.identity.schoolRole==='marathon_only'?null:schoolWorkspace(state.identity.schoolRole);
  const menu=nav.filter(x=>x.view!=='super'||state.permissions.super).filter(x=>x.view!=='settings'||state.permissions.super).filter(x=>x.view!=='archive'||state.permissions.edit);
- const dailyMenu=menu.filter(item=>['overview','operations','categories','timeline','recommendations'].includes(item.view));
+ const dailyMenu=menu.filter(item=>['overview','operations','categories','timeline','race-day','recommendations'].includes(item.view));
  const toolMenu=menu.filter(item=>!dailyMenu.includes(item));
  function navigationItem(item:typeof nav[number]){
   const Icon=item.icon;
