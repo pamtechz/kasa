@@ -8,6 +8,8 @@ import {sameOrigin} from '@/lib/security';
 import {completionChanges,preserveSourceCategory} from '@/lib/marathon-task-update';
 import {isMarathonCategorySection} from '@/lib/marathon-categories';
 import type {MarathonTask} from '@/lib/marathon-types';
+import {getMarathonEvent,requireEventTaskEdit} from '@/lib/marathon-event-server';
+import {taskEventId,dateWithinEvent} from '@/lib/marathon-event-model';
 export const runtime='nodejs';
 function validId(id:string){return /^(T\d{3}|WEB-\d{2}|M-[0-9a-f-]{36})$/.test(id);}
 export async function GET(req:Request,{params}:{params:Promise<{id:string}>}){
@@ -64,6 +66,10 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
    }
    if(!prior.exists)throw new HttpError(404,'Action not found. Import checklist first.');
    const before=prior.data()!;
+   const selectedEvent=await getMarathonEvent(taskEventId(before));
+   requireEventTaskEdit(identity,selectedEvent);
+   if(['completed','archived','cancelled'].includes(selectedEvent.status))throw new HttpError(409,'Event closed.');
+   if(changes.dueDate!==undefined&&!dateWithinEvent(changes.dueDate,selectedEvent))throw new HttpError(400,'Due date falls outside this event.');
    if(Number(before.revision)!==expectedRevision)
     throw new HttpError(409,'This action was changed elsewhere. Refresh and review the latest version before retrying.');
    const next={...changes,revision:expectedRevision+1,updatedAt:now,updatedBy:identity.uid} as Record<string,unknown>;
