@@ -1,10 +1,11 @@
 import type {NextRequest} from 'next/server';
 import {adminAuth, db} from '@/lib/firebase-admin';
 import {fail, HttpError, json} from '@/lib/errors';
-import {rateLimit, safeText, newId, sameOrigin} from '@/lib/security';
+import {rateLimit, safeText, sameOrigin} from '@/lib/security';
 import {invalidateSubmissionsCache} from '@/lib/server-cache';
 import type {ApplicantRecord} from '@/lib/types';
 import {commissionDecision} from '@/lib/commission-eligibility';
+import {studentReferralCode} from '@/lib/referral-identity';
 
 export const runtime = 'nodejs';
 
@@ -18,6 +19,9 @@ async function verifiedStudent(req: Request) {
     throw new HttpError(401, 'Your session has expired.');
   }
   if (!token.email_verified || !token.email) throw new HttpError(403, 'Verify your email to participate in the referral program.');
+  const profile=await db.collection('profiles').doc(token.uid).get();
+  if(!profile.exists||profile.data()?.role!=='student'||profile.data()?.active!==true)
+   throw new HttpError(403,'Active KASA student membership is required to use referrals.');
   return token;
 }
 
@@ -26,24 +30,7 @@ export async function GET(req: NextRequest) {
     await rateLimit(req, 'student-referrals', 20, 10);
     const user = await verifiedStudent(req);
 
-    // 1. Get or create student profile with referral code
-    const profileRef = db.collection('profiles').doc(user.uid);
-    const profileSnap = await profileRef.get();
-    let agentCode = profileSnap.data()?.agentCode;
-
-    if (!agentCode) {
-      agentCode = `KASA-STU-${user.uid.slice(0, 6).toUpperCase()}`;
-      await profileRef.set({
-        uid: user.uid,
-        email: user.email || '',
-        displayName: user.name || (user.email ? user.email.split('@')[0] : 'Student'),
-        role: profileSnap.data()?.role || 'student',
-        active: true,
-        agentCode,
-        isStudent: true,
-        updatedAt: new Date().toISOString()
-      }, {merge: true});
-    }
+    const agentCode=await studentReferralCode(user.uid);
 
     // 2. Fetch referral settings for commission rates
     const opsSnap = await db.collection('settings').doc('operations').get();
@@ -79,12 +66,13 @@ export async function GET(req: NextRequest) {
     const totalEarned = referrals.reduce((sum, r) => sum + r.commissionEarned, 0);
     const successfulCount = referrals.filter(r => r.commissionEarned > 0).length;
 
-    const origin = req.headers.get('origin') || process.env.APP_URL || 'http://localhost:3001';
-    const referralLink = `${origin}/apply/student-enrollment?ref=${agentCode}`;
+    const origin = process.env.APP_URL || 'https://kasaschool.vercel.app';
+    const referralsEnabled=ops.referralsEnabled!==false;
+    const referralLink = referralsEnabled?`${origin}/apply/student-enrollment?ref=${agentCode}`:'';
 
     return json({
       agentCode,
-      referralLink,
+      referralLink,referralsEnabled,
       referralsCount: referrals.length,
       successfulCount,
       totalEarned,
@@ -98,92 +86,13 @@ export async function GET(req: NextRequest) {
   }
 }
 
+/** Candidate creation must use the published-form intake path for deduplication and evidence validation. */
 export async function POST(req: NextRequest) {
-  try {
-    sameOrigin(req);
-    await rateLimit(req, 'student-referral-submit', 10, 10);
-    const user = await verifiedStudent(req);
-    const body = await req.json();
-
-    const candidateName = safeText(body.candidateName || body.name, 120);
-    const phone = safeText(body.phone, 50);
-    const email = safeText(body.email, 160).toLowerCase();
-    const nrc = safeText(body.nrc, 40);
-    const programme = safeText(body.programme, 150);
-    const fundingMethod: 'cdf' | 'self_funded' = body.fundingMethod === 'self_funded' ? 'self_funded' : 'cdf';
-    const district = safeText(body.district, 80);
-    const note = safeText(body.note, 500);
-
-    if (!candidateName) throw new HttpError(400, 'Candidate full name is required.');
-    if (!phone) throw new HttpError(400, 'Candidate phone number is required.');
-    if (!programme) throw new HttpError(400, 'Selected training programme is required.');
-
-    // Referral submission never sets or predicts a commission amount. KASA
-    // creates the approved amount only after fully funded enrollment.
-    // Get student profile's agentCode
-    const profileRef = db.collection('profiles').doc(user.uid);
-    const profileSnap = await profileRef.get();
-    let agentCode = profileSnap.data()?.agentCode;
-    if (!agentCode) {
-      agentCode = `KASA-STU-${user.uid.slice(0, 6).toUpperCase()}`;
-      await profileRef.set({
-        uid: user.uid,
-        email: user.email || '',
-        displayName: user.name || (user.email ? user.email.split('@')[0] : 'Student'),
-        role: profileSnap.data()?.role || 'student',
-        active: true,
-        agentCode,
-        isStudent: true,
-        updatedAt: new Date().toISOString()
-      }, {merge: true});
-    }
-
-    const id = newId();
-    const reference = `KASA-${new Date().getFullYear()}-${id.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
-    const now = new Date().toISOString();
-
-    const newRecord: ApplicantRecord = {
-      id,
-      reference,
-      formId: 'student-direct-referral',
-      formTitle: `${programme} (Student Referral)`,
-      formKind: 'student',
-      formVersion: 1,
-      status: 'submitted',
-      answers: {
-        'student-name': candidateName,
-        name: candidateName,
-        phone,
-        email: email || `${phone.replace(/\D/g, '')}@kasa.referral.zm`,
-        nrc,
-        program: programme,
-        programme,
-        district,
-        'funding-type': fundingMethod,
-        fundingMethod,
-        agentCode,
-        studentNote: note
-      },
-      agentId: user.uid,
-      submittedAt: now,
-      updatedAt: now,
-      fundingMethod,
-      internalNotes: [
-        {
-          body: `Direct candidate referral registered by enrolled student ${user.name || user.email} (${agentCode}).${note ? ` Note: ${note}` : ''}`,
-          at: now,
-          by: user.name || user.email || 'Student'
-        }
-      ]
-    };
-
-    await db.collection('submissions').doc(id).set(newRecord);
-    invalidateSubmissionsCache();
-
-    return json({ok: true, id, reference, referral: newRecord});
-  } catch (e) {
-    return fail(e);
-  }
+ try{
+  sameOrigin(req);
+  await verifiedStudent(req);
+  throw new HttpError(409,'Register referred candidates using your official referral link. The published application form enforces intake, identity, document and duplicate checks.');
+ }catch(e){return fail(e);}
 }
 
 export async function PATCH(req: Request) {

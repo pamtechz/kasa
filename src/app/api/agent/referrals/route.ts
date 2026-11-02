@@ -1,5 +1,5 @@
 import {db} from '@/lib/firebase-admin';
-import {operator, newId, safeText, sameOrigin} from '@/lib/security';
+import {operator, safeText, sameOrigin} from '@/lib/security';
 import {fail, json, HttpError} from '@/lib/errors';
 import type {ApplicantRecord, SubmissionStatus} from '@/lib/types';
 import {commissionDecision} from '@/lib/commission-eligibility';
@@ -50,12 +50,29 @@ export async function GET(req: Request) {
       };
     }).sort((a, b) => String(b.submittedAt || '').localeCompare(String(a.submittedAt || '')));
 
+    const ownerSnap=agentUid===agent.uid?null:await db.collection('profiles').doc(agentUid).get();
+    const owner=ownerSnap?.data()||agent;
+    const agentCode=String(owner.agentCode||'');
+    const studentForm=forms.docs.find(d=>d.data().kind==='student');
+    const slug=studentForm?String(studentForm.data().slug):'student-enrollment';
+    const operations=await db.collection('settings').doc('operations').get();
+    const referralsEnabled=operations.data()?.referralsEnabled!==false;
+    const referralLink=agentCode&&referralsEnabled?
+      (process.env.APP_URL||'https://kasaschool.vercel.app')+'/apply/'+encodeURIComponent(slug)+'?ref='+encodeURIComponent(agentCode):'';
+    const eligible=referrals.filter(item=>item.commission!==null);
     return json({
       agent: {
-        agentCode: agent.agentCode || 'KASA-AGT',
-        district: agent.district || 'Unassigned',
-        active: agent.active
+        agentCode,
+        district: owner.district || 'Unassigned',
+        active: owner.active
       },
+      agentCode,referralLink,referralsEnabled,
+      referralsCount:referrals.length,
+      successfulCount:eligible.length,
+      totalEarned:eligible.reduce((sum,item)=>sum+(item.commission?.amount||0),0),
+      pendingCommission:eligible.filter(item=>!item.commission?.paidAt).reduce((sum,item)=>sum+(item.commission?.amount||0),0),
+      paidCommission:eligible.filter(item=>Boolean(item.commission?.paidAt)).reduce((sum,item)=>sum+(item.commission?.amount||0),0),
+      currency:'ZMW',
       forms: forms.docs
         .filter(d => d.data().kind === 'student')
         .map(d => ({slug: String(d.data().slug), title: String(d.data().title)})),
@@ -66,70 +83,13 @@ export async function GET(req: Request) {
   }
 }
 
+/** Candidate creation must use the published-form intake path for deduplication and evidence validation. */
 export async function POST(req: Request) {
-  try {
-    sameOrigin(req);
-    const agent = await operator(req, ['agent', 'super_admin', 'admin']);
-    const body = await req.json();
-
-    const candidateName = safeText(body.candidateName || body.name, 120);
-    const phone = safeText(body.phone, 50);
-    const email = safeText(body.email, 160).toLowerCase();
-    const nrc = safeText(body.nrc, 40);
-    const programme = safeText(body.programme, 150);
-    const fundingMethod: 'cdf' | 'self_funded' = body.fundingMethod === 'self_funded' ? 'self_funded' : 'cdf';
-    const district = safeText(body.district, 80) || agent.district || 'National';
-    const note = safeText(body.note, 500);
-
-    if (!candidateName) throw new HttpError(400, 'Candidate full name is required.');
-    if (!phone) throw new HttpError(400, 'Candidate phone number is required.');
-    if (!programme) throw new HttpError(400, 'Selected training programme is required.');
-
-    const id = newId();
-    const reference = `KASA-${new Date().getFullYear()}-${id.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
-    const now = new Date().toISOString();
-
-    const newRecord: ApplicantRecord = {
-      id,
-      reference,
-      formId: 'agent-direct-referral',
-      formTitle: `${programme} (Agent Referral)`,
-      formKind: 'student',
-      formVersion: 1,
-      status: 'submitted',
-      answers: {
-        'student-name': candidateName,
-        name: candidateName,
-        phone,
-        email: email || `${phone.replace(/\D/g, '')}@kasa.referral.zm`,
-        nrc,
-        program: programme,
-        programme,
-        district,
-        'funding-type': fundingMethod,
-        fundingMethod,
-        agentNote: note
-      },
-      agentId: agent.uid,
-      submittedAt: now,
-      updatedAt: now,
-      fundingMethod,
-      internalNotes: [
-        {
-          body: `Direct candidate enrollment registered by district agent ${agent.displayName || agent.email} (${agent.agentCode || 'Agent'}).${note ? ` Note: ${note}` : ''}`,
-          at: now,
-          by: agent.displayName || agent.email
-        }
-      ]
-    };
-
-    await db.collection('submissions').doc(id).set(newRecord);
-    invalidateSubmissionsCache();
-
-    return json({ok: true, id, reference, referral: newRecord});
-  } catch (e) {
-    return fail(e);
-  }
+ try{
+  sameOrigin(req);
+  await operator(req, ['agent', 'super_admin', 'admin']);
+  throw new HttpError(409,'Register referred candidates using your official referral link. The published application form enforces intake, identity, document and duplicate checks.');
+ }catch(e){return fail(e);}
 }
 
 export async function PATCH(req: Request) {

@@ -30,6 +30,9 @@ type Referral = {
 type FormInfo = {slug: string; title: string};
 
 type ReferralResponse = {
+  referralLink: string;
+  referralsCount: number;
+  totalEarned: number;
   agent: {agentCode: string; district: string; active?: boolean};
   forms: FormInfo[];
   referrals: Referral[];
@@ -101,16 +104,12 @@ export default function MyReferrals({editorId}:{editorId?:string}={}) {
   }, [modalOpen]);
 
   function openRegisterModal() {
-    setEditingReferral(null);
-    setCandidateName('');
-    setPhone('');
-    setEmail('');
-    setNrc('');
-    setProgramme(defaultProgrammes[0]);
-    setFundingMethod('cdf');
-    setDistrict(data?.agent.district || '');
-    setNote('');
-    setModalOpen(true);
+    if(!data?.referralLink){
+      setError('No published enrollment form or agent referral code is available. Ask KASA Admin to activate a valid referral link.');
+      return;
+    }
+    // A new applicant must use official intake, never the legacy direct-submission shortcut.
+    window.location.assign(data.referralLink);
   }
 
   function openEditModal(ref: Referral) {
@@ -162,20 +161,9 @@ export default function MyReferrals({editorId}:{editorId?:string}={}) {
         });
         setNotice(`Updated details for candidate ${candidateName}.`);
       } else {
-        const res = await api<{ok: boolean; reference: string}>('/api/agent/referrals', {
-          method: 'POST',
-          body: JSON.stringify({
-            candidateName: candidateName.trim(),
-            phone: phone.trim(),
-            email: email.trim(),
-            nrc: nrc.trim(),
-            programme,
-            fundingMethod,
-            district: district.trim() || data?.agent.district,
-            note: note.trim()
-          })
-        });
-        setNotice(`Candidate successfully registered with reference: ${res.reference}`);
+        if(!data?.referralLink)throw Error('A published enrollment form is required.');
+        window.location.assign(data.referralLink);
+        return;
       }
       closeModal();
       await load();

@@ -94,7 +94,7 @@ export default function StudentPortalReferralsPage() {
           <div className="metric-icon amber"><CheckCircle2 /></div>
           <span>Successful Admissions</span>
           <strong>{loading ? '—' : data?.successfulCount || 0}</strong>
-          <small>CDF approved or tuition verified</small>
+          <small>Full tuition or received CDF funds verified</small>
         </div>
         <div className="metric-card">
           <div className="metric-icon green"><Wallet /></div>

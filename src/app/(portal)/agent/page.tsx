@@ -105,7 +105,7 @@ export default function AgentDashboardPage() {
           <div className="metric-icon amber"><Award /></div>
           <span>Verified Admissions</span>
           <strong>{loading ? '—' : referralData?.successfulCount || 0}</strong>
-          <small>CDF approved or tuition paid</small>
+          <small>Full tuition or received CDF funds verified</small>
         </div>
         <div className="metric-card">
           <div className="metric-icon purple"><Wallet /></div>

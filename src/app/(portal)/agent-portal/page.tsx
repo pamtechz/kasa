@@ -4,7 +4,7 @@ import {useState, useEffect} from 'react';
 import Link from 'next/link';
 import {AgentPortal} from '@/components/AgentPortal';
 import {
-  Users, MapPin, Award, Medal, Gem, Wallet, PlusCircle, Share2, Copy, Check, RefreshCw, Trophy, Sparkles
+  Users, MapPin, Award, Medal, Gem, Wallet, PlusCircle, Share2, Copy, Check, RefreshCw, Trophy
 } from 'lucide-react';
 import {authHeaders} from '@/lib/firebase-client';
 
@@ -100,7 +100,7 @@ export default function AgentPortalDashboard() {
           <p>Welcome back, <strong>{profile?.displayName || profile?.email || 'District Agent'}</strong>. Manage recruitment across your assigned district territory, register candidates, and track verified commissions.</p>
         </div>
         <div style={{display: 'flex', gap: 10}}>
-          <Link href="/dashboard/applications/new" className="btn btn-primary" style={{display: 'inline-flex', alignItems: 'center', gap: 6}}>
+          <Link href={referralData?.referralLink||'/dashboard/referrals/editor/new'} className="btn btn-primary" style={{display: 'inline-flex', alignItems: 'center', gap: 6}}>
             <PlusCircle size={16} /> Register Candidate
           </Link>
           <button className="btn btn-outline" onClick={() => void loadData()} disabled={loading}>
@@ -132,24 +132,10 @@ export default function AgentPortalDashboard() {
         <div className="metric-card">
           <div className="metric-icon purple"><Wallet /></div>
           <span>Total Commission</span>
-          <strong>{loading ? '—' : `ZMW ${(myEntry?.totalPayoutWithBonus || referralData?.totalEarned || 0).toFixed(2)}`}</strong>
-          <small>Including performance bonus</small>
+          <strong>{loading ? '—' : `ZMW ${(referralData?.totalEarned || 0).toFixed(2)}`}</strong>
+          <small>Verified commissions; transfers tracked separately</small>
         </div>
       </div>
-
-      {/* Bonus Commission Eligibility Banner */}
-      {myEntry?.eligibleForBonus && (
-        <div style={{background: 'linear-gradient(135deg, #103f2c 0%, #175e42 100%)', color: '#ffffff', padding: '18px 24px', borderRadius: 12, marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, boxShadow: '0 8px 24px rgba(16,63,44,0.15)'}}>
-          <div>
-            <div style={{display: 'flex', alignItems: 'center', gap: 8, color: 'var(--gold, #e0b561)', fontWeight: 800, fontSize: 13, letterSpacing: '0.06em', textTransform: 'uppercase'}}>
-              <Sparkles size={18} /> DIAMOND TIER BONUS UNLOCKED!
-            </div>
-            <h3 style={{margin: '4px 0 2px', fontSize: 18, color: '#ffffff'}}>Congratulations! You achieved 20+ confirmed enrollments this month!</h3>
-            <p style={{margin: 0, fontSize: 13, color: '#d0e5d9'}}>You have unlocked a flat <strong>ZMW 1,000.00 Performance Bonus</strong> added to your monthly payout ledger.</p>
-          </div>
-          <span className="tag tag-gold" style={{fontSize: 16, padding: '8px 16px', fontWeight: 800}}>+ ZMW 1,000.00 BONUS</span>
-        </div>
-      )}
 
       {/* Agent Shareable Referral Code Box */}
       <div className="panel pad-panel" style={{marginBottom: 24, borderLeft: '4px solid var(--green)'}}>

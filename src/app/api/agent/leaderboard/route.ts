@@ -45,38 +45,46 @@ export async function GET(req: Request) {
     await operator(req, ['super_admin', 'admin', 'reviewer', 'agent']);
 
     const url = new URL(req.url);
-    const monthKey = url.searchParams.get('month') || new Date().toISOString().slice(0, 7); // e.g. 2026-10
+    const requestedMonth=url.searchParams.get('month')||'';
+    const monthKey=/^\d{4}-(0[1-9]|1[0-2])$/.test(requestedMonth)?requestedMonth:new Date().toISOString().slice(0,7);
 
     // Fetch all profiles for agents
     const profilesSnap = await db.collection('profiles').where('role', '==', 'agent').get();
     const agents = profilesSnap.docs.map(d => ({uid: d.id, ...d.data()}));
 
     // Fetch all student submissions
-    const subSnap = await db.collection('submissions').where('formKind', '==', 'student').limit(500).get();
-    const submissions = subSnap.docs.map(d => ({id: d.id, ...d.data()}));
+    const submissions:Array<Record<string,unknown>>=[];
+    let cursor:FirebaseFirestore.QueryDocumentSnapshot|undefined;
+    let partial=false;
+    for(let page=0;page<40;page++){
+      let q=db.collection('submissions').where('formKind','==','student').orderBy('__name__').limit(250);
+      if(cursor)q=q.startAfter(cursor);
+      const snap=await q.get();
+      submissions.push(...snap.docs.map(d=>({id:d.id,...d.data()})));
+      if(snap.size<250)break;
+      cursor=snap.docs[snap.docs.length-1];
+      if(page===39)partial=true;
+    }
 
     // Group submissions by agentId or agentCode
     const agentStats: Record<string, {
       uid: string;
       displayName: string;
-      email: string;
-      agentCode: string;
       district: string;
       totalReferrals: number;
       confirmedEnrollments: number;
+      lifetimeConfirmedEnrollments:number;
       monthlyEarned: number;
     }> = {};
 
     for (const a of agents) {
-      const code = (a as any).agentCode || `KASA-AGT-${a.uid.slice(0, 6).toUpperCase()}`;
       agentStats[a.uid] = {
         uid: a.uid,
         displayName: (a as any).displayName || (a as any).email,
-        email: (a as any).email,
-        agentCode: code,
         district: (a as any).district || 'District Hub',
         totalReferrals: 0,
         confirmedEnrollments: 0,
+        lifetimeConfirmedEnrollments:0,
         monthlyEarned: 0
       };
     }
@@ -90,9 +98,12 @@ export async function GET(req: Request) {
         const eligibility=commissionDecision(x);
         const isConfirmed=eligibility.eligible;
         if (isConfirmed) {
-          agentStats[agentUid].confirmedEnrollments += 1;
-          if(String(x.commission?.approvedAt||'').startsWith(monthKey))
+          agentStats[agentUid].lifetimeConfirmedEnrollments += 1;
+          // The selected month drives both the tier and the monthly earnings.
+          if(String(x.commission?.approvedAt||'').startsWith(monthKey)){
+            agentStats[agentUid].confirmedEnrollments += 1;
             agentStats[agentUid].monthlyEarned += eligibility.amount;
+          }
         }
       }
     }
@@ -112,6 +123,7 @@ export async function GET(req: Request) {
     return json({
       monthKey,
       totalAgents: leaderboard.length,
+      partial,
       topDistrict: leaderboard[0]?.district || 'Lusaka',
       leaderboard
     });

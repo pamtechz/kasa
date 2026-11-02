@@ -1,6 +1,6 @@
 import {db,adminAuth} from '@/lib/firebase-admin';
 import {fail,json,HttpError} from '@/lib/errors';
-import {operator,audit,sameOrigin,safeText,newId} from '@/lib/security';
+import {operator,audit,sameOrigin,safeText} from '@/lib/security';
 import {getGeneralCache,setGeneralCache,invalidateGeneralCache} from '@/lib/server-cache';
 export const runtime='nodejs';
 
@@ -34,7 +34,10 @@ export async function POST(req:Request){
    user=null;
   }
 
-  const uid = user ? user.uid : newId();
+  // An agent must be associated with a real Firebase identity, never a made-up UID.
+  if(!user)throw new HttpError(409,'This person must first create a KASA login with the specified email. Appoint them after the Firebase account exists.');
+  if(user.disabled)throw new HttpError(409,'Cannot appoint a disabled Firebase account.');
+  const uid=user.uid;
   const ref=db.collection('profiles').doc(uid);
   const snap=await ref.get();
   if(snap.exists&&snap.data()?.role&&snap.data()?.role!=='agent') {
@@ -46,28 +49,32 @@ export async function POST(req:Request){
   const active = body.active!==false;
   const now = new Date().toISOString();
 
+  const duplicates=await db.collection('profiles').where('agentCode','==',agentCode).limit(2).get();
+  if(duplicates.docs.some(d=>d.id!==uid))
+   throw new HttpError(409,'Referral code belongs to another account. Choose a unique code.');
+  const claimRef=db.collection('referralCodes').doc(agentCode);
+  await db.runTransaction(async tx=>{
+   const [current,claim]=await Promise.all([tx.get(ref),tx.get(claimRef)]);
+   if(current.exists&&current.data()?.role&&current.data()?.role!=='agent')
+    throw new HttpError(409,'Existing School account cannot be converted to an agent through this endpoint.');
+   if(claim.exists&&claim.data()?.ownerUid!==uid)
+    throw new HttpError(409,'Referral code is already reserved for another account.');
+   tx.set(ref,{
+    uid,email,
+    displayName:displayName||user.displayName||email.split('@')[0],
+    role:'agent',active,agentCode,district,
+    province:safeText(body.province,100),
+    constituency:safeText(body.constituency,100),
+    ward:safeText(body.ward,100),updatedAt:now
+   },{merge:true});
+   if(!claim.exists)tx.create(claimRef,{ownerUid:uid,role:'agent',createdAt:now});
+  });
   if(applicationId && /^[a-f0-9-]{36}$/i.test(applicationId)){
    const applicationRef=db.collection('submissions').doc(applicationId);
    const applicationSnap=await applicationRef.get();
-   const submission=applicationSnap.data();
-   if(submission && submission.formKind==='agent'){
+   if(applicationSnap.data()?.formKind==='agent')
     await applicationRef.update({assignedAgentUid:uid,assignedAt:now});
-   }
   }
-
-  await ref.set({
-   uid,
-   email,
-   displayName: displayName || user?.displayName || email.split('@')[0],
-   role:'agent',
-   active,
-   agentCode,
-   district,
-   province: safeText(body.province, 100),
-   constituency: safeText(body.constituency, 100),
-   ward: safeText(body.ward, 100),
-   updatedAt: now
-  },{merge:true});
 
   invalidateGeneralCache('agents');
   await audit(actor.uid,'agent.assigned',uid,{district,active,applicationId,agentCode});
