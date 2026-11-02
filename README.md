@@ -20,7 +20,7 @@ A Vercel-ready, mobile-first Next.js web app for KASA district-agent recruitment
 ## Requirements
 
 - Node.js 22.x
-- A **new or dedicated Firebase project** for KASA, with Firestore, Firebase Authentication (Email/Password), App Check (reCAPTCHA v3), and Cloud Storage configured.
+- A **new or dedicated Firebase project** for KASA, with Firestore, Firebase Authentication (Email/Password), App Check (Fraud Defense / reCAPTCHA Enterprise), and Cloud Storage configured.
 - A Vercel account/project with environment variables securely configured.
 - The Firebase Admin service account must have permissions to access Firestore, Storage and verify App Check tokens. Never embed it in client-side code, Git or public URLs.
 
@@ -55,7 +55,7 @@ The Firebase Web SDK values prefixed `NEXT_PUBLIC_` are public **identifiers**; 
 1. Enable Email/Password authentication and configure approved domains, email verification settings and an appropriate password policy.
 2. Create Firestore in the desired region. Deploy `firestore.rules` and `firestore.indexes.json` (deny direct client access).
 3. Enable Cloud Storage (private bucket) and deploy `storage.rules` (deny direct client access).
-4. Configure App Check for the web app using reCAPTCHA v3; set `NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY`. App Check is enforced **in production** on public submission/upload endpoints. Local dev skips App Check to ease development. The current Firebase browser SDK uses standard `getToken()` App Check tokens, verified server-side without one-time consumption; ensure the service account can verify them. Do not claim replay-proof limited-use tokens.
+4. Configure App Check for the web app using Fraud Defense (formerly reCAPTCHA Enterprise); set `NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY` to the same public site key registered in Firebase. Register only the production and stable preview domains in the key's domain allowlist. The Firebase console no longer allows new Classic registrations; the browser uses `ReCaptchaEnterpriseProvider`, so a Classic secret must not be used as the site key. No reCAPTCHA secret belongs in Vercel. App Check is enforced **in production** on public submission/upload endpoints. Local dev skips App Check to ease development. The current Firebase browser SDK uses standard `getToken()` App Check tokens, verified server-side without one-time consumption; ensure the service account can verify them. Do not claim replay-proof limited-use tokens.
 5. Enable the Firestore TTL policy for `rateLimits.expiresAt` to remove old throttle counters. Set a bucket lifecycle rule to purge unused `staging/` objects after an appropriate period only after implementing migration of *claimed* attachments to permanent paths; do **not** blindly purge all staging files, as the app currently stores accepted attachments there.
 6. Use least-privilege service account access where possible, limit console membership, enable MFA for all administrator account holders at the identity provider/organization level, and consider identity-platform MFA for the application. **Application-level MFA is not yet implemented.**
 7. Configure a written data retention/deletion policy, incident response processes, encrypted backups and compliance review before collecting sensitive national identification or financial documents.
