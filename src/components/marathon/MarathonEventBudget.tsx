@@ -183,7 +183,23 @@ export function MarathonEventBudget({view}:{view:'events'|'budget'}){
     <div className={styles.metric}><small>Total budget</small><b>K{money(budget.totals.totalWithContingencyMinor)}</b></div>
     <div className={styles.metric}><small>Actual payments recorded</small><b>K{money(budget.totals.actualPaidMinor)}</b></div>
     <div className={styles.metric}><small>Registration revenue target</small><b>K{money(budget.totals.projectedRegistrationMinor)}</b></div>
-   </div><p className={styles.hint}>Actual payments are entered manually and require approval authority. Income shown is a target, not cash received. The contingency is calculated from current direct costs.</p>
+   </div>
+   <h3>Budget versus actual by category</h3>
+   <div className={styles.hint}>Each category compares approved/planned allocations with recorded outlays. Values are based on the selected event only.</div>
+   <div className={styles.tableScroll}><table><thead><tr><th>Category</th><th>Planned</th><th>Paid</th><th>Remaining</th><th>Used</th></tr></thead>
+    <tbody>{Object.values(budget.lines.reduce<Record<string,{category:string;planned:number;paid:number}>>((groups,line)=>{
+      const key=line.category.trim()||'Uncategorised';
+      if(!groups[key])groups[key]={category:key,planned:0,paid:0};
+      groups[key].planned+=line.plannedMinor;groups[key].paid+=line.actualPaidMinor;
+      return groups;
+    },{})).sort((a,b)=>b.planned-a.planned).map(row=><tr key={row.category}>
+      <td>{row.category}</td><td>K{money(row.planned)}</td><td>K{money(row.paid)}</td>
+      <td>K{money(Math.max(0,row.planned-row.paid))}</td>
+      <td>{row.planned?Math.round(row.paid/row.planned*100)+'%':'—'}</td>
+    </tr>)}
+    {!budget.lines.length&&<tr><td colSpan={5}>Import or add event budget lines to see category totals.</td></tr>}
+    </tbody></table></div>
+   <p className={styles.hint}>Actual payments are entered manually and require approval authority. Income shown is a target, not cash received. The contingency is calculated from current direct costs.</p>
    <div className={styles.actions}>
     {budget.permissions.write&&<button className={styles.button} onClick={()=>editLine()}>Add budget item</button>}
     {canCreate&&selected===LEGACY_MARATHON_EVENT_ID&&budget.lines.length===0&&

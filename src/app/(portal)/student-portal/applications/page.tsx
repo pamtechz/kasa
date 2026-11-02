@@ -1,5 +1,6 @@
 'use client';
 import {TuitionReceiptList} from '@/components/TuitionReceiptList';
+import {StudentFeeStatement} from '@/components/StudentFeeStatement';
 
 import {useState, useEffect} from 'react';
 import Link from 'next/link';
@@ -182,6 +183,7 @@ export default function StudentPortalApplicationsPage() {
                   </div>
                 </div>
 
+                <StudentFeeStatement submissionId={app.id}/>
                 <TuitionReceiptList submissionId={app.id}/>
                 {/* PDF Downloads Bar */}
                 <div style={{background: '#f8faf9', padding: 14, borderRadius: 10, border: '1px solid var(--border)', marginBottom: 20, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center'}}>

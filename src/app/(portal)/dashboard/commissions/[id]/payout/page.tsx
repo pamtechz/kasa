@@ -6,7 +6,7 @@ import {ArrowLeft,Banknote,Save} from 'lucide-react';
 import {api,PageHeader} from '@/components/Portal';
 import {can} from '@/lib/permissions';
 import type {Role} from '@/lib/types';
-type Commission={submissionId:string;reference:string;agentId:string;amount:number;paidAt:string|null;paymentReference:string|null;fundingEvidence:string|null};
+type Commission={submissionId:string;reference:string;agentId:string;amount:number;advancePaid:number;paidAt:string|null;paymentReference:string|null;fundingEvidence:string|null};
 export default function RecordCommissionPayout(){
  const {id}=useParams<{id:string}>();
  const [item,setItem]=useState<Commission|null>(null),[role,setRole]=useState<Role|null>(null);
@@ -20,12 +20,18 @@ export default function RecordCommissionPayout(){
  }).catch(e=>{if(active)setError(e instanceof Error?e.message:'Unable to load commission.');})
  .finally(()=>{if(active)setLoading(false);});return()=>{active=false;};},[id]);
  async function submit(event:React.FormEvent){
-  event.preventDefault();if(!item||!can(role,'commissions.manage')||item.paidAt||reference.trim().length<5)return;
+  event.preventDefault();
+  if(!item||!can(role,'commissions.manage')||item.paidAt)return;
+  const alreadyAdvanced=Math.round((item.advancePaid||0)*100);
+  const totalMinor=Math.round(item.amount*100);
+  const noNewTransfer=alreadyAdvanced===totalMinor&&totalMinor>0;
+  if(!noNewTransfer&&reference.trim().length<5)return;
   setBusy(true);setError('');setMessage('');
   try{
    await api('/api/admin/commissions',{method:'PATCH',body:JSON.stringify({
-    submissionId:item.submissionId,paymentReference:reference.trim(),amount:item.amount,paid:true
-   })});setMessage('Verified commission payout recorded.');setItem({...item,paidAt:new Date().toISOString(),paymentReference:reference.trim()});
+    submissionId:item.submissionId,paymentReference:reference.trim(),amount:item.amount,paid:true,
+    settleFromAdvances:noNewTransfer
+   })});setMessage(noNewTransfer?'Commission closed using previously evidenced transfers; no new payment was created.':'Verified remaining commission payout recorded.');setItem({...item,paidAt:new Date().toISOString(),paymentReference:reference.trim()});
   }catch(e){setError(e instanceof Error?e.message:'Payout could not be recorded.');}
   finally{setBusy(false);}
  }
@@ -39,15 +45,21 @@ export default function RecordCommissionPayout(){
   {item&&<section className="panel pad-panel" style={{maxWidth:850}}>
    <h2><Banknote size={20}/> {item.reference}</h2>
    <p>Agent: {item.agentId}</p><p>Approved amount: <strong>ZMW {item.amount.toFixed(2)}</strong></p>
+   <p>Already transferred: <strong>ZMW {(item.advancePaid||0).toFixed(2)}</strong> · Remaining to transfer: <strong>ZMW {Math.max(0,item.amount-(item.advancePaid||0)).toFixed(2)}</strong></p>
    <p>Original approval evidence: {item.fundingEvidence||'Check application ledger'}</p>
    {item.paidAt?<p className="notice">Already recorded: {item.paymentReference}</p>:
     !can(role,'commissions.manage')?<p className="alert-error">Your account has read-only commission access.</p>:
-   <form onSubmit={e=>void submit(e)}><div className="field">
+   <form onSubmit={e=>void submit(e)}>{Math.round((item.advancePaid||0)*100)<Math.round(item.amount*100)&&<div className="field">
     <label htmlFor="commission-payment-ref">Independently verified bank/mobile transfer reference *</label>
     <input id="commission-payment-ref" required minLength={5} maxLength={160} value={reference} onChange={e=>setReference(e.target.value)}/>
-   </div>
-   <p className="muted">Only record a real payment. This operation is audited and cannot mint a new commission.</p>
-   <button type="submit" className="btn btn-primary" disabled={busy||reference.trim().length<5}><Save size={16}/>{busy?'Recording…':'Record payout'}</button>
+   </div>}
+   <p className="muted">{Math.round((item.advancePaid||0)*100)===Math.round(item.amount*100)?
+    'All commission was paid in verified earlier installments. Close the ledger without another money transfer.':
+    'Enter the real bank/mobile-money transaction ID for the remaining amount only. This process does not send funds.'}</p>
+   <button type="submit" className="btn btn-primary"
+    disabled={busy||(Math.round((item.advancePaid||0)*100)<Math.round(item.amount*100)&&reference.trim().length<5)}>
+     <Save size={16}/>{busy?'Recording…':Math.round((item.advancePaid||0)*100)===Math.round(item.amount*100)?'Close fully advanced commission':'Record remaining payout'}
+   </button>
    </form>}
   </section>}
  </>;

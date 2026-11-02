@@ -12,10 +12,12 @@ export async function GET(req: Request) {
     const agent = await operator(req, ['agent', 'super_admin', 'admin']);
     const agentUid = agent.role === 'agent' ? agent.uid : new URL(req.url).searchParams.get('agentUid') || agent.uid;
 
-    const [records, forms] = await Promise.all([
+    const [records, forms, advanceDocs] = await Promise.all([
       db.collection('submissions').where('agentId', '==', agentUid).limit(300).get(),
-      db.collection('forms').where('published', '==', true).limit(100).get()
+      db.collection('forms').where('published', '==', true).limit(100).get(),
+      db.collection('commissionAdvances').where('recipientUid','==',agentUid).limit(300).get()
     ]);
+    const earlyBySubmission=new Map(advanceDocs.docs.map(d=>[d.id,Number(d.data().amountMinor||0)/100]));
 
     const referrals = records.docs.map(d => {
       const x = d.data() as ApplicantRecord;
@@ -39,6 +41,7 @@ export async function GET(req: Request) {
         submittedAt: x.submittedAt,
         status: x.status,
         note: (answers['agentNote'] as string) || '',
+        advancePaid:earlyBySubmission.get(d.id)||0,
         commission: commissionDecision(x as ApplicantRecord).eligible&&x.commission
           ? {
               amount: Number(x.commission.amount),
@@ -69,9 +72,12 @@ export async function GET(req: Request) {
       agentCode,referralLink,referralsEnabled,
       referralsCount:referrals.length,
       successfulCount:eligible.length,
-      totalEarned:eligible.reduce((sum,item)=>sum+(item.commission?.amount||0),0),
-      pendingCommission:eligible.filter(item=>!item.commission?.paidAt).reduce((sum,item)=>sum+(item.commission?.amount||0),0),
-      paidCommission:eligible.filter(item=>Boolean(item.commission?.paidAt)).reduce((sum,item)=>sum+(item.commission?.amount||0),0),
+      totalEarned:referrals.reduce((sum,item)=>sum+Math.max(item.commission?.amount||0,item.advancePaid),0),
+      pendingCommission:referrals.reduce((sum,item)=>sum+Math.max(0,(item.commission?.amount||item.advancePaid)-item.advancePaid-
+       (item.commission?.paidAt?Math.max(0,item.commission.amount-item.advancePaid):0)),0),
+      paidCommission:referrals.reduce((sum,item)=>sum+item.advancePaid+
+       (item.commission?.paidAt?Math.max(0,item.commission.amount-item.advancePaid):0),0),
+      partial:records.size===300||advanceDocs.size===300,
       currency:'ZMW',
       forms: forms.docs
         .filter(d => d.data().kind === 'student')

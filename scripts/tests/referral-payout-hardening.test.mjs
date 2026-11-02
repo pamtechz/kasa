@@ -52,7 +52,7 @@ test('agent referral dashboard receives real link and verified commission totals
  const page=read('src/app/(portal)/agent-portal/page.tsx');
  assert.match(api,/referralLink/);
  assert.match(api,/referralsCount:referrals\.length/);
- assert.match(api,/totalEarned:eligible\.reduce/);
+ assert.match(api,/totalEarned:referrals\.reduce/);
  assert.match(api,/pendingCommission:/);
  assert.match(page,/referralData\?\.totalEarned/);
  assert.doesNotMatch(page,/BONUS UNLOCKED/);

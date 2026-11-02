@@ -4,6 +4,7 @@ import {operator,audit,safeText,sameOrigin,digest} from '@/lib/security';
 import {normalizedIntake} from '@/lib/intake-policy';
 import {readApprovedFeeQuote} from '@/lib/approved-fee-quote';
 import {commissionDecision} from '@/lib/commission-eligibility';
+import {commissionPolicyFromSettings,commissionTotalMinor} from '@/lib/commission-payment-policy';
 import type {SubmissionStatus} from '@/lib/types';
 import {automationSchema,defaultAutomations,formatNotification} from '@/lib/automations';
 import {invalidateSubmissionsCache} from '@/lib/server-cache';
@@ -42,6 +43,12 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
    const snap=await tx.get(ref);
    if(!snap.exists)throw new HttpError(404,'Application not found.');
    const previous=snap.data()!;
+   const advanceDoc=previous.agentId&&['payment_verified','cdf_funds_received','commission_paid'].includes(status)
+    ?await tx.get(db.collection('commissionAdvances').doc(id)):null;
+   const advanceMinor=advanceDoc?.exists?Number(advanceDoc.data()?.amountMinor||0):0;
+   if(advanceDoc?.exists&&(advanceDoc.data()?.recipientUid!==previous.agentId||
+      !Number.isSafeInteger(advanceMinor)||advanceMinor<=0))
+    throw new HttpError(409,'Existing commission advance requires reconciliation.');
    // All Firestore reads must precede writes within this transaction.
    const referrer=previous.agentId&&['payment_verified','cdf_funds_received'].includes(status)
     ?await tx.get(db.collection('profiles').doc(String(previous.agentId))):null;
@@ -130,11 +137,18 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
      if(!referrer?.exists||referrer.data()?.active!==true||
        !['student','agent'].includes(String(referrer.data()?.role)))
       throw new HttpError(409,'The referred student must be linked to an active registered agent or student referrer.');
-     const rate=Number(kind==='payment'?settings.commissionAmountPaid:settings.commissionAmountCdf);
-     if(!Number.isFinite(rate)||rate<=0||rate>50000)
+     const computedMinor=kind==='payment'
+      ?(advanceDoc?.exists?Number(advanceDoc.data()?.fullRateMinor):
+        commissionTotalMinor(Math.round(quote!.total*100),commissionPolicyFromSettings(settings)))
+      :Math.round(Number(settings.commissionAmountCdf)*100);
+     const rate=computedMinor/100;
+     if(!Number.isSafeInteger(computedMinor)||!Number.isFinite(rate)||rate<=0||rate>50000)
       throw new HttpError(409,'An explicit positive commission rate for this funding path must be approved in Settings. No fallback rate is allowed.');
      changes.referralVerified={by:actor.uid,at:now};
-     changes.commission={amount:rate,currency:'ZMW',trigger:kind==='payment'?'payment':'cdf_disbursement',approvedAt:now};
+     if(advanceMinor>Math.round(rate*100))
+      throw new HttpError(409,'An early advance exceeds the current commission rate. Finance must reconcile the difference.');
+     changes.commission={amount:rate,currency:'ZMW',trigger:kind==='payment'?'payment':'cdf_disbursement',approvedAt:now,
+      advancePaidMinor:advanceMinor};
      tx.create(db.collection('notificationOutbox').doc(),{
        kind:'commission_earned',event:'commission_approved',
        recipient:'agent',recipientUid:previous.agentId,
@@ -148,6 +162,20 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
     if(status==='commission_paid'){
     if(!previous.agentId||!previous.commission||previous.commission.paidAt||!commissionDecision(previous).eligible)
      throw new HttpError(409,'No eligible funded, fully enrolled and independently verified unpaid commission exists for this application.');
+    const fullMinor=Math.round(Number(previous.commission.amount)*100);
+    const remainingMinor=fullMinor-advanceMinor;
+    if(!Number.isSafeInteger(remainingMinor)||remainingMinor<0)
+     throw new HttpError(409,'Recorded advances exceed the approved commission. Finance reconciliation required.');
+    if(remainingMinor===0){
+     // Every kwacha was transferred previously with its own receipt and provider ID.
+     // Do not create a fictitious zero-kwacha transfer or duplicate payment proof.
+     if(!advanceDoc?.exists||advanceMinor!==fullMinor)
+      throw new HttpError(409,'No verified advance evidence exists to close this commission.');
+     changes.commission={...previous.commission,paidAt:now,
+      paymentReference:String(advanceDoc.data()?.transactionId||''),
+      advancePaidMinor:advanceMinor,finalPaidMinor:0,settledByAdvances:true};
+    }else{
+
     const paymentReference=safeText(body?.paymentReference,160);
     if(paymentReference.length<5)throw new HttpError(400,'A verified commission transfer reference is required.');
     const payoutRef=db.collection('commissionPayoutReferences').doc(digest(paymentReference.toLowerCase()));
@@ -162,15 +190,16 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
      const request=await tx.get(requestRef);
      if(!request.exists||request.data()?.status!=='approved')
       throw new HttpError(409,'The linked agent payout request must be approved before settlement.');
-     if(Math.round(Number(request.data()?.amount||0)*100)!==Math.round(Number(previous.commission.amount)*100))
+     if(Math.round(Number(request.data()?.amount||0)*100)!==remainingMinor)
       throw new HttpError(409,'Requested amount differs from the approved commission.');
      tx.update(requestRef,{status:'settled',settledAt:now,settledBy:actor.uid,paymentReference,updatedAt:now});
      tx.update(reserve,{status:'settled',updatedAt:now,paymentReference});
     }
     tx.create(payoutRef,{submissionId:id,agentId:previous.agentId,recordedAt:now,recordedBy:actor.uid});
-    changes.commission={...previous.commission,paidAt:now,paymentReference};
+    changes.commission={...previous.commission,paidAt:now,paymentReference,advancePaidMinor:advanceMinor,finalPaidMinor:remainingMinor};
     tx.create(db.collection('commissionPayments').doc(id),{
-     submissionId:id,agentId:previous.agentId,amount:previous.commission.amount,
+     submissionId:id,agentId:previous.agentId,amount:remainingMinor/100,
+     grossCommissionAmount:previous.commission.amount,advancePaidMinor:advanceMinor,
      currency:'ZMW',trigger:previous.commission.trigger,
      paymentReference,recordedAt:now,recordedBy:actor.uid
     });
@@ -178,7 +207,7 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
     // the recipient received it. Only the referred account owner can acknowledge it.
     tx.create(db.collection('commissionReceipts').doc(id),{
      submissionId:id,reference:String(previous.reference||id),
-     recipientUid:previous.agentId,amountMinor:Math.round(Number(previous.commission.amount)*100),
+     recipientUid:previous.agentId,amountMinor:remainingMinor,
      currency:'ZMW',transactionId:paymentReference,
      trigger:previous.commission.trigger,recordedBy:actor.uid,recordedAt:now,
      status:'awaiting_confirmation',confirmedAt:null,disputedAt:null,
@@ -192,6 +221,7 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
      message:'KASA has recorded a commission transfer. Check your own account, then confirm the amount and transaction ID or report a difference.',
      state:'pending',createdAt:now
     });
+    }
    }
    tx.update(ref,changes);
    // In-app event queue is part of the same transaction as the status change.

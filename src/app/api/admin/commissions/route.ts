@@ -19,6 +19,11 @@ export async function GET(req:Request){
    cursor=pageDocs.docs[pageDocs.docs.length-1];
    if(page===39)truncated=true;
   }
+  const advanceSnapshot=await db.collection('commissionAdvances').limit(501).get();
+  const advancePartial=advanceSnapshot.size>500;
+  const advances=new Map(advanceSnapshot.docs.slice(0,500).map(d=>
+   [d.id,{amountMinor:Number(d.data().amountMinor||0),recipientUid:String(d.data().recipientUid||''),
+     policyMode:String(d.data().policyMode||'historical'),fullRateMinor:Number(d.data().fullRateMinor||0)}]));
   const commissions=docs.flatMap(doc=>{
    const x=doc.data();
    const decision=commissionDecision(x);
@@ -26,6 +31,7 @@ export async function GET(req:Request){
    return [{
     submissionId:doc.id,reference:String(x.reference||''),agentId:String(x.agentId),
     trigger:decision.trigger,amount:decision.amount,
+    advancePaid:Math.max(0,Number(advances.get(doc.id)?.amountMinor||0)/100),
     currency:'ZMW',paidAt:x.commission.paidAt||null,paymentReference:x.commission.paymentReference||null,
     fundingEvidence:decision.trigger==='payment'?x.paymentVerification?.reference:x.cdfDisbursement?.bankReference
    }];
@@ -38,10 +44,21 @@ export async function GET(req:Request){
      recordedAmount:Number(x.commission.amount)||0,previouslyPaid:Boolean(x.commission.paidAt),
      legacyTrigger:String(x.commission.trigger||''),reason:decision.reason}];
   });
-  return json({commissions,reconciliation,truncated,totals:{
+  const progressive=[...advances.entries()].map(([submissionId,proof])=>{
+    const doc=docs.find(x=>x.id===submissionId);
+    const record=doc?.data();
+    return {submissionId,reference:String(record?.reference||submissionId),
+      agentId:proof.recipientUid,amount:proof.amountMinor/100,
+      policyMode:proof.policyMode,fullyVerified:record?commissionDecision(record).eligible:false};
+  }).filter(x=>!x.fullyVerified);
+  const paidAdvances=[...advances.values()].reduce((n,a)=>n+Math.max(0,a.amountMinor)/100,0);
+  const paidFinal=commissions.filter(c=>Boolean(c.paidAt))
+    .reduce((n,c)=>n+Math.max(0,c.amount-c.advancePaid),0);
+  return json({commissions,reconciliation,progressive,
+   truncated:truncated||advancePartial,totals:{
    eligible:commissions.reduce((n,c)=>n+c.amount,0),
-   paid:commissions.filter(c=>Boolean(c.paidAt)).reduce((n,c)=>n+c.amount,0),
-   pending:commissions.filter(c=>!c.paidAt).reduce((n,c)=>n+c.amount,0)
+   paid:paidFinal+paidAdvances,
+   pending:commissions.filter(c=>!c.paidAt).reduce((n,c)=>n+Math.max(0,c.amount-c.advancePaid),0)
   }});
  }catch(e){return fail(e);}
 }
@@ -53,10 +70,9 @@ export async function PATCH(req:Request){
   await requireCapability(req,'commissions.manage');
   const body=await req.json();
   const submissionId=safeText(body?.submissionId,60);
-  const paymentReference=safeText(body?.paymentReference,160);
+  let paymentReference=safeText(body?.paymentReference,160);
   if(!submissionId)throw new HttpError(400,'Submission ID is required.');
   if(body?.paid===false)throw new HttpError(403,'Commission payment reversals require a separately audited reconciliation.');
-  if(paymentReference.length<5)throw new HttpError(400,'Enter an independently verified payout reference.');
   const record=await db.collection('submissions').doc(submissionId).get();
   if(!record.exists)throw new HttpError(404,'Application not found.');
   const data=record.data()!;
@@ -66,6 +82,17 @@ export async function PATCH(req:Request){
   if(body?.amount!==undefined && Number(body.amount)!==Number(data.commission.amount)){
    throw new HttpError(400,'Commission amounts are fixed by the approved funding policy.');
   }
+  if(body?.settleFromAdvances===true){
+   const old=await db.collection('commissionAdvances').doc(submissionId).get();
+   if(!old.exists||old.data()?.recipientUid!==data.agentId||
+     !Number.isSafeInteger(old.data()?.amountMinor)||
+     old.data()?.amountMinor!==Math.round(Number(data.commission.amount)*100))
+    throw new HttpError(409,'The full commission is not covered by verified recorded advances.');
+   // No new transfer and no duplicate financial receipt: canonical status gate
+   // marks the existing evidenced advances as final settlement.
+   paymentReference=String(old.data()?.transactionId||'');
+  }else if(paymentReference.length<5)
+   throw new HttpError(400,'Enter an independently verified payout reference.');
   // Reuse the canonical transactional status transition. That transition
   // creates immutable commissionPayments evidence and audits the payout.
   const transitionRequest=new Request(req.url,{
