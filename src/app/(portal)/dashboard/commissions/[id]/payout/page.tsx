@@ -52,7 +52,7 @@ export default function RecordCommissionPayout(){
    <form onSubmit={e=>void submit(e)}>{Math.round((item.advancePaid||0)*100)<Math.round(item.amount*100)&&<div className="field">
     <label htmlFor="commission-payment-ref">Independently verified bank/mobile transfer reference *</label>
     <input id="commission-payment-ref" required minLength={5} maxLength={160} value={reference} onChange={e=>setReference(e.target.value)}/>
-   </div>
+   </div>}
    <p className="muted">{Math.round((item.advancePaid||0)*100)===Math.round(item.amount*100)?
     'All commission was paid in verified earlier installments. Close the ledger without another money transfer.':
     'Enter the real bank/mobile-money transaction ID for the remaining amount only. This process does not send funds.'}</p>
