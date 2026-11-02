@@ -15,6 +15,8 @@ const create=z.object({
  title:z.string().trim().min(3).max(220),
  lead:z.string().trim().min(2).max(100),
  section:z.string().refine(isMarathonCategorySection,'Choose a checklist category.'),
+ startDate:z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/),z.null()]).default(null),
+ endDate:z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/),z.null()]).default(null),
  dueDate:z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/),z.null()]).default(null),
  priority:z.enum(['P1 Act now','P2 Next 30 days','P3 Schedule']).default('P2 Next 30 days'),
  importance:z.enum(['Critical','High','Medium','Low']).default('High'),
@@ -30,7 +32,9 @@ export async function POST(req:Request){
   const event=await getMarathonEvent(parsed.data.eventId);
   requireEventTaskEdit(identity,event);
   if(['completed','archived','cancelled'].includes(event.status))throw new HttpError(409,'This event is closed.');
-  if(!dateWithinEvent(parsed.data.dueDate,event))throw new HttpError(400,'The due date is outside the event time frame.');
+  if(![parsed.data.startDate,parsed.data.endDate,parsed.data.dueDate].every(d=>dateWithinEvent(d,event))||
+    parsed.data.startDate&&parsed.data.endDate&&parsed.data.startDate>parsed.data.endDate)
+    throw new HttpError(400,'Action dates must fall within the event preparation and closeout period.');
   const id='M-'+randomUUID();
   const now=new Date().toISOString();
   const task={...parsed.data,id,urgency:'New action',status:'todo',dependencies:[],
