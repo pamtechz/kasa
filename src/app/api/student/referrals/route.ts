@@ -5,6 +5,7 @@ import {rateLimit, safeText, newId, sameOrigin} from '@/lib/security';
 import {invalidateSubmissionsCache} from '@/lib/server-cache';
 import type {ApplicantRecord} from '@/lib/types';
 import {commissionDecision} from '@/lib/commission-eligibility';
+import {studentReferralCode} from '@/lib/referral-identity';
 
 export const runtime = 'nodejs';
 
@@ -18,6 +19,9 @@ async function verifiedStudent(req: Request) {
     throw new HttpError(401, 'Your session has expired.');
   }
   if (!token.email_verified || !token.email) throw new HttpError(403, 'Verify your email to participate in the referral program.');
+  const profile=await db.collection('profiles').doc(token.uid).get();
+  if(!profile.exists||profile.data()?.role!=='student'||profile.data()?.active!==true)
+   throw new HttpError(403,'Active KASA student membership is required to use referrals.');
   return token;
 }
 
@@ -26,24 +30,7 @@ export async function GET(req: NextRequest) {
     await rateLimit(req, 'student-referrals', 20, 10);
     const user = await verifiedStudent(req);
 
-    // 1. Get or create student profile with referral code
-    const profileRef = db.collection('profiles').doc(user.uid);
-    const profileSnap = await profileRef.get();
-    let agentCode = profileSnap.data()?.agentCode;
-
-    if (!agentCode) {
-      agentCode = `KASA-STU-${user.uid.slice(0, 6).toUpperCase()}`;
-      await profileRef.set({
-        uid: user.uid,
-        email: user.email || '',
-        displayName: user.name || (user.email ? user.email.split('@')[0] : 'Student'),
-        role: profileSnap.data()?.role || 'student',
-        active: true,
-        agentCode,
-        isStudent: true,
-        updatedAt: new Date().toISOString()
-      }, {merge: true});
-    }
+    const agentCode=await studentReferralCode(user.uid);
 
     // 2. Fetch referral settings for commission rates
     const opsSnap = await db.collection('settings').doc('operations').get();
@@ -79,7 +66,7 @@ export async function GET(req: NextRequest) {
     const totalEarned = referrals.reduce((sum, r) => sum + r.commissionEarned, 0);
     const successfulCount = referrals.filter(r => r.commissionEarned > 0).length;
 
-    const origin = req.headers.get('origin') || process.env.APP_URL || 'http://localhost:3001';
+    const origin = process.env.APP_URL || 'https://kasaschool.vercel.app';
     const referralLink = `${origin}/apply/student-enrollment?ref=${agentCode}`;
 
     return json({
@@ -118,25 +105,8 @@ export async function POST(req: NextRequest) {
     if (!phone) throw new HttpError(400, 'Candidate phone number is required.');
     if (!programme) throw new HttpError(400, 'Selected training programme is required.');
 
-    // Referral submission never sets or predicts a commission amount. KASA
-    // creates the approved amount only after fully funded enrollment.
-    // Get student profile's agentCode
-    const profileRef = db.collection('profiles').doc(user.uid);
-    const profileSnap = await profileRef.get();
-    let agentCode = profileSnap.data()?.agentCode;
-    if (!agentCode) {
-      agentCode = `KASA-STU-${user.uid.slice(0, 6).toUpperCase()}`;
-      await profileRef.set({
-        uid: user.uid,
-        email: user.email || '',
-        displayName: user.name || (user.email ? user.email.split('@')[0] : 'Student'),
-        role: profileSnap.data()?.role || 'student',
-        active: true,
-        agentCode,
-        isStudent: true,
-        updatedAt: new Date().toISOString()
-      }, {merge: true});
-    }
+    // Do not change profile roles or reactivate an inactive account.
+    const agentCode=await studentReferralCode(user.uid);
 
     const id = newId();
     const reference = `KASA-${new Date().getFullYear()}-${id.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
