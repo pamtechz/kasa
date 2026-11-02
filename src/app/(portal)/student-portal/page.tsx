@@ -76,8 +76,8 @@ export default function StudentPortalDashboard() {
         <div className="metric-card">
           <div className="metric-icon purple"><Share2 /></div>
           <span>Refer & Earn</span>
-          <strong>ZMW 300.00</strong>
-          <small>Per verified student referral</small>
+          <strong>Verified earnings</strong>
+          <small>Rates are set by KASA Admin. See Referral Center for current rates.</small>
         </div>
       </div>
 
