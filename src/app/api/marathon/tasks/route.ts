@@ -7,8 +7,11 @@ import {fail,json,HttpError} from '@/lib/errors';
 import {marathonIdentity,requireMarathon} from '@/lib/marathon';
 import {sameOrigin} from '@/lib/security';
 import {isMarathonCategorySection} from '@/lib/marathon-categories';
+import {getMarathonEvent,requireEventTaskEdit} from '@/lib/marathon-event-server';
+import {LEGACY_MARATHON_EVENT_ID,dateWithinEvent} from '@/lib/marathon-event-model';
 export const runtime='nodejs';
 const create=z.object({
+ eventId:z.string().max(100).default(LEGACY_MARATHON_EVENT_ID),
  title:z.string().trim().min(3).max(220),
  lead:z.string().trim().min(2).max(100),
  section:z.string().refine(isMarathonCategorySection,'Choose a checklist category.'),
@@ -24,6 +27,10 @@ export async function POST(req:Request){
   const identity=await marathonIdentity(req);requireMarathon(identity,'edit');
   const parsed=create.safeParse(await req.json());
   if(!parsed.success)throw new HttpError(400,parsed.error.issues.some(issue=>issue.path[0]==='section')?'Choose a checklist category. Refresh the workspace if the category field is unavailable.':'Check the action title, owner and due date.');
+  const event=await getMarathonEvent(parsed.data.eventId);
+  requireEventTaskEdit(identity,event);
+  if(['completed','archived','cancelled'].includes(event.status))throw new HttpError(409,'This event is closed.');
+  if(!dateWithinEvent(parsed.data.dueDate,event))throw new HttpError(400,'The due date is outside the event time frame.');
   const id='M-'+randomUUID();
   const now=new Date().toISOString();
   const task={...parsed.data,id,urgency:'New action',status:'todo',dependencies:[],
