@@ -26,6 +26,19 @@ export type BudgetLine={
  taskId:string|null;startDate:string|null;endDate:string|null;notes:string;
  revision:number;createdBy:string;createdAt:string;updatedBy:string;updatedAt:string;approvedBy?:string|null;approvedAt?:string|null;
 };
+/** Exact state-machine for budget approval; money changes are separate audited actions. */
+export function canTransitionBudgetStatus(from:BudgetStatus,to:BudgetStatus):boolean{
+ if(from===to)return true;
+ const allowed:Record<BudgetStatus,BudgetStatus[]>={
+  draft:['submitted','void'],
+  submitted:['draft','approved','void'],
+  approved:['draft','committed','paid','void'],
+  committed:['approved','paid','void'],
+  paid:[],
+  void:['draft']
+ };
+ return allowed[from].includes(to);
+}
 export function calculatedLineMinor(quantity:number,unitCostMinor:number,months:number):number{
  const value=quantity*unitCostMinor*months;
  if(!Number.isSafeInteger(value)||value<0)throw Error('Budget calculation exceeds supported limits.');
