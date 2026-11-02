@@ -42,6 +42,9 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
    const snap=await tx.get(ref);
    if(!snap.exists)throw new HttpError(404,'Application not found.');
    const previous=snap.data()!;
+   // All Firestore reads must precede writes within this transaction.
+   const referrer=previous.agentId&&['payment_verified','cdf_funds_received'].includes(status)
+    ?await tx.get(db.collection('profiles').doc(String(previous.agentId))):null;
    if(!stages[previous.status as SubmissionStatus]?.includes(status))
     throw new HttpError(400,'Invalid status transition. Refresh this application.');
    if(status==='under_review'&&previous.status==='letter_issued'&&previous.autoApproved!==true)
@@ -120,8 +123,7 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
      if(body?.referralVerified!==true)throw new HttpError(400,'Independently verify agent or student referral attribution before earning commission.');
      if(previous.agentId===previous.applicantUid)
       throw new HttpError(409,'Self-referral cannot earn commission.');
-     const referrer=await tx.get(db.collection('profiles').doc(String(previous.agentId)));
-     if(!referrer.exists||referrer.data()?.active!==true||
+     if(!referrer?.exists||referrer.data()?.active!==true||
        !['student','agent'].includes(String(referrer.data()?.role)))
       throw new HttpError(409,'The referred student must be linked to an active registered agent or student referrer.');
      const rate=Number(kind==='payment'?settings.commissionAmountPaid:settings.commissionAmountCdf);
