@@ -125,3 +125,49 @@ test('readiness is public and non-secret and protects guests from broken OAuth s
  assert.match(panel,/setAvailable\(readiness.available\)/);
  assert.match(panel,/disabled=\{!available\}/);
 });
+
+
+test('disconnect disables issuance, revokes provider tokens before clearing local secrets and warns on incomplete provider revocation',async()=>{
+ const route=read('src/app/api/r2/oauth/disconnect/route.ts');
+ assert.match(route,/status:'disconnecting'/);
+ assert.match(route,/revokeOAuthIssuedToken\(uid,connection.id/);
+ assert.match(route,/tx\.delete\(sessionRef\)/);
+ assert.match(route,/tx\.delete\(db\.collection\('r2OAuthSecrets'\)/);
+ assert.match(route,/tokensNeedingProviderRevocation/);
+ assert.match(route,/providerRevocationConfirmed/);
+ const ui=read('src/components/ExternalStorageConnection.tsx');
+ assert.match(ui,/setDisconnectNotice\(result.message\)/);
+ const direct=read('src/lib/r2-oauth-direct.ts');
+ assert.match(direct,/revokeOAuthIssuedToken/);
+ assert.match(direct,/method:'DELETE'/);
+ assert.match(direct,/stored.ownerUid!==uid/);
+ assert.match(direct,/response.status===404\|\|response.status===410/);
+});
+test('provider token revocation deletes only owned encrypted KASA-issued tokens and tolerates already-deleted tokens',async t=>{
+ const accountId='a'.repeat(32),tokenId='b'.repeat(32);
+ const connectionId='01234567-89ab-4cde-8fab-0123456789ab';
+ let ownerUid='owner';
+ const db={collection:name=>({doc:()=>({get:async()=>({data:()=>name==='r2ConnectionSecrets'?{ownerUid,encrypted:'ciphertext'}:null})})})};
+ const direct=transpile('src/lib/r2-oauth-direct.ts',{
+  'server-only':{},
+  'node:crypto':require('node:crypto'),
+  './firebase-admin':{db},
+  './errors':{HttpError:class extends Error{}},
+  './r2-oauth':{cloudflareBearer:async()=> 'test-oauth',CLOUD_API:'https://api.cloudflare.com/client/v4',cloudflareApi:async()=>{}},
+  './r2-crypto':{encryptR2Secrets(){},decryptR2Secrets:()=>({accessKeyId:tokenId,secretAccessKey:'not-exposed'})},
+  './r2-signing':{validateR2Address:()=>{}}
+ });
+ const calls=[];
+ t.mock.method(globalThis,'fetch',async(url,opts)=>{
+  calls.push({url,method:opts.method,authorization:opts.headers.Authorization});
+  return Response.json({success:true});
+ });
+ assert.equal(await direct.revokeOAuthIssuedToken('owner',connectionId,accountId),true);
+ assert.deepEqual(calls,[{url:'https://api.cloudflare.com/client/v4/accounts/'+accountId+'/tokens/'+tokenId,method:'DELETE',authorization:'Bearer test-oauth'}]);
+ ownerUid='other';
+ assert.equal(await direct.revokeOAuthIssuedToken('owner',connectionId,accountId),false);
+ assert.equal(calls.length,1);
+ ownerUid='owner';
+ globalThis.fetch=async()=>new Response(null,{status:404});
+ assert.equal(await direct.revokeOAuthIssuedToken('owner',connectionId,accountId),true);
+});

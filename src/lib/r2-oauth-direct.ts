@@ -93,3 +93,29 @@ export async function oauthR2Credentials(uid:string,connectionId:string,target:T
  }catch(e){await oauthControl(uid,'/accounts/'+target.accountId+'/tokens/'+token.id,'DELETE').catch(()=>{});throw e;}
  return {...target,...credentials};
 }
+
+/** Best-effort provider revocation of a KASA-issued bucket-only API token.
+ * This is called before deleting locally encrypted credentials on disconnect.
+ * Never revoke a manually supplied token or a token owned by another user.
+ */
+export async function revokeOAuthIssuedToken(uid:string,connectionId:string,accountId:string):Promise<boolean>{
+ if(!/^[a-f0-9]{32}$/i.test(accountId)||!/^[0-9a-f-]{36}$/i.test(connectionId))return false;
+ const stored=(await db.collection('r2ConnectionSecrets').doc(connectionId).get()).data();
+ if(!stored)return true;
+ if(stored.ownerUid!==uid||!stored.encrypted)return false;
+ let tokenId='';
+ try{tokenId=decryptR2Secrets(connectionId,String(stored.encrypted)).accessKeyId;}
+ catch{return false;}
+ if(!/^[a-f0-9]{32}$/i.test(tokenId))return false;
+ try{
+  const bearer=await cloudflareBearer(uid);
+  const response=await fetch(CLOUD_API+'/accounts/'+accountId+'/tokens/'+tokenId,{
+   method:'DELETE',headers:{Authorization:'Bearer '+bearer},cache:'no-store',
+   redirect:'error',signal:AbortSignal.timeout(12000)
+  });
+  if(response.status===404||response.status===410)return true; // already removed
+  if(!response.ok)return false;
+  const data=await response.json().catch(()=>({})) as {success?:boolean};
+  return data.success===true;
+ }catch{return false;}
+}

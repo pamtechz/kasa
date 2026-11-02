@@ -124,3 +124,7 @@ Cloudflare's newer OAuth client API documents dot-delimited, catalog-validated s
 To activate: register the production and exact preview callback URLs under Cloudflare Manage Account > OAuth clients; set the correct scopes, client visibility and publisher-domain verification in Cloudflare; update Vercel CLOUDFLARE_OAUTH_SCOPES and confirm the branch-specific Preview CLOUDFLARE_OAUTH_REDIRECT_URI is registered in Cloudflare. Real consent and bucket/token issuance require a Cloudflare account with R2 enabled and the needed permissions. Do not send secrets to ChatGPT.
 
 Docs: https://developers.cloudflare.com/api/resources/iam/subresources/oauth_clients/methods/create/ and https://developers.cloudflare.com/changelog/post/2026-10-01-account-api-token-provisioning/
+
+## 2 November 2026 — Provider-side token revocation
+
+The Disconnect action now first marks the OAuth session as disconnecting (blocking new token issuance), attempts to DELETE each KASA-issued bucket token through Cloudflare, and then destroys local OAuth/S3 credentials and disables connections. Provider failures cannot prevent local disconnection. The response explicitly warns when an issued provider token could not be revoked; users must revoke such KASA tokens from their Cloudflare Dashboard or wait for their one-hour automatic expiry. Already issued presigned URLs can remain usable briefly until they expire. Owner objects and buckets are never deleted.
