@@ -1,3 +1,4 @@
+import {CommissionReceiptCenter} from '@/components/CommissionReceiptCenter';
 'use client';
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
@@ -87,5 +88,6 @@ export default function AgentPayouts(){
     {!payouts.length&&<tr><td colSpan={5}>No payout requests yet.</td></tr>}
    </tbody></table></div>
   </section>
+  <CommissionReceiptCenter/>
  </AgentPortal>;
 }
