@@ -16,8 +16,14 @@ export async function oauthControl(uid:string,path:string,method:'POST'|'PUT'|'D
   'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{}),
   cache:'no-store',redirect:'error',signal:AbortSignal.timeout(15000)});
  const data=await response.json().catch(()=>({}));
- if(!response.ok||data.success!==true)throw new HttpError(422,
-  'Cloudflare did not approve storage setup. Reconnect with R2 storage and Account API Token Provisioning permissions.');
+ if(!response.ok||data.success!==true){
+  const operation=path.includes('/tokens')?'temporary bucket credential setup':'private bucket setup';
+  const codes=Array.isArray(data.errors)?data.errors.flatMap((entry:{code?:unknown})=>
+   typeof entry?.code==='number'&&Number.isSafeInteger(entry.code)?[entry.code]:[]).slice(0,3):[];
+  // Numeric provider codes are useful for support; descriptions may contain secrets.
+  console.warn('Cloudflare storage control rejected',{operation,status:response.status,codes});
+  throw new HttpError(422,`Cloudflare rejected ${operation} (HTTP ${response.status}${codes.length?'; provider code '+codes.join(', '):''}). Reconnect with R2 storage and Account API Token Provisioning permissions.`);
+ }
  return data;
 }
 export async function prepareOAuthBucket(uid:string,target:Target,origin:string){

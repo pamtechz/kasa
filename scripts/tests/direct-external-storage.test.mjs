@@ -63,6 +63,20 @@ test('missing token provisioning permission fails before creating credentials',a
  await assert.rejects(fixture.module.oauthR2Credentials('owner','own',target),/did not grant permission/);
  assert.equal(fixture.records.has('r2ConnectionSecrets/own'),false);
 });
+test('provider rejection identifies the failed setup stage without exposing provider descriptions or credentials',async t=>{
+ const fixture=credentialsFixture(),warnings=[];
+ t.mock.method(console,'warn',(...args)=>warnings.push(args));
+ t.mock.method(globalThis,'fetch',async()=>Response.json({success:false,
+  errors:[{code:10000,message:'private-provider-message'},{code:'secret-code'}],result:{value:'private-token'}},{status:403}));
+ await assert.rejects(fixture.module.oauthR2Credentials('owner','own',target),error=>{
+  assert.match(error.message,/temporary bucket credential setup \(HTTP 403; provider code 10000\)/);
+  assert.doesNotMatch(error.message,/private|secret/);
+  return true;
+ });
+ assert.deepEqual(warnings,[['Cloudflare storage control rejected',{operation:'temporary bucket credential setup',status:403,codes:[10000]}]]);
+ assert.equal(fixture.records.has('r2ConnectionSecrets/own'),false);
+ await assert.rejects(fixture.module.oauthControl('owner','/accounts/'+target.accountId+'/r2/buckets','POST',{name:target.bucket}),/private bucket setup \(HTTP 403; provider code 10000\)/);
+});
 test('guest session identifiers reveal no cookie secret and expired sessions are rejected',async()=>{
  let record={expiresAt:Date.now()+60000};const lib=compile('src/lib/r2-guest.ts',{'./firebase-admin':{db:{collection:()=>({doc:()=>({get:async()=>({data:()=>record})})})}}});
  const secret='a'.repeat(43),id=lib.guestStorageId(secret);
