@@ -73,7 +73,11 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
     const evidence=safeText(kind==='payment'?body?.enrollmentPaymentReference:
       kind==='cdf_approval'?body?.cdfReference:body?.cdfGovernmentPaymentReference,160);
     if(evidence.length<5)throw new HttpError(400,'Enter the independently verified receipt or government reference.');
-    const verificationRef=db.collection('fundingVerifications').doc(digest(kind+':'+evidence.toLowerCase()));
+    // Finance's immutable payment receipt already reserves payment:<reference>.
+    // Use a separate enrollment-verification namespace so the second
+    // independently authorized step does not collide with the real receipt.
+    const verificationKey=(kind==='payment'?'enrollment_verified':kind)+':'+evidence.toLowerCase();
+    const verificationRef=db.collection('fundingVerifications').doc(digest(verificationKey));
     const priorVerification=await tx.get(verificationRef);
     if(priorVerification.exists)throw new HttpError(409,'Funding evidence reference already recorded. Reconcile this application rather than reusing it.');
     if(status==='payment_verified'){
