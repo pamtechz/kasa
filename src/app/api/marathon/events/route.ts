@@ -11,12 +11,12 @@ const create=z.object({name:z.string().trim().min(5).max(130),preparationStart:d
  targetRunners:z.number().int().min(1).max(100000),registrationFeeMinor:z.number().int().min(0).max(10000000)});
 export async function GET(req:Request){
  try{
-  await marathonIdentity(req);
+  const identity=await marathonIdentity(req);
   const snapshot=await db.collection('marathonEvents').limit(100).get();
   const events=snapshot.docs.map(x=>({...x.data(),id:x.id} as MarathonEvent));
   if(!events.some(x=>x.id===LEGACY_MARATHON_EVENT_ID))events.unshift(legacyMarathonEvent);
   events.sort((a,b)=>a.eventDate.localeCompare(b.eventDate));
-  return json({events});
+  return json({events,canCreate:identity.role==='super_admin'});
  }catch(error){return fail(error);}
 }
 export async function POST(req:Request){
