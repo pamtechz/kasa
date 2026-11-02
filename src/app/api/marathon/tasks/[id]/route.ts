@@ -29,6 +29,8 @@ const patch=z.object({
   title:z.string().trim().min(3).max(220).optional(),
   lead:z.string().trim().min(1).max(100).optional(),
   section:z.string().refine(isMarathonCategorySection,'Choose a checklist category.').optional(),
+  startDate:z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/),z.null()]).optional(),
+  endDate:z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/),z.null()]).optional(),
   dueDate:z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/),z.null()]).optional(),
   priority:z.enum(['P1 Act now','P2 Next 30 days','P3 Schedule']).optional(),
   importance:z.enum(['Critical','High','Medium','Low']).optional(),
@@ -69,7 +71,11 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
    const selectedEvent=await getMarathonEvent(taskEventId(before));
    requireEventTaskEdit(identity,selectedEvent);
    if(['completed','archived','cancelled'].includes(selectedEvent.status))throw new HttpError(409,'Event closed.');
-   if(changes.dueDate!==undefined&&!dateWithinEvent(changes.dueDate,selectedEvent))throw new HttpError(400,'Due date falls outside this event.');
+   const finalStart=changes.startDate===undefined?before.startDate:changes.startDate;
+   const finalEnd=changes.endDate===undefined?before.endDate:changes.endDate;
+   if(![finalStart,finalEnd,changes.dueDate].every(d=>dateWithinEvent(d,selectedEvent))||
+    finalStart&&finalEnd&&finalStart>finalEnd)
+    throw new HttpError(400,'Action dates must fall within the event preparation and closeout period.');
    if(Number(before.revision)!==expectedRevision)
     throw new HttpError(409,'This action was changed elsewhere. Refresh and review the latest version before retrying.');
    const next={...changes,revision:expectedRevision+1,updatedAt:now,updatedBy:identity.uid} as Record<string,unknown>;
