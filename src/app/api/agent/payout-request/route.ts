@@ -59,7 +59,7 @@ export async function POST(req:Request){
 
 export async function GET(req:Request){
  try{
-  const actor=await operator(req,['super_admin','admin','reviewer','agent']);
+  const actor=await operator(req,['super_admin','admin','agent']);
   const query=actor.role==='agent'
    ?db.collection('payoutRequests').where('agentUid','==',actor.uid).limit(200)
    :db.collection('payoutRequests').limit(300);
