@@ -4,6 +4,7 @@ import Link from 'next/link';
 import {Plus, ShieldCheck, Trash2, UserPlus, CheckCircle2, Edit3, Search, Filter} from 'lucide-react';
 import {api, PageHeader} from '@/components/Portal';
 import {ConfirmModal} from '@/components/ConfirmModal';
+import {INITIAL_PASSWORD_HINT,isValidInitialPassword} from '@/lib/initial-password-policy';
 
 type UserItem = {
   uid: string;
@@ -152,14 +153,14 @@ export default function UserAndStaffManagement() {
               <input placeholder="E.g. Lusaka, Chisamba" value={provDistrict} onChange={e => setProvDistrict(e.target.value)} />
             </div>
             {actorSuper&&<div className="field full"><label>Initial password (optional for new accounts)</label>
-              <input type="password" autoComplete="new-password" minLength={12} maxLength={128} value={provInitialPassword} onChange={e=>setProvInitialPassword(e.target.value)} placeholder="12+ characters including upper, lower, number and symbol"/>
-              <small>Do not use this field for an existing account. Use its dedicated account editor to intentionally change credentials.</small></div>}
+              <input type="password" autoComplete="new-password" minLength={6} maxLength={128} value={provInitialPassword} onChange={e=>setProvInitialPassword(e.target.value)} placeholder="6+ characters: uppercase, lowercase, number and symbol"/>
+              <small>{INITIAL_PASSWORD_HINT} Do not use this field for an existing account. Use its dedicated account editor to intentionally change credentials.</small></div>}
             <div className="field full">
               <label>Phone Number (optional)</label>
               <input type="tel" placeholder="+260 97X XXX XXX" value={provPhone} onChange={e => setProvPhone(e.target.value)} />
             </div>
           </div>
-          <button className="btn btn-primary" type="submit" disabled={busy || !provEmail.trim() || !provName.trim()}>
+          <button className="btn btn-primary" type="submit" disabled={busy || !provEmail.trim() || !provName.trim() || (actorSuper&&provInitialPassword.length>0&&!isValidInitialPassword(provInitialPassword))}>
             <UserPlus size={16} /> {busy ? 'Provisioning…' : 'Provision Account'}
           </button>
         </form>

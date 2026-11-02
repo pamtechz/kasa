@@ -3,13 +3,10 @@ import {adminAuth,db} from '@/lib/firebase-admin';
 import {audit} from '@/lib/security';
 import {HttpError} from '@/lib/errors';
 import type {Profile} from '@/lib/types';
+import {INITIAL_PASSWORD_HINT,isValidInitialPassword} from '@/lib/initial-password-policy';
 
 export function validateInitialPassword(password:unknown):asserts password is string{
- if(typeof password!=='string'||password.length<12||password.length>128||
-  !/[A-Z]/.test(password)||!/[a-z]/.test(password)||!/[0-9]/.test(password)||
-  !/[^A-Za-z0-9]/.test(password)||/\s/.test(password)||
-  ['password','123456','qwerty','kasa','welcome'].some(part=>password.toLowerCase().includes(part)))
-  throw new HttpError(400,'Initial password must be 12–128 characters with uppercase, lowercase, number and symbol; avoid common passwords and spaces.');
+ if(!isValidInitialPassword(password))throw new HttpError(400,INITIAL_PASSWORD_HINT);
 }
 
 /** This is the ONLY admin-controlled password setter. Caller must establish
