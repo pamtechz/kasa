@@ -213,7 +213,10 @@ export function MarathonEventBudget({view}:{view:'events'|'budget'}){
     <td>{line.status}</td><td><div className={styles.actions}>
      {budget.permissions.write&&<button disabled={busy} onClick={()=>editLine(line)}>Edit</button>}
      {budget.permissions.write&&line.status==='draft'&&<button disabled={busy} onClick={()=>void updateLine(line,'submitted')}>Submit</button>}
+     {budget.permissions.write&&line.status==='submitted'&&<button disabled={busy} onClick={()=>void updateLine(line,'draft')}>Return to draft</button>}
      {budget.permissions.approve&&line.status==='submitted'&&<button disabled={busy} onClick={()=>void updateLine(line,'approved')}>Approve</button>}
+     {budget.permissions.approve&&line.status==='approved'&&<button disabled={busy} onClick={()=>void updateLine(line,'committed')}>Mark committed</button>}
+     {budget.permissions.approve&&['approved','committed','void'].includes(line.status)&&<button disabled={busy} onClick={()=>void updateLine(line,'draft')}>Reopen draft</button>}
      {budget.permissions.approve&&['approved','committed'].includes(line.status)&&<button disabled={busy} onClick={()=>void updateLine(line,'paid')}>Record payment</button>}
      {budget.permissions.approve&&line.status!=='void'&&<button disabled={busy} onClick={()=>void updateLine(line,'void')}>Void</button>}
     </div></td>
