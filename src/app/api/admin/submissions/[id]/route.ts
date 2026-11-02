@@ -117,12 +117,26 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
     tx.create(verificationRef,{submissionId:id,kind,reference:evidence,verifiedAt:now,verifiedBy:actor.uid,
      ...(status==='cdf_funds_received'?{amount:Number(body.cdfAmountReceived)}:{})});
     if(previous.agentId&&status!=='cdf_approved'){
-     if(body?.referralVerified!==true)throw new HttpError(400,'Independently verify agent attribution before earning commission.');
+     if(body?.referralVerified!==true)throw new HttpError(400,'Independently verify agent or student referral attribution before earning commission.');
+     if(previous.agentId===previous.applicantUid)
+      throw new HttpError(409,'Self-referral cannot earn commission.');
+     const referrer=await tx.get(db.collection('profiles').doc(String(previous.agentId)));
+     if(!referrer.exists||referrer.data()?.active!==true||
+       !['student','agent'].includes(String(referrer.data()?.role)))
+      throw new HttpError(409,'The referred student must be linked to an active registered agent or student referrer.');
      const rate=Number(kind==='payment'?settings.commissionAmountPaid:settings.commissionAmountCdf);
      if(!Number.isFinite(rate)||rate<=0||rate>50000)
       throw new HttpError(409,'An explicit positive commission rate for this funding path must be approved in Settings. No fallback rate is allowed.');
      changes.referralVerified={by:actor.uid,at:now};
      changes.commission={amount:rate,currency:'ZMW',trigger:kind==='payment'?'payment':'cdf_disbursement',approvedAt:now};
+     tx.create(db.collection('notificationOutbox').doc(),{
+       kind:'commission_earned',event:'commission_approved',
+       recipient:'agent',recipientUid:previous.agentId,
+       reference:String(previous.reference||id),submissionId:id,
+       title:'Verified KASA referral commission earned',
+       message:'A fully funded referred student has been enrolled. Your approved commission is now available in the referral ledger.',
+       state:'pending',createdAt:now
+     });
     }
    }
     if(status==='commission_paid'){
