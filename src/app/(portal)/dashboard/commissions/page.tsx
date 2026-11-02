@@ -10,15 +10,17 @@ import type {Role} from '@/lib/types';
 type Commission={
  submissionId:string;reference:string;agentId:string;trigger:string;
  amount:number;currency:string;paidAt:string|null;paymentReference:string|null;
- fundingEvidence:string|null
+ fundingEvidence:string|null;advancePaid:number
 };
 type Totals={eligible:number;paid:number;pending:number};
+type Progressive={submissionId:string;reference:string;agentId:string;amount:number;policyMode:string;fullyVerified:boolean};
 type Reconciliation={submissionId:string;reference:string;agentId:string;recordedAmount:number;previouslyPaid:boolean;legacyTrigger:string;reason:string};
 
 export default function Commissions(){
  const [role,setRole]=useState<Role|null>(null);
  const [items,setItems]=useState<Commission[]>([]);
  const [reconciliation,setReconciliation]=useState<Reconciliation[]>([]);
+ const [progressive,setProgressive]=useState<Progressive[]>([]);
  const [truncated,setTruncated]=useState(false);
  const [totals,setTotals]=useState<Totals>({eligible:0,paid:0,pending:0});
  const [filter,setFilter]=useState('all');
@@ -27,9 +29,9 @@ export default function Commissions(){
 
  async function load(){
   try{
-   const data=await api<{commissions:Commission[];reconciliation:Reconciliation[];truncated:boolean;totals:Totals}>('/api/admin/commissions');
+   const data=await api<{commissions:Commission[];reconciliation:Reconciliation[];progressive:Progressive[];truncated:boolean;totals:Totals}>('/api/admin/commissions');
    setItems(data.commissions);
-   setReconciliation(data.reconciliation||[]);setTruncated(Boolean(data.truncated));
+   setReconciliation(data.reconciliation||[]);setProgressive(data.progressive||[]);setTruncated(Boolean(data.truncated));
    setTotals(data.totals);
   }catch(err){setError(err instanceof Error?err.message:'Unable to load commissions.');}
  }
@@ -39,7 +41,7 @@ export default function Commissions(){
 
  return <>
   <PageHeader title="Commissions and referrals"
-   subtitle="Commissions require completed admissions, full student tuition receipts or government CDF funds actually received by KASA, plus independently verified referral evidence."
+   subtitle="Choose approved progressive or deferred payouts. Recorded tuition and independently verified referral identity control eligibility; CDF still requires government funds and enrollment verification."
    action={can(role,'settings.manage')?<Link href="/dashboard/settings/commissions" className="btn btn-outline">Configure commission rates <ExternalLink size={16}/></Link>:undefined}/>
   {error&&<div className="alert-error" role="alert">{error}</div>}
   {notice&&<div className="notice" role="status">{notice}</div>}
@@ -61,7 +63,7 @@ export default function Commissions(){
     <tbody>{visible.map(item=><tr key={item.submissionId}>
      <td><strong>{item.reference}</strong></td><td><small>{item.agentId}</small></td>
      <td>{item.trigger==='payment'?'Full tuition verified':'Government CDF remittance received'}</td>
-     <td>K{item.amount.toFixed(2)}</td>
+     <td>K{item.amount.toFixed(2)}<small style={{display:'block'}}>Previously paid: K{(item.advancePaid||0).toFixed(2)}</small><small style={{display:'block'}}>Remaining: K{Math.max(0,item.amount-(item.advancePaid||0)).toFixed(2)}</small></td>
      <td><span className={'tag '+(item.paidAt?'tag-green':'tag-amber')}>{item.paidAt?'Paid':'Pending'}</span></td>
      <td>{item.paymentReference||item.fundingEvidence||'—'}</td>
      <td>{item.paidAt?<span className="muted">Recorded</span>:!can(role,'commissions.manage')?<span className="muted">Read only</span>:<Link className="text-link" href={'/dashboard/commissions/'+encodeURIComponent(item.submissionId)+'/payout'}>Record verified payout</Link>}</td>
@@ -69,6 +71,16 @@ export default function Commissions(){
    </table></div>
   </div>
 
+  <section className="panel" style={{marginTop:20}}>
+   <div className="panel-title" style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:12}}>
+    <div><h2>Early and progressive commission transfers</h2><p>Real verified transfers already made against student installments, even before final enrollment approval. These reduce any final commission.</p></div>
+    {can(role,'commissions.manage')&&<Link className="btn btn-outline" href="/dashboard/commissions/advances">Review progressive payouts</Link>}
+   </div>
+   <div className="table-scroll"><table className="data-table"><thead><tr><th>Student application</th><th>Referrer ID</th><th>Already transferred</th><th>Policy</th></tr></thead>
+    <tbody>{progressive.map(x=><tr key={x.submissionId}><td>{x.reference}</td><td><small>{x.agentId}</small></td><td>K{x.amount.toFixed(2)}</td><td>{x.policyMode.replaceAll('_',' ')}</td></tr>)}
+    {!progressive.length&&<tr><td colSpan={4}>No unfinished progressive payouts recorded.</td></tr>}
+    </tbody></table></div>
+  </section>
   <section className="panel" style={{marginTop:20}}>
    <div className="panel-title"><h2>Historical and incomplete commission records needing reconciliation</h2>
     <p>These records have a previous commission amount but fail today&apos;s fully-funded eligibility controls. No further payouts can be recorded until authorized evidence is reconciled. Previously recorded transfers are not erased.</p></div>
