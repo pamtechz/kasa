@@ -29,19 +29,23 @@ export async function POST(req:Request){
   const reservation=db.collection('payoutReservations').doc(submissionId);
   const payout=db.collection('payoutRequests').doc(id);
   await db.runTransaction(async tx=>{
-   const [submission,locked]=await Promise.all([tx.get(ref),tx.get(reservation)]);
+   const [submission,locked,advance]=await Promise.all([tx.get(ref),tx.get(reservation),
+    tx.get(db.collection('commissionAdvances').doc(submissionId))]);
    const record=submission.data();
    const decision=record?commissionDecision(record):null;
    if(!record||record.agentId!==actor.uid||!decision?.eligible||record.commission?.paidAt)
     throw new HttpError(409,'Only your own verified, eligible and unpaid commissions can be requested.');
    if(locked.exists)throw new HttpError(409,'A payout request already exists for this commission.');
-   const amountMinor=Math.round(decision.amount*100);
+   const advancedMinor=advance.exists?Number(advance.data()?.amountMinor||0):0;
+   if(advance.exists&&(advance.data()?.recipientUid!==actor.uid||!Number.isSafeInteger(advancedMinor)||advancedMinor<=0))
+    throw new HttpError(409,'Advance reconciliation is required.');
+   const amountMinor=Math.round(decision.amount*100)-advancedMinor;
    if(!Number.isSafeInteger(amountMinor)||amountMinor<=0)
     throw new HttpError(409,'Commission amount requires finance reconciliation.');
    tx.create(reservation,{requestId:id,agentUid:actor.uid,amountMinor,status:'pending',createdAt:now});
    tx.create(payout,{
     id,submissionId,agentUid:actor.uid,agentName:actor.displayName||actor.email,
-    agentCode:actor.agentCode||'',amount:decision.amount,currency:'ZMW',
+    agentCode:actor.agentCode||'',amount:amountMinor/100,advancePaidMinor:advancedMinor,currency:'ZMW',
     paymentMethod:method,accountName,accountNumber,
     status:'pending',requestedAt:now,updatedAt:now,
     trigger:decision.trigger
@@ -95,7 +99,7 @@ export async function PATCH(req:Request){
    if(request.status!=='pending' && !(request.status==='approved'&&action==='reject'))
     throw new HttpError(409,'The payout request cannot be changed in its current state.');
    const reserve=db.collection('payoutReservations').doc(String(request.submissionId));
-   const [locked,submission]=await Promise.all([tx.get(reserve),tx.get(db.collection('submissions').doc(String(request.submissionId)))]);
+   const [locked,submission,advance]=await Promise.all([tx.get(reserve),tx.get(db.collection('submissions').doc(String(request.submissionId))),tx.get(db.collection('commissionAdvances').doc(String(request.submissionId)))]);
    if(!locked.exists||locked.data()?.requestId!==id){
     // Pre-hardening pending requests carried free-form amounts and cannot be approved.
     // Allow an administrator to reject them with evidence, preserving the record.
@@ -110,6 +114,12 @@ export async function PATCH(req:Request){
    if(submission.data()?.commission?.paidAt)throw new HttpError(409,'The commission is already paid.');
    if(action==='approve'){
     if(!commissionDecision(submission.data()||{}).eligible)throw new HttpError(409,'Commission is no longer eligible.');
+    const record=submission.data()||{},baseMinor=Math.round(Number(record.commission?.amount||0)*100);
+    const advanceMinor=advance.exists?Number(advance.data()?.amountMinor||0):0;
+    if(!Number.isSafeInteger(advanceMinor)||advanceMinor<0||
+       (advance.exists&&advance.data()?.recipientUid!==request.agentUid)||
+       baseMinor-advanceMinor!==Math.round(Number(request.amount||0)*100))
+     throw new HttpError(409,'Request amount differs from the remaining commission after advances.');
     tx.update(ref,{status:'approved',approvedAt:now,approvedBy:actor.uid,updatedAt:now});
     tx.update(reserve,{status:'approved',updatedAt:now});
    }else{
