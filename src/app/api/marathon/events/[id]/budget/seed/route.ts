@@ -15,6 +15,8 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
   const total=marathon2027BudgetDraft.reduce((n,line)=>n+line.quantity*line.unitCostMinor*line.months,0);
   if(total!==marathon2027BudgetDraftTotalMinor)throw new HttpError(500,'Source budget reconciliation failed.');
   const ref=db.collection('marathonEvents').doc(id);
+  const priorLines=await ref.collection('budgetLines').limit(1).get();
+  if(!priorLines.empty)throw new HttpError(409,'This event already has budget lines. Import is disabled to avoid duplicate allocations.');
   const now=new Date().toISOString();
   let imported=0;
   await db.runTransaction(async tx=>{
