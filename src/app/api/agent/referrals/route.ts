@@ -55,7 +55,9 @@ export async function GET(req: Request) {
     const agentCode=String(owner.agentCode||'');
     const studentForm=forms.docs.find(d=>d.data().kind==='student');
     const slug=studentForm?String(studentForm.data().slug):'student-enrollment';
-    const referralLink=agentCode?
+    const operations=await db.collection('settings').doc('operations').get();
+    const referralsEnabled=operations.data()?.referralsEnabled!==false;
+    const referralLink=agentCode&&referralsEnabled?
       (process.env.APP_URL||'https://kasaschool.vercel.app')+'/apply/'+encodeURIComponent(slug)+'?ref='+encodeURIComponent(agentCode):'';
     const eligible=referrals.filter(item=>item.commission!==null);
     return json({
@@ -64,7 +66,7 @@ export async function GET(req: Request) {
         district: owner.district || 'Unassigned',
         active: owner.active
       },
-      agentCode,referralLink,
+      agentCode,referralLink,referralsEnabled,
       referralsCount:referrals.length,
       successfulCount:eligible.length,
       totalEarned:eligible.reduce((sum,item)=>sum+(item.commission?.amount||0),0),
