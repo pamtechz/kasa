@@ -73,9 +73,12 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
    if(['completed','archived','cancelled'].includes(selectedEvent.status))throw new HttpError(409,'Event closed.');
    const finalStart=changes.startDate===undefined?before.startDate:changes.startDate;
    const finalEnd=changes.endDate===undefined?before.endDate:changes.endDate;
-   if(![finalStart,finalEnd,changes.dueDate].every(d=>dateWithinEvent(d,selectedEvent))||
-    finalStart&&finalEnd&&finalStart>finalEnd)
-    throw new HttpError(400,'Action dates must fall within the event preparation and closeout period.');
+   // Imported historical dates may precede today's preparation window.
+   // Preserve unchanged values; only validate dates the user actually moves.
+   const changedDates=(['startDate','endDate','dueDate'] as const).every(key=>
+    changes[key]===undefined||changes[key]===before[key]||dateWithinEvent(changes[key],selectedEvent));
+   if(!changedDates||(finalStart&&finalEnd&&finalStart>finalEnd))
+    throw new HttpError(400,'New action dates must fall within the event preparation and closeout period.');
    if(Number(before.revision)!==expectedRevision)
     throw new HttpError(409,'This action was changed elsewhere. Refresh and review the latest version before retrying.');
    const next={...changes,revision:expectedRevision+1,updatedAt:now,updatedBy:identity.uid} as Record<string,unknown>;
