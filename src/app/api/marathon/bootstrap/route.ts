@@ -8,7 +8,7 @@ import seed from '@/data/marathon-seed.json';
 import {checklistSourceInfo} from '@/lib/marathon-seed-import';
 import {canAssignMarathonTasks} from '@/lib/marathon-assignment';
 import {getMarathonEvent} from '@/lib/marathon-event-server';
-import {LEGACY_MARATHON_EVENT_ID,taskEventId} from '@/lib/marathon-event-model';
+import {LEGACY_MARATHON_EVENT_ID,legacyMarathonEvent,taskEventId} from '@/lib/marathon-event-model';
 
 export const runtime='nodejs';
 export async function GET(req:Request){
@@ -36,7 +36,7 @@ export async function GET(req:Request){
    identity,
    tasks:tasks.docs.map(x=>({id:x.id,...x.data()})).filter(task=>taskEventId(task)===eventId),
    selectedEvent,
-   availableEvents:[...new Map([[LEGACY_MARATHON_EVENT_ID,selectedEvent.id===LEGACY_MARATHON_EVENT_ID?selectedEvent:null],...existingEvents.docs.map(d=>[d.id,{id:d.id,...d.data()}])].filter(x=>x[1]).map(x=>x as [string,object])).values()],
+   availableEvents:[...(existingEvents.docs.some(d=>d.id===LEGACY_MARATHON_EVENT_ID)?[]:[legacyMarathonEvent]),...existingEvents.docs.map(d=>({id:d.id,...d.data()}))],
    meta:meta.data()||null,
    source:checklistSourceInfo(seed),
    ...suggestions,
