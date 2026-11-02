@@ -31,7 +31,8 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string;line
   const approvalStatus=data.changes.status&&['approved','committed','paid','void'].includes(data.changes.status);
   if(approvalStatus||data.changes.actualPaidMinor!==undefined)requireBudgetAccess(actor,event,'approve');
   if(changed.some(key=>key!=='status'&&key!=='actualPaidMinor')||
-     (data.changes.status!==undefined&&!approvalStatus))requireBudgetAccess(actor,event,'write');
+     (data.changes.status!==undefined&&!approvalStatus&&data.changes.status!=='draft'))
+   requireBudgetAccess(actor,event,'write');
   const taskId=data.changes.taskId;
   if(taskId){
    const task=await db.collection('marathonTasks').doc(taskId).get();
@@ -50,8 +51,11 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string;line
     throw new HttpError(409,'Approved budget details are locked. An approver must return this line to draft before editing.');
    if(previous.status==='submitted'&&contentChanged)
     throw new HttpError(409,'Return the submitted line to draft before changing its details.');
-   if(['approved','committed','paid'].includes(previous.status)&&data.changes.status==='draft')
-    requireBudgetAccess(actor,event,'approve');
+   if(data.changes.status==='draft'){
+    if(['approved','committed','paid','void'].includes(previous.status))
+     requireBudgetAccess(actor,event,'approve');
+    else requireBudgetAccess(actor,event,'write');
+   }
    if(previous.status==='void'&&contentChanged)throw new HttpError(409,'Restore the void line to draft before editing.');
    if(data.changes.status&&!canTransitionBudgetStatus(previous.status,data.changes.status))
     throw new HttpError(409,'Invalid budget status change. Follow the draft, submit, approval and payment workflow.');
