@@ -5,6 +5,8 @@ import {fail,json,HttpError} from '@/lib/errors';
 import {marathonIdentity} from '@/lib/marathon';
 import {validMarathonTaskId} from '@/lib/marathon-assignment';
 import {sameOrigin} from '@/lib/security';
+import {getMarathonEvent} from '@/lib/marathon-event-server';
+import {taskEventId} from '@/lib/marathon-event-model';
 
 export const runtime='nodejs';
 const schema=z.object({status:z.enum(['done','not_done'])}).strict();
@@ -23,6 +25,9 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
    const snap=await tx.get(ref);
    if(!snap.exists)throw new HttpError(404,'Task not found.');
    const prior=snap.data()!;
+   const event=await getMarathonEvent(taskEventId(prior));
+   if(['completed','archived','cancelled'].includes(event.status))
+    throw new HttpError(409,'This event is closed to task confirmations.');
    if(prior.archived||prior.status==='done')throw new HttpError(409,'Task has already been closed.');
    if(!Array.isArray(prior.assigneeUids)||!prior.assigneeUids.includes(identity.uid))
     throw new HttpError(403,'Only an assigned team member may confirm this task.');
@@ -30,7 +35,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
    const response={status:payload.data.status,respondedAt:now,respondedBy:identity.uid};
    tx.update(ref,{confirmationByUid:{...previous,[identity.uid]:response}});
    tx.create(db.collection('marathonAudit').doc(randomUUID()),{
-    taskId:id,actor:identity.uid,at:now,action:'task.confirmed',changes:{status:response.status}
+    taskId:id,eventId:taskEventId(prior),actor:identity.uid,at:now,action:'task.confirmed',changes:{status:response.status}
    });
    return response;
   });
