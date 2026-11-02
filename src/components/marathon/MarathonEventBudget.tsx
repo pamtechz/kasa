@@ -16,8 +16,8 @@ async function request<T>(path:string,options:RequestInit={}):Promise<T>{
  if(!response.ok)throw Error(result.error||'Request failed.');
  return result as T;
 }
-const draftEvent={name:'KASA Life Marathon — New Event',preparationStart:'2027-04-01',eventDate:'2027-09-19',
- closeoutDate:'2027-10-19',targetRunners:6000,registrationFeeK:'450'};
+const draftEvent={name:'KASA Life Marathon — New Event',preparationStart:'',eventDate:'',
+ closeoutDate:'',targetRunners:6000,registrationFeeK:'450'};
 const draftLine={category:'Administration',description:'',quantity:'1',unitCostK:'0',months:'1',
  taskId:'',startDate:'',endDate:'',notes:'',actualPaidK:'0'};
 export function MarathonEventBudget({view}:{view:'events'|'budget'}){
