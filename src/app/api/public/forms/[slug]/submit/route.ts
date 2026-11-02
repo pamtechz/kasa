@@ -10,6 +10,7 @@ import type {Attachment} from '@/lib/schema';
 import {storageIdentity} from '@/lib/r2-storage';
 import {loadIntake} from '@/lib/intake-server';
 import {R2_STAGING,institutionalObjectHead} from '@/lib/institutional-storage';
+import {referralOwner} from '@/lib/referral-identity';
 import {intakeWindow,normalizedIntake} from '@/lib/intake-policy';
 import {automationSchema,defaultAutomations,formatNotification} from '@/lib/automations';
 export const runtime='nodejs';
@@ -53,16 +54,7 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{slug:string
   if(form.kind==='student'&&body.agentCode!==undefined && body.agentCode!==null && body.agentCode!==''){
    const referralSettings=await db.collection('settings').doc('operations').get();
    if(referralSettings.data()?.referralsEnabled===false)throw new HttpError(400,'The referral program is currently paused.');
-   const code=String(body.agentCode).trim().toUpperCase();
-   if(!/^[A-Z0-9-]{5,28}$/.test(code))throw new HttpError(400,'Invalid referral code.');
-   const agent=await db.collection('profiles').where('agentCode','==',code).limit(1).get();
-   if(!agent.empty&&agent.docs[0].data().active!==false){
-    agentId=agent.docs[0].id;
-   }else{
-    const sub=await db.collection('submissions').where('reference','==',code).limit(1).get();
-    if(!sub.empty)agentId=sub.docs[0].id;
-    else throw new HttpError(400,'Referral code is not active or recognized.');
-   }
+   agentId=await referralOwner(String(body.agentCode),applicantUid);
   }
   // Validate that each referenced private upload exists, is small and has the claimed MIME type.
   const attachments=Object.values(answers).filter((v):v is Attachment=>Boolean(v&&typeof v==='object'&&!Array.isArray(v)&&'path' in v));
