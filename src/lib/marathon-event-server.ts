@@ -2,7 +2,7 @@ import 'server-only';
 import {db} from '@/lib/firebase-admin';
 import {HttpError} from '@/lib/errors';
 import type {MarathonIdentity} from '@/lib/marathon';
-import {canEdit} from '@/lib/marathon';
+import {canEdit,canReview} from '@/lib/marathon';
 import {LEGACY_MARATHON_EVENT_ID,legacyMarathonEvent,type MarathonEvent} from './marathon-event-model';
 
 export function validEventId(id:string){return id===LEGACY_MARATHON_EVENT_ID||/^ev-[0-9a-f-]{36}$/.test(id);}
@@ -31,4 +31,10 @@ export function requireEventTaskEdit(identity:MarathonIdentity,event:MarathonEve
  if(event.id===LEGACY_MARATHON_EVENT_ID&&canEdit(identity.role))return;
  if(!canEdit(identity.role)||!event.adminUids.includes(identity.uid))
   throw new HttpError(403,'This event checklist requires an assigned editor.');
+}
+
+export function requireEventTaskReview(identity:MarathonIdentity,event:MarathonEvent){
+ if(identity.role==='super_admin')return;
+ if(!canReview(identity.role)||(event.id!==LEGACY_MARATHON_EVENT_ID&&!event.adminUids.includes(identity.uid)))
+  throw new HttpError(403,'Only an authorized reviewer of this event may decide recommendations.');
 }
