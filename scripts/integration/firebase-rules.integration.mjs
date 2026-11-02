@@ -119,7 +119,7 @@ test('All roles are denied direct identity, finance and approval mutations',asyn
  const protectedPaths=[
   'submissions/app1','settings/intake','notificationOutbox/private1',
   'fundingVerifications/private1','commissionPayments/private1',
-  'payoutRequests/req1','applicationDedupe/hashed','fileClaims/hashed',
+  'payoutRequests/req1','payoutReservations/submission1','referralCodes/KASA-AGT-EXAMPLE','applicationDedupe/hashed','fileClaims/hashed',
   'rateLimits/ip1','auditLogs/log1','siteContent/header'
  ];
  for(const ctx of contexts){
