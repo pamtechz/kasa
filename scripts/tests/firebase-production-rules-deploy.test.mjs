@@ -24,7 +24,7 @@ test('rules deployment fails closed with missing credentials and unknown project
  const script=read('scripts/deploy-firestore-rules-rest.mjs');
  assert.match(script,/if\(!CREDENTIALS\)fail/);
  assert.match(script,/key.project_id!==PROJECT/);
- assert.match(script,/firestore\.rules fail mandatory private-data safeguards/);
+ assert.match(script,/Tracked Firestore rules fail mandatory private-data safeguards/);
  assert.match(script,/if\(current\?\.rulesetName\)/);
  assert.match(script,/verified.rulesetName!==created.name/);
 });
