@@ -6,6 +6,7 @@ on:
       - 'firestore.rules'
       - 'firebase.json'
       - '.github/workflows/deploy-firestore-rules.yml'
+      - 'scripts/deploy-firestore-rules-rest.mjs'
   workflow_dispatch:
 
 permissions:
@@ -61,16 +62,13 @@ jobs:
             }
           '
 
-      - name: Deploy the ENTIRE committed Firestore ruleset, not indexes or Storage rules
+      - name: Deploy and verify complete Firestore rules via Google Firebase Rules API
         shell: bash
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/kasa-firestore-deploy-credentials.json
         run: |
           set -euo pipefail
-          npx --yes firebase-tools@15.34.0 deploy \
-            --project kasa-recruite \
-            --only firestore:rules \
-            --non-interactive
+          node scripts/deploy-firestore-rules-rest.mjs
 
       - name: Delete ephemeral service account file
         if: always()
