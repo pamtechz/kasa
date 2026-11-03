@@ -65,8 +65,10 @@ export function routeCapability(pathname:string,method:string):Capability|null{
  const verb=method.toUpperCase();
  const path=(pattern:string)=>new RegExp('^'+pattern+'$').test(route);
  if(path('/api/admin/fee-tariffs')||path('/api/admin/fee-quotes'))return verb==='GET'?'finance.read':verb==='POST'?'finance.record':null;
- if(path('/api/admin/finance'))return verb==='GET'?'finance.read':'finance.record';
- if(path('/api/admin/commissions'))return verb==='GET'?'commissions.read':'commissions.manage';
+ if(path('/api/admin/finance'))return verb==='GET'?'finance.read':verb==='POST'?'finance.record':null;
+ if(path('/api/admin/finance/reconciliation'))return verb==='GET'?'finance.read':null;
+ if(path('/api/admin/commissions'))return verb==='GET'?'commissions.read':verb==='PATCH'?'commissions.manage':verb==='POST'||verb==='DELETE'?'commissions.manage':null;
+ if(path('/api/admin/commissions/advance'))return verb==='GET'?'commissions.read':verb==='POST'?'commissions.manage':null;
  if(path('/api/admin/staff(?:/[^/]+)?'))return 'staff.manage';
  if(path('/api/admin/seed'))return 'bootstrap.manage';
  if(path('/api/admin/setup/status'))return 'settings.read';
@@ -82,6 +84,7 @@ export function routeCapability(pathname:string,method:string):Capability|null{
  if(path('/api/admin/intake'))return verb==='GET'?'intake.read':'intake.manage';
  if(path('/api/admin/site'))return verb==='GET'?'site.read':'site.manage';
  if(path('/api/admin/settings/enrollment-form/attach'))return verb==='POST'?'settings.manage':null;
+ if(path('/api/admin/settings/commissions'))return verb==='GET'?'commissions.read':verb==='PATCH'?'commissions.manage':null;
  if(path('/api/admin/settings/storage-status'))return verb==='GET'?'settings.read':null;
  if(path('/api/admin/settings/acceptance-letter/preview-enrollment-form'))return 'settings.manage';
  if(path('/api/admin/settings/acceptance-letter/preview'))return 'settings.read';

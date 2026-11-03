@@ -1,0 +1,78 @@
+name: Deploy KASA Firestore rules (production)
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'firestore.rules'
+      - 'firebase.json'
+      - '.github/workflows/deploy-firestore-rules.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kasa-firestore-production-rules
+  cancel-in-progress: false
+
+jobs:
+  deploy-firestore-rules:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: firebase-production
+    steps:
+      - name: Checkout exact committed rules
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+
+      - name: Verify complete ruleset and matching Firebase project credentials
+        env:
+          FIREBASE_SA_JSON: ${{ secrets.KASA_FIREBASE_SERVICE_ACCOUNT_JSON }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$FIREBASE_SA_JSON" ]]; then
+            echo "::error::Missing GitHub Actions secret KASA_FIREBASE_SERVICE_ACCOUNT_JSON in repository or firebase-production environment. Firebase rules were NOT deployed."
+            exit 1
+          fi
+          node -e '
+            const fs=require("fs");
+            const key=JSON.parse(process.env.FIREBASE_SA_JSON);
+            if(key.type!=="service_account"||key.project_id!=="kasa-recruite"||
+               !key.client_email||!key.private_key){
+              console.error("::error::Firebase service account does not belong to the expected KASA production project kasa-recruite.");
+              process.exit(1);
+            }
+            fs.writeFileSync(process.env.RUNNER_TEMP+"/kasa-firestore-deploy-credentials.json",
+               JSON.stringify(key),{mode:0o600});
+          '
+          test -s firestore.rules
+          test -s firebase.json
+          node -e '
+            const config=require("./firebase.json");
+            if(config.firestore?.rules!=="firestore.rules"){
+              console.error("::error::firebase.json must point to the complete firestore.rules file.");
+              process.exit(1);
+            }
+          '
+
+      - name: Deploy the ENTIRE committed Firestore ruleset, not indexes or Storage rules
+        shell: bash
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/kasa-firestore-deploy-credentials.json
+        run: |
+          set -euo pipefail
+          npx --yes firebase-tools@15.34.0 deploy \
+            --project kasa-recruite \
+            --only firestore:rules \
+            --non-interactive
+
+      - name: Delete ephemeral service account file
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/kasa-firestore-deploy-credentials.json"

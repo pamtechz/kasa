@@ -40,6 +40,8 @@ service cloud.firestore {
   match /fundingVerifications/{id} { allow read, write: if false; }
   match /commissionPayments/{id} { allow read, write: if false; }
   match /commissionReceipts/{id} { allow read, write: if false; }
+  match /commissionAdvances/{id} { allow read, write: if false; }
+  match /commissionPayoutReferences/{id} { allow read, write: if false; }
   match /tuitionReceipts/{id} { allow read, write: if false; }
   match /marathonRaceDayItems/{id} { allow read, write: if false; }
   match /payoutRequests/{id} { allow read, write: if false; }
