@@ -5,6 +5,7 @@ import {authHeaders} from '@/lib/firebase-client';
 import {LEGACY_MARATHON_EVENT_ID,type MarathonEvent,type BudgetLine} from '@/lib/marathon-event-model';
 import styles from './MarathonEventBudget.module.css';
 import {BudgetWorkbook,type BudgetResult} from './BudgetWorkbook';
+import {MarathonBudgetNotice} from './MarathonBudgetNotice';
 import {budgetCsv,budgetClassifications,lineClassification} from '@/lib/marathon-budget-workbook';
 import type {BudgetClassification} from '@/lib/marathon-event-model';
 
@@ -155,6 +156,7 @@ export function MarathonEventBudget({view}:{view:'events'|'budget'}){
     <Link href="/marathon">Command Center</Link><Link href="/marathon/events">Events</Link>
     <Link href={'/marathon/budget?event='+selected}>Budget</Link><Link href={'/marathon/operations?event='+selected}>Checklist</Link>
    </nav></header>
+  <MarathonBudgetNotice eventId={selected}/>
   {error&&<div role="alert" className={styles.error}>{error}</div>}
   {notice&&<div role="status" className={styles.notice}>{notice}</div>}
   <section className={styles.panel}><h2>Select an event</h2>

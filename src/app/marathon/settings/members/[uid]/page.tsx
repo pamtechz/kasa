@@ -5,7 +5,7 @@ import {useParams} from 'next/navigation';
 import {ArrowLeft,Save,KeyRound,ShieldCheck} from 'lucide-react';
 import {api} from '@/components/Portal';
 import {BrandLogo} from '@/components/BrandLogo';
-import {INITIAL_PASSWORD_HINT,isValidInitialPassword} from '@/lib/initial-password-policy';
+import {INITIAL_PASSWORD_HINT,isValidInitialPassword,initialPasswordIssue} from '@/lib/initial-password-policy';
 
 type Account={uid:string;email:string;displayName:string;role:string;active:boolean;
  phone:string;district:string;province:string;address:string;marathonRole:string|null;
@@ -21,6 +21,7 @@ export default function MarathonMemberEditor(){
  const [password,setPassword]=useState(''),[confirmation,setConfirmation]=useState(''),[approval,setApproval]=useState(false);
  const [busy,setBusy]=useState(false),[loading,setLoading]=useState(true),
  [error,setError]=useState(''),[message,setMessage]=useState('');
+ const [passwordError,setPasswordError]=useState('');
  async function load(){
   try{
    const result=await api<{account:Account}>('/api/marathon/members/'+encodeURIComponent(uid)+'/account');
@@ -44,14 +45,16 @@ export default function MarathonMemberEditor(){
   finally{setBusy(false);}
  }
  async function setInitialPassword(){
-  if(!approval||!password||password!==confirmation)return;
+  const issue=initialPasswordIssue(password,confirmation,approval);
+  if(!isValidInitialPassword(password)||issue){setPasswordError(issue||INITIAL_PASSWORD_HINT);return;}
+  setPasswordError('');
   setBusy(true);setError('');setMessage('');
   try{
    const response=await api<{message:string}>('/api/admin/users/'+encodeURIComponent(uid)+'/initial-password',{
     method:'POST',body:JSON.stringify({confirm:true,password})
    });
    setMessage(response.message);setPassword('');setConfirmation('');setApproval(false);
-  }catch(e){setError(e instanceof Error?e.message:'Password could not be set.');}
+  }catch(e){setPasswordError(e instanceof Error?e.message:'Password could not be set.');}
   finally{setBusy(false);}
  }
  return <main style={{minHeight:'100vh',background:'#f2f7f3',padding:'clamp(16px,4vw,50px)'}}>
@@ -95,7 +98,10 @@ export default function MarathonMemberEditor(){
      <p className="muted">{INITIAL_PASSWORD_HINT}</p>
      <div className="field"><label htmlFor="mem-confirm">Confirm password</label><input id="mem-confirm" autoComplete="new-password" type="password" value={confirmation} onChange={e=>setConfirmation(e.target.value)}/></div>
      <label className="required-toggle"><input type="checkbox" checked={approval} onChange={e=>setApproval(e.target.checked)}/> Confirm replacing this member&apos;s credentials</label>
-     <button type="button" className="btn btn-outline" disabled={busy||!isValidInitialPassword(password)||password!==confirmation||!approval} onClick={()=>void setInitialPassword()}><KeyRound size={17}/> Set initial password</button>
+     <button type="button" className="btn btn-outline" disabled={busy||!account.active} onClick={()=>void setInitialPassword()}><KeyRound size={17}/> {busy?'Saving…':'Set initial password'}</button>
+     {passwordError&&<p role="alert" className="alert-error">{passwordError}</p>}
+     {!account.active&&<p role="status">Enable the KASA account before setting its initial password.</p>}
+     <p className="muted">Email verification may be pending. Enter the password twice and tick the confirmation above, then select Set initial password.</p>
      <p className="muted">A new initial password permits provisional sign-in for 30 days. The member will be regularly asked to verify their email using the message in their Inbox, Spam or Promotions folder.</p>
     </aside>
    </div>}
