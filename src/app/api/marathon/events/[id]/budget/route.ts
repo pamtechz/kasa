@@ -23,7 +23,7 @@ export async function GET(req:Request,{params}:{params:Promise<{id:string}>}){
   const snap=await db.collection('marathonEvents').doc(id).collection('budgetLines').limit(500).get();
   const lines=snap.docs.map(x=>({...x.data(),id:x.id} as BudgetLine)).sort((a,b)=>a.category.localeCompare(b.category)||a.description.localeCompare(b.description));
   const totals=budgetTotals(lines,event.targetRunners,event.registrationFeeMinor);
-  const contingencyMinor=Math.round(totals.plannedMinor/10);
+  const contingencyMinor=event.budgetContingencyAlreadyIncluded?0:Math.round(totals.plannedMinor/10);
   return json({event,lines,totals:{...totals,contingencyMinor,totalWithContingencyMinor:totals.plannedMinor+contingencyMinor},
    permissions:{write:identity.role==='super_admin'||((event.adminUids.includes(identity.uid)||event.budgetEditorUids.includes(identity.uid))&&identity.role!=='kasaClient'),
     approve:identity.role==='super_admin'||((event.adminUids.includes(identity.uid)||event.budgetApproverUids.includes(identity.uid))&&identity.role!=='kasaClient')}});

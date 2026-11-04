@@ -1,0 +1,46 @@
+name: Replace 2027 Marathon budget with approved working draft
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/data/marathon-2027-working-budget.json'
+      - 'scripts/replace-marathon-2027-budget.mjs'
+      - '.github/workflows/replace-marathon-2027-budget.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kasa-marathon-2027-working-budget-replacement
+  cancel-in-progress: false
+
+jobs:
+  replace-2027-budget:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: firebase-production
+    steps:
+      - name: Checkout committed working budget and migration
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Node 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Validate the migration and source without connecting to production
+        run: |
+          node --check scripts/replace-marathon-2027-budget.mjs
+          node scripts/tests/marathon-working-budget-source.test.mjs
+      - name: Dry run against production and check immutable archive capacity
+        env:
+          KASA_FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.KASA_FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: node scripts/replace-marathon-2027-budget.mjs --dry-run
+      - name: Apply atomic archive-and-replacement to the March 2027 event only
+        env:
+          KASA_FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.KASA_FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: node scripts/replace-marathon-2027-budget.mjs --apply
