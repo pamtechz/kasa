@@ -65,6 +65,8 @@ export async function appCheckToken(): Promise<string> {
 export async function authHeaders(){
  const a=getClientAuth()||auth;
  if(!a)throw Error('Firebase Authentication is unavailable. Check the local Firebase web-app settings and restart the dev server.');
+ // A restored session is asynchronous. Wait before treating an initial null as signed out.
+ await a.authStateReady();
  const user=a.currentUser;
  if(!user)throw Error('Please sign in first.');
  return {Authorization:`Bearer ${await user.getIdToken()}`};

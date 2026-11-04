@@ -6,6 +6,7 @@ import {marathonIdentity} from '@/lib/marathon';
 import {sameOrigin} from '@/lib/security';
 import {getMarathonEvent,requireBudgetAccess} from '@/lib/marathon-event-server';
 import {budgetTotals,calculatedLineMinor,dateWithinEvent,taskEventId,type BudgetLine} from '@/lib/marathon-event-model';
+import {budgetLineAmounts} from '@/lib/marathon-budget-workbook';
 export const runtime='nodejs';
 const date=z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable();
 const create=z.object({
@@ -13,7 +14,9 @@ const create=z.object({
  quantity:z.number().int().min(1).max(1000000),unitCostMinor:z.number().int().min(0).max(1000000000),
  months:z.number().int().min(1).max(60).default(1),
  taskId:z.string().max(80).nullable().default(null),startDate:date.default(null),endDate:date.default(null),
- notes:z.string().max(2500).default('')
+ notes:z.string().max(2500).default(''),
+ classification:z.enum(['costed','outside_consolidated','within_allocation','in_kind','tbc','free','waived']).default('costed'),
+ sourceOfFunds:z.string().trim().max(250).default(''),dueDateText:z.string().trim().max(150).default('')
 }).strict();
 export async function GET(req:Request,{params}:{params:Promise<{id:string}>}){
  try{
@@ -44,11 +47,10 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
    const task=await db.collection('marathonTasks').doc(data.taskId).get();
    if(!task.exists||taskEventId(task.data()||{})!==id)throw new HttpError(400,'Linked checklist activity must belong to this event.');
   }
-  let amount:number;
-  try{amount=calculatedLineMinor(data.quantity,data.unitCostMinor,data.months);}
+  try{calculatedLineMinor(data.quantity,data.unitCostMinor,data.months);}
   catch{throw new HttpError(400,'Cost calculation exceeds allowed limits.');}
   const idLine='line-'+randomUUID(),now=new Date().toISOString();
-  const line:BudgetLine={...data,id:idLine,eventId:id,plannedMinor:amount,actualPaidMinor:0,status:'draft',
+  const line:BudgetLine={...data,id:idLine,eventId:id,...budgetLineAmounts(data.quantity,data.unitCostMinor,data.months,data.classification),actualPaidMinor:0,status:'draft',
    revision:1,createdBy:actor.uid,createdAt:now,updatedBy:actor.uid,updatedAt:now};
   const batch=db.batch();
   batch.create(db.collection('marathonEvents').doc(id).collection('budgetLines').doc(idLine),line);

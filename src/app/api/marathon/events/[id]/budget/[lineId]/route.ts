@@ -5,6 +5,7 @@ import {marathonIdentity} from '@/lib/marathon';
 import {sameOrigin} from '@/lib/security';
 import {getMarathonEvent,requireBudgetAccess} from '@/lib/marathon-event-server';
 import {calculatedLineMinor,canTransitionBudgetStatus,dateWithinEvent,taskEventId,type BudgetLine} from '@/lib/marathon-event-model';
+import {budgetLineAmounts,lineClassification} from '@/lib/marathon-budget-workbook';
 export const runtime='nodejs';
 const date=z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable();
 const patch=z.object({expectedRevision:z.number().int().min(1),
@@ -14,7 +15,9 @@ const patch=z.object({expectedRevision:z.number().int().min(1),
   months:z.number().int().min(1).max(60).optional(),taskId:z.string().max(80).nullable().optional(),
   startDate:date.optional(),endDate:date.optional(),notes:z.string().max(2500).optional(),
   actualPaidMinor:z.number().int().min(0).max(100000000000).optional(),
-  status:z.enum(['draft','submitted','approved','committed','paid','void']).optional()
+  status:z.enum(['draft','submitted','approved','committed','paid','void']).optional(),
+  classification:z.enum(['costed','outside_consolidated','within_allocation','in_kind','tbc','free','waived']).optional(),
+  sourceOfFunds:z.string().trim().max(250).optional(),dueDateText:z.string().trim().max(150).optional()
  }).strict().refine(x=>Object.keys(x).length>0)
 });
 export async function PATCH(req:Request,{params}:{params:Promise<{id:string;lineId:string}>}){
@@ -62,10 +65,14 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string;line
    const next={...previous,...data.changes,revision:previous.revision+1,updatedBy:actor.uid,updatedAt:now};
    if(!dateWithinEvent(next.startDate,event)||!dateWithinEvent(next.endDate,event)||next.startDate&&next.endDate&&next.startDate>next.endDate)
     throw new HttpError(400,'Budget dates must be within the event window.');
-   try{next.plannedMinor=calculatedLineMinor(next.quantity,next.unitCostMinor,next.months);}
+   try{
+    // Only a deliberate amount/treatment edit changes a source estimate. Status or notes alone preserve it.
+    if(changed.some(k=>['quantity','unitCostMinor','months','classification'].includes(k))){
+     calculatedLineMinor(next.quantity,next.unitCostMinor,next.months);
+     Object.assign(next,budgetLineAmounts(next.quantity,next.unitCostMinor,next.months,lineClassification(next)));
+    }
+   }
    catch{throw new HttpError(400,'Budget amount exceeds the supported limit.');}
-   if(previous.sourceClassification&&contentChanged&&next.plannedMinor>0)
-    next.sourceClassification='costed';
    if(next.actualPaidMinor>0&&!['approved','committed','paid'].includes(next.status))
     throw new HttpError(400,'A payment requires an approved budget line.');
    if(next.actualPaidMinor>next.plannedMinor)
