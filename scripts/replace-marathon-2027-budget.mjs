@@ -137,7 +137,7 @@ const eventChanges={
  budgetSponsorshipTargetMinor:manifest.cashSponsorshipTargetMinor,
  eventVenue:manifest.eventVenue,launchDate:manifest.launchDate,
  launchVenue:manifest.launchVenue,launchTime:manifest.launchTime,
- budgetContingencyAlreadyIncluded:true,
+ budgetContingencyAlreadyIncluded:true,budgetLaunchContingencyMinor:495000,
  budgetArchiveId:archiveRef.id,
  budgetWorkingNotes:manifest.note,
  updatedAt:now,updatedBy:'production-admin-budget-workflow'
