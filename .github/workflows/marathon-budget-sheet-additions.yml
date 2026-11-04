@@ -1,0 +1,37 @@
+name: Add new spreadsheet budget items and notify Marathon members
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/data/marathon-budget-sheet-additions-20261104.json'
+      - 'scripts/apply-marathon-budget-sheet-additions.mjs'
+      - '.github/workflows/marathon-budget-sheet-additions.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: kasa-budget-sheet-additions-20261104
+  cancel-in-progress: false
+jobs:
+  append-and-notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: firebase-production
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: node --check scripts/apply-marathon-budget-sheet-additions.mjs
+      - name: Compare live budget without modifying it
+        run: node scripts/apply-marathon-budget-sheet-additions.mjs --dry-run
+        env:
+          KASA_FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.KASA_FIREBASE_SERVICE_ACCOUNT_JSON }}
+      - name: Append the two new rows and send the requested notification
+        run: node scripts/apply-marathon-budget-sheet-additions.mjs --apply
+        env:
+          KASA_FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.KASA_FIREBASE_SERVICE_ACCOUNT_JSON }}

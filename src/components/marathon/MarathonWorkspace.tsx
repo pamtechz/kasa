@@ -2,6 +2,7 @@
 import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {MarathonLink as Link} from './MarathonLink';
 import {AccountMenu} from '@/components/AccountMenu';
+import {MarathonBudgetNotice} from './MarathonBudgetNotice';
 import {BrandLogo} from '@/components/BrandLogo';
 import {useRouter,usePathname,useSearchParams} from 'next/navigation';
 import {onAuthStateChanged} from 'firebase/auth';
@@ -441,6 +442,7 @@ export function MarathonWorkspace({section='overview'}:{section?:string}){
   <main className="ml-main">
    <header className="ml-topbar"><div className="ml-top-left"><button className="ml-mobile-menu" aria-label="Open navigation" aria-controls="ml-workspace-menu" aria-expanded={mobile} onClick={()=>setMobile(true)}><Menu size={22}/></button><button className="ml-desktop-collapse" type="button" aria-label={collapsed?'Expand Marathon sidebar':'Collapse Marathon sidebar'} onClick={toggleSidebar} title={collapsed?'Expand sidebar':'Collapse sidebar'}><Menu size={20}/></button><span className="ml-breadcrumb">KASA Life Marathon</span><ChevronRight size={15}/><strong>{menu.find(x=>x.view===view)?.label||'Home'}</strong></div><div className="ml-top-actions"><Link href="/marathon/sync" className={'ml-sync-status '+(offline?'off':'')} aria-label={pending.length?pending.length+' saved edits. Open offline edits.':'View offline edits'}>{offline?<WifiOff size={15}/>:pending.length?<CloudOff size={15}/>:<Cloud size={15}/>} {syncing?'Syncing…':offline?'Offline':pending.length?pending.length+' pending':'Synced'}</Link><button className="ml-alert-toggle" type="button" aria-label={'Reminders: '+attentionTasks.length+' actions need attention'} title="Action reminders" aria-expanded={alertsOpen} onClick={()=>setAlertsOpen(v=>!v)}><Bell size={18}/>{attentionTasks.length>0&&<span className="ml-alert-count">{attentionTasks.length>99?'99+':attentionTasks.length}</span>}</button><button aria-label="Refresh" title="Refresh data" onClick={()=>void refresh().then(()=>flush())}><RefreshCcw size={18}/></button><span className="ml-top-divider"/><AccountMenu displayName={displayName} email={state.identity.email} roleLabel={(state.identity.schoolRole==='marathon_only'?'Marathon-only · ':'School + Marathon · ')+state.identity.role} profileHref="/marathon/profile" onSignOut={logout}/></div>{alertsOpen&&<MarathonAlertCenter tasks={tasks} today={today} onOpen={openTaskPage} onClose={()=>setAlertsOpen(false)}/>}</header>
    <div className="ml-content">
+    {uid&&<MarathonBudgetNotice eventId={selectedEventId} memberUid={uid}/>}
     {!!notice&&<div className="ml-notice" role="status"><span>{notice}</span><button onClick={()=>setNotice('')} aria-label="Dismiss notification"><X size={17}/></button></div>}
     {!!authError&&uid&&<div className="ml-notice ml-warning"><AlertTriangle size={17}/>{authError}</div>}
     {offline&&<div className="ml-offline-notice"><CloudOff size={17}/> You are viewing cached operations. Changes to existing tasks are stored on this device until connectivity returns.</div>}

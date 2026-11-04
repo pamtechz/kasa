@@ -1,0 +1,38 @@
+{
+  "eventId": "kasa-life-2027-march",
+  "firebaseProjectId": "kasa-recruite",
+  "importId": "budget-sheet-additions-20261104",
+  "sourceSpreadsheetId": "1J0GNkX-2tWdEj-SMZP4Gu7R0Hd6wafvccogMGUL5U3k",
+  "sourceUrl": "https://docs.google.com/spreadsheets/d/1J0GNkX-2tWdEj-SMZP4Gu7R0Hd6wafvccogMGUL5U3k/edit",
+  "sourceTitle": "KASA_Life_Marathon_2027_Expandable_Budget",
+  "sourceRange": "Budget!A92:S93",
+  "originalSourceSha256": "e176cd00bfb29c5c0bf0f48d673a51d34873984226d8f58abb45e29459fef4ce",
+  "rows": [
+    {
+      "sourceRow": 92,
+      "category": "Web Development",
+      "description": "Web Development",
+      "quantity": 1,
+      "unitCostMinor": 2000000,
+      "months": 1,
+      "plannedMinor": 2000000,
+      "actualPaidMinor": 600000,
+      "status": "approved",
+      "dueDateText": "Phase 3(on deliverly)",
+      "sourceOfFunds": "Kasa"
+    },
+    {
+      "sourceRow": 93,
+      "category": "Hosting & Domain",
+      "description": "Hosting & Domain(for four year)",
+      "quantity": 1,
+      "unitCostMinor": 400000,
+      "months": 1,
+      "plannedMinor": 400000,
+      "actualPaidMinor": 400000,
+      "status": "approved",
+      "dueDateText": "Paid on 2nd Nov, 2026",
+      "sourceOfFunds": "Kasa"
+    }
+  ]
+}

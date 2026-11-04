@@ -4,7 +4,7 @@ import Link from 'next/link';
 import {useParams} from 'next/navigation';
 import {ArrowLeft,Save,ShieldCheck,KeyRound,AlertTriangle} from 'lucide-react';
 import {api,PageHeader} from '@/components/Portal';
-import {INITIAL_PASSWORD_HINT,isValidInitialPassword} from '@/lib/initial-password-policy';
+import {INITIAL_PASSWORD_HINT,isValidInitialPassword,initialPasswordIssue} from '@/lib/initial-password-policy';
 
 type Account={uid:string;displayName:string;email:string;role:string;active:boolean;
  district:string;phone:string;province:string;mustChangePassword:boolean};
@@ -20,6 +20,7 @@ export default function EditSchoolAccount(){
  const [initialPassword,setInitialPassword]=useState(''),[confirmPassword,setConfirmPassword]=useState('');
  const [confirmedReset,setConfirmedReset]=useState(false);
  const [error,setError]=useState(''),[message,setMessage]=useState('');
+ const [passwordError,setPasswordError]=useState('');
  const load=useCallback(async()=>{
   setLoading(true);setError('');
   try{
@@ -50,14 +51,17 @@ export default function EditSchoolAccount(){
   finally{setBusy(false);}
  }
  async function setPassword(){
-  if(actorRole!=='super_admin'||!account||!confirmedReset||!initialPassword||initialPassword!==confirmPassword)return;
+  if(actorRole!=='super_admin'||!account)return;
+  const issue=initialPasswordIssue(initialPassword,confirmPassword,confirmedReset);
+  if(!isValidInitialPassword(initialPassword)||issue){setPasswordError(issue||INITIAL_PASSWORD_HINT);return;}
+  setPasswordError('');
   setResetBusy(true);setError('');setMessage('');
   try{
    const result=await api<{message:string}>('/api/admin/users/'+encodeURIComponent(uid)+'/initial-password',{
     method:'POST',body:JSON.stringify({confirm:true,password:initialPassword})
    });
    setMessage(result.message);setConfirmedReset(false);setInitialPassword('');setConfirmPassword('');
-  }catch(e){setError(e instanceof Error?e.message:'Unable to set initial password.');}
+  }catch(e){setPasswordError(e instanceof Error?e.message:'Unable to set initial password.');}
   finally{setResetBusy(false);}
  }
 
@@ -105,9 +109,12 @@ export default function EditSchoolAccount(){
       <input id="initial-password-confirm" type="password" autoComplete="new-password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)}/></div>
      <label className="required-toggle"><input type="checkbox" checked={confirmedReset} onChange={e=>setConfirmedReset(e.target.checked)}/>
       I confirm that I am authorized to replace this user&apos;s sign-in password.</label>
-     <button type="button" className="btn btn-outline" disabled={!confirmedReset||resetBusy||initialPassword!==confirmPassword||!isValidInitialPassword(initialPassword)} onClick={()=>void setPassword()}>
+     <button type="button" className="btn btn-outline" disabled={resetBusy||!account.active} onClick={()=>void setPassword()}>
       <KeyRound size={16}/> {resetBusy?'Saving…':'Set initial password'}
      </button>
+     {passwordError&&<p role="alert" className="alert-error">{passwordError}</p>}
+     {!account.active&&<p role="status">Enable the KASA account before setting its initial password.</p>}
+     <p className="muted">Email verification may be pending. Enter the password twice and tick the confirmation above, then select Set initial password.</p>
     </>:<p className="muted"><AlertTriangle size={16}/> Only the global super administrator may provision another account&apos;s password.</p>}
    </aside>
   </div>}
