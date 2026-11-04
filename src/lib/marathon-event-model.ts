@@ -5,11 +5,17 @@ export type MarathonEvent={
  status:EventStatus;targetRunners:number;registrationFeeMinor:number;currency:'ZMW';
  adminUids:string[];budgetEditorUids:string[];budgetViewerUids:string[];budgetApproverUids:string[];
  revision:number;createdAt:string;createdBy:string;updatedAt:string;updatedBy:string;
+ budgetSourceDocument?:string;budgetSourceSha256?:string;budgetSourceVersion?:string;
+ budgetCostedTotalMinor?:number;budgetReportedPaidMinor?:number;budgetReportedOutstandingMinor?:number;
+ budgetUncountedPricedMinor?:number;budgetSponsorshipTargetMinor?:number;
+ budgetContingencyAlreadyIncluded?:boolean;budgetLaunchContingencyMinor?:number;
+ budgetArchiveId?:string;budgetWorkingNotes?:string;
+ eventVenue?:string;launchDate?:string;launchTime?:string;launchVenue?:string;
 };
 export const legacyMarathonEvent:MarathonEvent={
  id:LEGACY_MARATHON_EVENT_ID,name:'KASA Life Marathon — March 2027',
  preparationStart:'2026-11-01',eventDate:'2027-03-21',closeoutDate:'2027-04-21',
- status:'planning',targetRunners:6000,registrationFeeMinor:45000,currency:'ZMW',
+ status:'planning',targetRunners:5000,registrationFeeMinor:45000,currency:'ZMW',
  adminUids:[],budgetEditorUids:[],budgetViewerUids:[],budgetApproverUids:[],
  revision:0,createdAt:'',createdBy:'',updatedAt:'',updatedBy:''
 };
@@ -30,6 +36,10 @@ export type BudgetLine={
  months:number;plannedMinor:number;actualPaidMinor:number;status:BudgetStatus;
  taskId:string|null;startDate:string|null;endDate:string|null;notes:string;
  revision:number;createdBy:string;createdAt:string;updatedBy:string;updatedAt:string;approvedBy?:string|null;approvedAt?:string|null;
+ sourceSection?:number;sourceOfFunds?:string;dueDateText?:string;sourceQuantityLabel?:string;
+ sourceUnitCostLabel?:string;sourceTotalCostLabel?:string;sourceClassification?:'costed'|'outside_consolidated'|'within_allocation'|'in_kind'|'tbc'|'free'|'waived';
+ reportedEstimateMinor?:number;reportedPaidClaimMinor?:number;
+ sourceDocument?:string;sourceDocumentSha256?:string;
 };
 /** Exact state-machine for budget approval; money changes are separate audited actions. */
 export function canTransitionBudgetStatus(from:BudgetStatus,to:BudgetStatus):boolean{
