@@ -22,7 +22,7 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string;line
   sameOrigin(req);
   const actor=await marathonIdentity(req),{id,lineId}=await params,event=await getMarathonEvent(id);
   if(['completed','archived','cancelled'].includes(event.status))throw new HttpError(409,'Reopen the event before modifying its budget.');
-  if(!/^(line-[0-9a-f-]{36}|seed-\d{3})$/.test(lineId))throw new HttpError(400,'Invalid budget line.');
+  if(!/^(line-[0-9a-f-]{36}|seed-\d{3}|working-\d{3})$/.test(lineId))throw new HttpError(400,'Invalid budget line.');
   const parsed=patch.safeParse(await req.json());
   if(!parsed.success)throw new HttpError(400,'Invalid budget changes or revision.');
   const data=parsed.data;
@@ -64,6 +64,8 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string;line
     throw new HttpError(400,'Budget dates must be within the event window.');
    try{next.plannedMinor=calculatedLineMinor(next.quantity,next.unitCostMinor,next.months);}
    catch{throw new HttpError(400,'Budget amount exceeds the supported limit.');}
+   if(previous.sourceClassification&&contentChanged&&next.plannedMinor>0)
+    next.sourceClassification='costed';
    if(next.actualPaidMinor>0&&!['approved','committed','paid'].includes(next.status))
     throw new HttpError(400,'A payment requires an approved budget line.');
    if(next.actualPaidMinor>next.plannedMinor)
