@@ -25,12 +25,13 @@ test('fee statement shown on student applications without exposing applicant dat
 });
 
 test('marathon budget category totals remain event-specific and separate planned from paid amounts',()=>{
- const view=source('src/components/marathon/MarathonEventBudget.tsx');
- assert.match(view,/Budget versus actual by category/);
- assert.match(view,/budget\.lines\.reduce/);
- assert.match(view,/line\.plannedMinor/);
- assert.match(view,/line\.actualPaidMinor/);
- assert.match(view,/selected event only/);
+ const view=source('src/components/marathon/BudgetWorkbook.tsx');
+ const model=source('src/lib/marathon-budget-workbook.ts');
+ assert.match(view,/Budget by category/);
+ assert.match(view,/budgetCategories\(budget.lines\)/);
+ assert.match(model,/row\.planned\+=line\.plannedMinor/);
+ assert.match(model,/row\.paid\+=line\.actualPaidMinor/);
+ assert.match(view,/selected event/);
 });
 
 test('finance reconciliation queue and application safeguards remain available',()=>{

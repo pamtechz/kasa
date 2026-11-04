@@ -31,6 +31,7 @@ export function dateWithinEvent(d:string|null|undefined,event:Pick<MarathonEvent
  return !d||(isMarathonCalendarDate(d)&&d>=event.preparationStart&&d<=event.closeoutDate);
 }
 export type BudgetStatus='draft'|'submitted'|'approved'|'committed'|'paid'|'void';
+export type BudgetClassification='costed'|'outside_consolidated'|'within_allocation'|'in_kind'|'tbc'|'free'|'waived';
 export type BudgetLine={
  id:string;eventId:string;category:string;description:string;quantity:number;unitCostMinor:number;
  months:number;plannedMinor:number;actualPaidMinor:number;status:BudgetStatus;
@@ -39,6 +40,7 @@ export type BudgetLine={
  sourceSection?:number;sourceOfFunds?:string;dueDateText?:string;sourceQuantityLabel?:string;
  sourceUnitCostLabel?:string;sourceTotalCostLabel?:string;sourceClassification?:'costed'|'outside_consolidated'|'within_allocation'|'in_kind'|'tbc'|'free'|'waived';
  reportedEstimateMinor?:number;reportedPaidClaimMinor?:number;
+ classification?:BudgetClassification;
  sourceDocument?:string;sourceDocumentSha256?:string;
 };
 /** Exact state-machine for budget approval; money changes are separate audited actions. */

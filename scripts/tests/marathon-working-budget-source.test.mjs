@@ -55,7 +55,7 @@ test('replacement is a guarded, atomic archive and targets only March 2027',()=>
  assert.equal(check.status,0,check.stderr);
 });
 test('user sees exact costed totals, TBC, in-kind and unverified reported-payment amounts',()=>{
- const ui=read('src/components/marathon/MarathonEventBudget.tsx');
+ const ui=read('src/components/marathon/MarathonEventBudget.tsx')+read('src/components/marathon/BudgetWorkbook.tsx')+read('src/lib/marathon-budget-workbook.ts');
  const model=read('src/lib/marathon-event-model.ts');
  const api=read('src/app/api/marathon/events/[id]/budget/route.ts');
  assert.match(ui,/Draft-reported paid \(Finance reconciliation pending\)/);

@@ -15,6 +15,7 @@ const patch=z.object({
   status:z.enum(['draft','planning','active','completed','archived','cancelled']).optional(),
   targetRunners:z.number().int().min(1).max(100000).optional(),
   registrationFeeMinor:z.number().int().min(0).max(10000000).optional(),
+  budgetSponsorshipTargetMinor:z.number().int().min(0).max(100000000000).optional(),
   adminUids:z.array(z.string().min(1)).max(100).optional(),
   budgetEditorUids:z.array(z.string().min(1)).max(100).optional(),
   budgetViewerUids:z.array(z.string().min(1)).max(100).optional(),

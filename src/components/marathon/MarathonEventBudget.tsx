@@ -1,14 +1,14 @@
 'use client';
-import {useCallback,useEffect,useState} from 'react';
+import {useCallback,useEffect,useRef,useState} from 'react';
 import Link from 'next/link';
 import {authHeaders} from '@/lib/firebase-client';
 import {LEGACY_MARATHON_EVENT_ID,type MarathonEvent,type BudgetLine} from '@/lib/marathon-event-model';
 import styles from './MarathonEventBudget.module.css';
+import {BudgetWorkbook,type BudgetResult} from './BudgetWorkbook';
+import {budgetCsv,budgetClassifications,lineClassification} from '@/lib/marathon-budget-workbook';
+import type {BudgetClassification} from '@/lib/marathon-event-model';
 
 type Member={uid:string;email:string;displayName:string;role:string;active:boolean};
-type BudgetResult={event:MarathonEvent;lines:BudgetLine[];totals:{
- plannedMinor:number;actualPaidMinor:number;outstandingMinor:number;projectedRegistrationMinor:number;
- contingencyMinor:number;totalWithContingencyMinor:number};permissions:{write:boolean;approve:boolean}};
 const money=(minor:number)=>new Intl.NumberFormat('en-ZM',{minimumFractionDigits:2,maximumFractionDigits:2}).format(minor/100);
 async function request<T>(path:string,options:RequestInit={}):Promise<T>{
  const headers=await authHeaders();
@@ -17,10 +17,11 @@ async function request<T>(path:string,options:RequestInit={}):Promise<T>{
  if(!response.ok)throw Error(result.error||'Request failed.');
  return result as T;
 }
-const draftEvent={name:'KASA Life Marathon — New Event',preparationStart:'',eventDate:'',
- closeoutDate:'',targetRunners:5000,registrationFeeK:'450'};
+const draftEvent={name:'',preparationStart:'',eventDate:'',
+ closeoutDate:'',targetRunners:'',registrationFeeK:''};
 const draftLine={category:'Administration',description:'',quantity:'1',unitCostK:'0',months:'1',
- taskId:'',startDate:'',endDate:'',notes:'',actualPaidK:'0'};
+ taskId:'',startDate:'',endDate:'',notes:'',actualPaidK:'0',
+ classification:'costed' as BudgetClassification,sourceOfFunds:'',dueDateText:''};
 export function MarathonEventBudget({view}:{view:'events'|'budget'}){
  const [events,setEvents]=useState<MarathonEvent[]>([]);
  const [canCreate,setCanCreate]=useState(false),[members,setMembers]=useState<Member[]>([]);
@@ -30,6 +31,10 @@ export function MarathonEventBudget({view}:{view:'events'|'budget'}){
  const [editing,setEditing]=useState<BudgetLine|null>(null),[showLineForm,setShowLineForm]=useState(false);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
  const current=events.find(e=>e.id===selected);
+ const budgetRequest=useRef(0);
+ const [budgetLoading,setBudgetLoading]=useState(false);
+ const [showSettings,setShowSettings]=useState(false);
+ const [settings,setSettings]=useState({targetRunners:'',registrationFeeK:'',sponsorshipTargetK:''});
  const loadEvents=useCallback(async()=>{
   const answer=await request<{events:MarathonEvent[];canCreate:boolean}>('/api/marathon/events');
   setEvents(answer.events);setCanCreate(answer.canCreate);
@@ -37,16 +42,17 @@ export function MarathonEventBudget({view}:{view:'events'|'budget'}){
   if(fromUrl&&answer.events.some(x=>x.id===fromUrl))setSelected(fromUrl);
  },[]);
  const loadBudget=useCallback(async(id:string)=>{
-  setBudget(null);
-  try{setBudget(await request<BudgetResult>('/api/marathon/events/'+encodeURIComponent(id)+'/budget'));}
-  catch(e){setError(e instanceof Error?e.message:'Budget access unavailable.');}
+  const requestId=++budgetRequest.current;setBudget(previous=>previous?.event.id===id?previous:null);setBudgetLoading(true);
+  try{const result=await request<BudgetResult>('/api/marathon/events/'+encodeURIComponent(id)+'/budget');if(requestId===budgetRequest.current)setBudget(result);}
+  catch(e){if(requestId===budgetRequest.current)setError(e instanceof Error?e.message:'Budget access unavailable.');}
+  finally{if(requestId===budgetRequest.current)setBudgetLoading(false);}
  },[]);
  useEffect(()=>{void loadEvents().catch(e=>setError(e.message));},[loadEvents]);
  useEffect(()=>{if(view==='budget')void loadBudget(selected);},[selected,view,loadBudget]);
  useEffect(()=>{if(!canCreate)return;
   void request<{members:Member[]}>('/api/marathon/bootstrap').then(r=>setMembers(r.members||[])).catch(()=>{});
  },[canCreate]);
- function choose(id:string){setSelected(id);setError('');setNotice('');
+ function choose(id:string){if(id!==selected){budgetRequest.current++;setBudget(null);setShowLineForm(false);setShowSettings(false);setEditing(null);}setSelected(id);setError('');setNotice('');
   const url=new URL(window.location.href);url.searchParams.set('event',id);
   window.history.replaceState(null,'',url.pathname+url.search);}
  async function execute(action:()=>Promise<void>,success:string){
@@ -57,7 +63,8 @@ export function MarathonEventBudget({view}:{view:'events'|'budget'}){
  }
  async function createEvent(){
   await execute(async()=>{
-   const data={...eventForm,registrationFeeMinor:Math.round(Number(eventForm.registrationFeeK)*100)};
+   if(!eventForm.targetRunners||!eventForm.registrationFeeK)throw Error('Enter the runner target and registration fee.');
+   const data={...eventForm,targetRunners:Number(eventForm.targetRunners),registrationFeeMinor:Math.round(Number(eventForm.registrationFeeK)*100)};
    const {registrationFeeK,...payload}=data;void registrationFeeK;
    const result=await request<{event:MarathonEvent}>('/api/marathon/events',{method:'POST',body:JSON.stringify(payload)});
    choose(result.event.id);setShowEventForm(false);
@@ -69,6 +76,22 @@ export function MarathonEventBudget({view}:{view:'events'|'budget'}){
    await request('/api/marathon/events/'+current.id,{method:'PATCH',body:JSON.stringify({
     expectedRevision:current.revision,changes:{status}})});
   },'Event status updated.');
+ }
+ function editSettings(){
+  if(!current)return;
+  setSettings({targetRunners:String(current.targetRunners),registrationFeeK:String(current.registrationFeeMinor/100),sponsorshipTargetK:String((current.budgetSponsorshipTargetMinor||0)/100)});
+  setShowSettings(true);
+ }
+ async function saveSettings(){
+  if(!current)return;
+  await execute(async()=>{
+   if(Object.values(settings).some(x=>!x.trim()))throw Error('Enter all planning targets. Use zero if no sponsorship target is planned.');
+   await request('/api/marathon/events/'+current.id,{method:'PATCH',body:JSON.stringify({expectedRevision:current.revision,changes:{
+    targetRunners:Number(settings.targetRunners),registrationFeeMinor:Math.round(Number(settings.registrationFeeK)*100),
+    budgetSponsorshipTargetMinor:Math.round(Number(settings.sponsorshipTargetK)*100)
+   }})});
+   setShowSettings(false);
+  },'Event targets saved. Budget projections now use these values.');
  }
  async function toggleGrant(key:'adminUids'|'budgetEditorUids'|'budgetViewerUids'|'budgetApproverUids',uid:string){
   if(!current)return;
@@ -82,10 +105,13 @@ export function MarathonEventBudget({view}:{view:'events'|'budget'}){
   setEditing(line||null);
   setLineForm(line?{
    category:line.category,description:line.description,quantity:String(line.quantity),
-   unitCostK:String(line.unitCostMinor/100),months:String(line.months),
+   unitCostK:String((lineClassification(line)==='costed'?line.unitCostMinor:(line.reportedEstimateMinor||0)/line.quantity/line.months)/100),months:String(line.months),
+   classification:lineClassification(line),sourceOfFunds:line.sourceOfFunds||'',dueDateText:line.dueDateText||'',
    taskId:line.taskId||'',startDate:line.startDate||'',endDate:line.endDate||'',
    notes:line.notes,actualPaidK:String(line.actualPaidMinor/100)}:draftLine);
   setShowLineForm(true);
+  requestAnimationFrame(()=>document.getElementById('budget-item-form')?.scrollIntoView({behavior:'instant',block:'start'}));
+  requestAnimationFrame(()=>document.getElementById('budget-item-description')?.focus({preventScroll:true}));
  }
  async function saveLine(){
   await execute(async()=>{
@@ -94,7 +120,7 @@ export function MarathonEventBudget({view}:{view:'events'|'budget'}){
    if(!Number.isInteger(quantity)||quantity<1||!Number.isInteger(months)||months<1||
      !Number.isFinite(unitCostMinor)||unitCostMinor<0)throw Error('Check quantity, months and cost.');
    const payload={category:lineForm.category,description:lineForm.description,quantity,months,
-    unitCostMinor,taskId:lineForm.taskId||null,startDate:lineForm.startDate||null,endDate:lineForm.endDate||null,notes:lineForm.notes};
+    unitCostMinor,classification:lineForm.classification,sourceOfFunds:lineForm.sourceOfFunds,dueDateText:lineForm.dueDateText,taskId:lineForm.taskId||null,startDate:lineForm.startDate||null,endDate:lineForm.endDate||null,notes:lineForm.notes};
    if(editing){
     await request('/api/marathon/events/'+selected+'/budget/'+editing.id,{
      method:'PATCH',body:JSON.stringify({expectedRevision:editing.revision,changes:payload})});
@@ -117,11 +143,7 @@ export function MarathonEventBudget({view}:{view:'events'|'budget'}){
  }
  function exportCsv(){
   if(!budget)return;
-  const header=['Category','Description','Quantity','Unit cost K','Months','Planned K','Paid K','Status','Linked activity'];
-  const rows=[header,...budget.lines.map(line=>[line.category,line.description,String(line.quantity),
-   String(line.unitCostMinor/100),String(line.months),String(line.plannedMinor/100),
-   String(line.actualPaidMinor/100),line.status,line.taskId||''])];
-  const csv=rows.map(row=>row.map(value=>'"'+(String(value).match(/^[=+\-@]/)?"'":"")+String(value).replaceAll('"','""')+'"').join(',')).join('\r\n');
+  const csv=budgetCsv(budget.lines);
   const href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
   const anchor=document.createElement('a');anchor.href=href;anchor.download=selected+'-budget.csv';anchor.click();
   URL.revokeObjectURL(href);
@@ -137,7 +159,7 @@ export function MarathonEventBudget({view}:{view:'events'|'budget'}){
   {notice&&<div role="status" className={styles.notice}>{notice}</div>}
   <section className={styles.panel}><h2>Select an event</h2>
    <div className={styles.grid}>{events.map(event=><button key={event.id} className={styles.event}
-    aria-current={event.id===selected} onClick={()=>choose(event.id)}>
+    aria-current={event.id===selected} disabled={busy} onClick={()=>choose(event.id)}>
     <strong>{event.name}</strong><span className={styles.badge}>{event.status}</span>
     <div className={styles.hint}>{event.preparationStart} – {event.closeoutDate} · Race {event.eventDate}</div>
    </button>)}</div>
@@ -148,11 +170,11 @@ export function MarathonEventBudget({view}:{view:'events'|'budget'}){
     {(['name','preparationStart','eventDate','closeoutDate','targetRunners','registrationFeeK'] as const).map(key=>
      <label className={styles.field} key={key}>{key==='registrationFeeK'?'Registration fee (K)':key.replaceAll(/([A-Z])/g,' $1')}
       <input type={key.toLowerCase().includes('date')||key==='preparationStart'||key==='closeoutDate'?'date':key==='targetRunners'||key==='registrationFeeK'?'number':'text'}
-       value={eventForm[key]} onChange={e=>setEventForm(x=>({...x,[key]:key==='targetRunners'?Number(e.target.value):e.target.value}))}/>
+       value={eventForm[key]} onChange={e=>setEventForm(x=>({...x,[key]:e.target.value}))}/>
      </label>)}
    </div><div className={styles.actions}><button className={styles.button} disabled={busy} onClick={()=>void createEvent()}>Save event</button></div>
   </section>}
-  {current&&<section className={styles.panel}><h2>{current.name}</h2>
+  {view==='events'&&current&&<section className={styles.panel}><h2>{current.name}</h2>
    <div className={styles.metrics}>
     <div className={styles.metric}><small>Race date</small><b>{current.eventDate}</b></div>
     <div className={styles.metric}><small>Target runners</small><b>{current.targetRunners.toLocaleString()}</b></div>
@@ -160,10 +182,15 @@ export function MarathonEventBudget({view}:{view:'events'|'budget'}){
     <div className={styles.metric}><small>Event status</small><b>{current.status}</b></div>
    </div>
    {canCreate&&<div className={styles.actions}>
+    <button className={styles.button} disabled={busy} onClick={editSettings}>Edit planning targets</button>
     {(['planning','active','completed','archived','cancelled'] as const).map(status=>
      <button key={status} disabled={busy||current.status===status} className={styles.button+' '+styles.secondary}
       onClick={()=>void setEventStatus(status)}>{status}</button>)}
    </div>}
+   {showSettings&&canCreate&&<form onSubmit={e=>{e.preventDefault();void saveSettings();}}><h3>Planning targets</h3><div className={styles.grid}>
+    {(['targetRunners','registrationFeeK','sponsorshipTargetK'] as const).map(key=><label className={styles.field} key={key}>{{targetRunners:'Runner target',registrationFeeK:'Registration fee (K)',sponsorshipTargetK:'Sponsorship target (K, unconfirmed)'}[key]}
+     <input type="number" required min={key==='targetRunners'?1:0} step={key==='targetRunners'?1:'0.01'} value={settings[key]} onChange={e=>setSettings(x=>({...x,[key]:e.target.value}))}/></label>)}
+    </div><div className={styles.actions}><button type="submit" className={styles.button} disabled={busy}>Save targets</button><button type="button" className={styles.button+' '+styles.secondary} onClick={()=>setShowSettings(false)}>Cancel</button></div></form>}
   </section>}
   {view==='events'&&current&&<section className={styles.panel}>
    <h2>Event-specific team permissions</h2><p className={styles.hint}>Only the School super administrator may grant or revoke assignments. An assigned user must also have an active Marathon account and an eligible role.</p>
@@ -175,90 +202,21 @@ export function MarathonEventBudget({view}:{view:'events'|'budget'}){
     </tr>)}</tbody></table></div>:<p>Ask the School super administrator to manage this event&apos;s assignments.</p>}
    <p className={styles.hint}>Budget access and approval permissions are separate from School finance and do not affect KASA School roles.</p>
   </section>}
-  {view==='budget'&&budget&&<section className={styles.panel}>
-   <h2>Financial overview</h2>
-   <div className={styles.metrics}>
-    <div className={styles.metric}><small>Planned direct costs</small><b>K{money(budget.totals.plannedMinor)}</b></div>
-    <div className={styles.metric}><small>{current?.budgetContingencyAlreadyIncluded?'Launch contingency (already included)':'10% contingency'}</small><b>K{money(current?.budgetContingencyAlreadyIncluded?(current.budgetLaunchContingencyMinor||0):budget.totals.contingencyMinor)}</b></div>
-    <div className={styles.metric}><small>Total budget</small><b>K{money(budget.totals.totalWithContingencyMinor)}</b></div>
-    <div className={styles.metric}><small>Actual payments recorded</small><b>K{money(budget.totals.actualPaidMinor)}</b></div>
-    <div className={styles.metric}><small>Registration revenue target</small><b>K{money(budget.totals.projectedRegistrationMinor)}</b></div>
-    {current?.budgetSourceSha256&&<>
-     <div className={styles.metric}><small>Draft-reported paid (Finance reconciliation pending)</small><b>K{money(current.budgetReportedPaidMinor||0)}</b></div>
-     <div className={styles.metric}><small>Draft-reported outstanding*</small><b>K{money(current.budgetReportedOutstandingMinor||0)}</b></div>
-     <div className={styles.metric}><small>Uncounted priced items needing review</small><b>K{money(current.budgetUncountedPricedMinor||0)}</b></div>
-     <div className={styles.metric}><small>Sponsorship fundraising target (unconfirmed)</small><b>K{money(current.budgetSponsorshipTargetMinor||0)}</b></div>
-    </>}
-   </div>
-   {current?.budgetSourceSha256&&<div className={styles.hint} style={{margin:'12px 0'}}>
-     <strong>Working document:</strong> {current.budgetSourceDocument} · Venue: {current.eventVenue||'TBC'} · Launch: {current.launchDate||'TBC'} at {current.launchVenue||'TBC'}.
-     <p>{current.budgetWorkingNotes}</p>
-     <p>*The K12,300 and reported outstanding amount are claims from the draft, not verified electronic payments. Legacy budget records were archived before replacement. Only actual payments independently entered by authorised approvers appear in the actual-paid metric.</p>
-   </div>}
-   <h3>Budget versus actual by category</h3>
-   <div className={styles.hint}>Each category compares approved/planned allocations with recorded outlays. Values are based on the selected event only.</div>
-   <div className={styles.tableScroll}><table><thead><tr><th>Category</th><th>Planned</th><th>Paid</th><th>Remaining</th><th>Used</th></tr></thead>
-    <tbody>{Object.values(budget.lines.reduce<Record<string,{category:string;planned:number;paid:number}>>((groups,line)=>{
-      const key=line.category.trim()||'Uncategorised';
-      if(!groups[key])groups[key]={category:key,planned:0,paid:0};
-      groups[key].planned+=line.plannedMinor;groups[key].paid+=line.actualPaidMinor;
-      return groups;
-    },{})).sort((a,b)=>b.planned-a.planned).map(row=><tr key={row.category}>
-      <td>{row.category}</td><td>K{money(row.planned)}</td><td>K{money(row.paid)}</td>
-      <td>K{money(Math.max(0,row.planned-row.paid))}</td>
-      <td>{row.planned?Math.round(row.paid/row.planned*100)+'%':'—'}</td>
-    </tr>)}
-    {!budget.lines.length&&<tr><td colSpan={5}>Import or add event budget lines to see category totals.</td></tr>}
-    </tbody></table></div>
-   <p className={styles.hint}>Actual payments require independent Finance verification and an authorised approver. Revenue and sponsorship are targets, not received cash. {current?.budgetContingencyAlreadyIncluded?'The launch contingency is already included in the imported K1,519,750; no second 10% is added.':'An additional event contingency is shown above.'}</p>
-   <div className={styles.actions}>
-    {budget.permissions.write&&<button className={styles.button} onClick={()=>editLine()}>Add budget item</button>}
-
-    <button className={styles.button+' '+styles.secondary} disabled={!budget.lines.length} onClick={exportCsv}>Export CSV</button>
-   </div>
-  </section>}
-  {view==='budget'&&showLineForm&&budget?.permissions.write&&<section className={styles.panel}><h2>{editing?'Edit':'Add'} budget item</h2>
+  {view==='budget'&&showLineForm&&budget?.permissions.write&&<section id="budget-item-form" className={styles.panel}><h2>{editing?'Edit':'Add'} budget item</h2>
    <div className={styles.grid}>
-    {(['category','description','quantity','unitCostK','months','taskId','startDate','endDate'] as const).map(key=>
-     <label className={styles.field} key={key}>{key==='unitCostK'?'Unit cost (K)':key.replaceAll(/([A-Z])/g,' $1')}
-      <input type={['quantity','unitCostK','months'].includes(key)?'number':key.toLowerCase().includes('date')?'date':'text'}
+    {(['description','category','quantity','unitCostK','months','sourceOfFunds','dueDateText','taskId','startDate','endDate'] as const).map(key=>
+     <label className={styles.field} key={key}>{{description:'Item description',category:'Category',quantity:'Quantity',unitCostK:'Unit cost / estimate (K)',months:'Periods (months)',sourceOfFunds:'Funding source',dueDateText:'Payment due / schedule',taskId:'Linked activity ID',startDate:'Activity start',endDate:'Activity end'}[key]}
+      <input id={key==='description'?'budget-item-description':undefined} type={['quantity','unitCostK','months'].includes(key)?'number':key.toLowerCase().includes('date')?'date':'text'}
        step={key==='unitCostK'?'0.01':undefined} value={lineForm[key]}
        onChange={e=>setLineForm(x=>({...x,[key]:e.target.value}))}/>
      </label>)}
+    <label className={styles.field}>Cost treatment<select value={lineForm.classification} onChange={e=>setLineForm(x=>({...x,classification:e.target.value as BudgetClassification}))}>{Object.entries(budgetClassifications).map(([k,v])=><option value={k} key={k}>{v}</option>)}</select></label>
     <label className={styles.field}>Notes<textarea value={lineForm.notes} onChange={e=>setLineForm(x=>({...x,notes:e.target.value}))}/></label>
-   </div><p className={styles.hint}>Linked activity is optional. Enter an activity ID from this event; the server verifies that it belongs to the same event.</p>
+   </div><p className={styles.hint}>Only Costed items increase the cash budget. Other treatments retain their estimate without adding a second allocation. Change an item to Costed when its quotation is agreed.</p><p className={styles.hint}>Linked activity is optional. Enter an activity ID from this event; the server verifies that it belongs to the same event.</p>
    <div className={styles.actions}><button className={styles.button} disabled={busy} onClick={()=>void saveLine()}>Save budget item</button>
     <button className={styles.button+' '+styles.secondary} onClick={()=>setShowLineForm(false)}>Cancel</button></div>
   </section>}
-  {view==='budget'&&budget&&<section className={styles.panel}><h2>Itemised budget ({budget.lines.length})</h2>
-   <div className={styles.tableWrap}><table className={styles.table}><thead><tr>
-    <th>Category</th><th>Item / linked task</th><th>Qty × months</th><th>Planned (K) / basis</th><th>Paid (K)</th><th>Status</th><th>Actions</th>
-   </tr></thead><tbody>{budget.lines.map(line=><tr key={line.id}>
-    <td>{line.category}</td><td><strong>{line.description}</strong>{line.taskId&&<div className={styles.hint}>Task: {line.taskId}</div>}
-      {line.sourceOfFunds&&<div className={styles.hint}>Funding: {line.sourceOfFunds}</div>}
-      {line.dueDateText&&<div className={styles.hint}>Due: {line.dueDateText}</div>}
-    </td>
-    <td>{line.sourceQuantityLabel||String(line.quantity)} × {line.months}</td>
-    <td>{line.sourceClassification==='outside_consolidated'
-      ?'Outside consolidated total · K'+money(line.reportedEstimateMinor||0)
-      :line.sourceClassification==='within_allocation'?'Within existing allocation'
-      :line.sourceClassification==='in_kind'?'Expected in-kind (not secured)'
-      :line.sourceClassification==='tbc'?'TBC — unpriced'
-      :line.sourceClassification==='waived'?'Waived'
-      :line.sourceClassification==='free'?'Free / pending confirmation'
-      :money(line.plannedMinor)}</td><td>{money(line.actualPaidMinor)}</td>
-    <td>{line.status}</td><td><div className={styles.actions}>
-     {budget.permissions.write&&line.status==='draft'&&<button disabled={busy} onClick={()=>editLine(line)}>Edit</button>}
-     {budget.permissions.write&&line.status==='draft'&&<button disabled={busy} onClick={()=>void updateLine(line,'submitted')}>Submit</button>}
-     {budget.permissions.write&&line.status==='submitted'&&<button disabled={busy} onClick={()=>void updateLine(line,'draft')}>Return to draft</button>}
-     {budget.permissions.approve&&line.status==='submitted'&&<button disabled={busy} onClick={()=>void updateLine(line,'approved')}>Approve</button>}
-     {budget.permissions.approve&&line.status==='approved'&&<button disabled={busy} onClick={()=>void updateLine(line,'committed')}>Mark committed</button>}
-     {budget.permissions.approve&&['approved','committed','void'].includes(line.status)&&<button disabled={busy} onClick={()=>void updateLine(line,'draft')}>Reopen draft</button>}
-     {budget.permissions.approve&&['approved','committed'].includes(line.status)&&<button disabled={busy} onClick={()=>void updateLine(line,'paid')}>Record payment</button>}
-     {budget.permissions.approve&&line.status!=='void'&&<button disabled={busy} onClick={()=>void updateLine(line,'void')}>Void</button>}
-    </div></td>
-   </tr>)}</tbody></table></div>
-  </section>}
-  {view==='budget'&&!budget&&<section className={styles.panel}>Budget information is available only to the super administrator and the people assigned to this event&apos;s finances.</section>}
+  {view==='budget'&&budget&&<BudgetWorkbook key={budget.event.id} budget={budget} busy={busy} onAdd={()=>editLine()} onEdit={editLine} onUpdate={(line,status)=>void updateLine(line,status)} onExport={exportCsv}/>}
+  {view==='budget'&&!budget&&<section className={styles.panel} aria-live="polite">{budgetLoading?'Loading the event budget…':<>Budget information could not be loaded. <button className={styles.button} onClick={()=>{setError('');void loadBudget(selected);}}>Try again</button></>}</section>}
  </div></main>;
 }
