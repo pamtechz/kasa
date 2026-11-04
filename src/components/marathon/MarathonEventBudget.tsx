@@ -18,7 +18,7 @@ async function request<T>(path:string,options:RequestInit={}):Promise<T>{
  return result as T;
 }
 const draftEvent={name:'KASA Life Marathon — New Event',preparationStart:'',eventDate:'',
- closeoutDate:'',targetRunners:6000,registrationFeeK:'450'};
+ closeoutDate:'',targetRunners:5000,registrationFeeK:'450'};
 const draftLine={category:'Administration',description:'',quantity:'1',unitCostK:'0',months:'1',
  taskId:'',startDate:'',endDate:'',notes:'',actualPaidK:'0'};
 export function MarathonEventBudget({view}:{view:'events'|'budget'}){
@@ -179,11 +179,22 @@ export function MarathonEventBudget({view}:{view:'events'|'budget'}){
    <h2>Financial overview</h2>
    <div className={styles.metrics}>
     <div className={styles.metric}><small>Planned direct costs</small><b>K{money(budget.totals.plannedMinor)}</b></div>
-    <div className={styles.metric}><small>10% contingency</small><b>K{money(budget.totals.contingencyMinor)}</b></div>
+    <div className={styles.metric}><small>{current?.budgetContingencyAlreadyIncluded?'Launch contingency (already included)':'10% contingency'}</small><b>K{money(current?.budgetContingencyAlreadyIncluded?(current.budgetLaunchContingencyMinor||0):budget.totals.contingencyMinor)}</b></div>
     <div className={styles.metric}><small>Total budget</small><b>K{money(budget.totals.totalWithContingencyMinor)}</b></div>
     <div className={styles.metric}><small>Actual payments recorded</small><b>K{money(budget.totals.actualPaidMinor)}</b></div>
     <div className={styles.metric}><small>Registration revenue target</small><b>K{money(budget.totals.projectedRegistrationMinor)}</b></div>
+    {current?.budgetSourceSha256&&<>
+     <div className={styles.metric}><small>Draft-reported paid (Finance reconciliation pending)</small><b>K{money(current.budgetReportedPaidMinor||0)}</b></div>
+     <div className={styles.metric}><small>Draft-reported outstanding*</small><b>K{money(current.budgetReportedOutstandingMinor||0)}</b></div>
+     <div className={styles.metric}><small>Uncounted priced items needing review</small><b>K{money(current.budgetUncountedPricedMinor||0)}</b></div>
+     <div className={styles.metric}><small>Sponsorship fundraising target (unconfirmed)</small><b>K{money(current.budgetSponsorshipTargetMinor||0)}</b></div>
+    </>}
    </div>
+   {current?.budgetSourceSha256&&<div className={styles.hint} style={{margin:'12px 0'}}>
+     <strong>Working document:</strong> {current.budgetSourceDocument} · Venue: {current.eventVenue||'TBC'} · Launch: {current.launchDate||'TBC'} at {current.launchVenue||'TBC'}.
+     <p>{current.budgetWorkingNotes}</p>
+     <p>*The K12,300 and reported outstanding amount are claims from the draft, not verified electronic payments. Legacy budget records were archived before replacement. Only actual payments independently entered by authorised approvers appear in the actual-paid metric.</p>
+   </div>}
    <h3>Budget versus actual by category</h3>
    <div className={styles.hint}>Each category compares approved/planned allocations with recorded outlays. Values are based on the selected event only.</div>
    <div className={styles.tableScroll}><table><thead><tr><th>Category</th><th>Planned</th><th>Paid</th><th>Remaining</th><th>Used</th></tr></thead>
@@ -199,13 +210,10 @@ export function MarathonEventBudget({view}:{view:'events'|'budget'}){
     </tr>)}
     {!budget.lines.length&&<tr><td colSpan={5}>Import or add event budget lines to see category totals.</td></tr>}
     </tbody></table></div>
-   <p className={styles.hint}>Actual payments are entered manually and require approval authority. Income shown is a target, not cash received. The contingency is calculated from current direct costs.</p>
+   <p className={styles.hint}>Actual payments require independent Finance verification and an authorised approver. Revenue and sponsorship are targets, not received cash. {current?.budgetContingencyAlreadyIncluded?'The launch contingency is already included in the imported K1,519,750; no second 10% is added.':'An additional event contingency is shown above.'}</p>
    <div className={styles.actions}>
     {budget.permissions.write&&<button className={styles.button} onClick={()=>editLine()}>Add budget item</button>}
-    {canCreate&&selected===LEGACY_MARATHON_EVENT_ID&&budget.lines.length===0&&
-     <button className={styles.button+' '+styles.secondary} disabled={busy} onClick={()=>void execute(async()=>{
-      await request('/api/marathon/events/'+selected+'/budget/seed',{method:'POST'});
-     },'Imported all 80 editable March 2027 draft lines.')}>Import 2027 budget (80 lines)</button>}
+
     <button className={styles.button+' '+styles.secondary} disabled={!budget.lines.length} onClick={exportCsv}>Export CSV</button>
    </div>
   </section>}
@@ -224,10 +232,21 @@ export function MarathonEventBudget({view}:{view:'events'|'budget'}){
   </section>}
   {view==='budget'&&budget&&<section className={styles.panel}><h2>Itemised budget ({budget.lines.length})</h2>
    <div className={styles.tableWrap}><table className={styles.table}><thead><tr>
-    <th>Category</th><th>Item / linked task</th><th>Qty × months</th><th>Planned (K)</th><th>Paid (K)</th><th>Status</th><th>Actions</th>
+    <th>Category</th><th>Item / linked task</th><th>Qty × months</th><th>Planned (K) / basis</th><th>Paid (K)</th><th>Status</th><th>Actions</th>
    </tr></thead><tbody>{budget.lines.map(line=><tr key={line.id}>
-    <td>{line.category}</td><td><strong>{line.description}</strong>{line.taskId&&<div className={styles.hint}>Task: {line.taskId}</div>}</td>
-    <td>{line.quantity} × {line.months}</td><td>{money(line.plannedMinor)}</td><td>{money(line.actualPaidMinor)}</td>
+    <td>{line.category}</td><td><strong>{line.description}</strong>{line.taskId&&<div className={styles.hint}>Task: {line.taskId}</div>}
+      {line.sourceOfFunds&&<div className={styles.hint}>Funding: {line.sourceOfFunds}</div>}
+      {line.dueDateText&&<div className={styles.hint}>Due: {line.dueDateText}</div>}
+    </td>
+    <td>{line.sourceQuantityLabel||String(line.quantity)} × {line.months}</td>
+    <td>{line.sourceClassification==='outside_consolidated'
+      ?'Outside consolidated total · K'+money(line.reportedEstimateMinor||0)
+      :line.sourceClassification==='within_allocation'?'Within existing allocation'
+      :line.sourceClassification==='in_kind'?'Expected in-kind (not secured)'
+      :line.sourceClassification==='tbc'?'TBC — unpriced'
+      :line.sourceClassification==='waived'?'Waived'
+      :line.sourceClassification==='free'?'Free / pending confirmation'
+      :money(line.plannedMinor)}</td><td>{money(line.actualPaidMinor)}</td>
     <td>{line.status}</td><td><div className={styles.actions}>
      {budget.permissions.write&&line.status==='draft'&&<button disabled={busy} onClick={()=>editLine(line)}>Edit</button>}
      {budget.permissions.write&&line.status==='draft'&&<button disabled={busy} onClick={()=>void updateLine(line,'submitted')}>Submit</button>}
